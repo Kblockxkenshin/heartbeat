@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Heartbeat — rate the journey, not just the ending</title>
+<meta name="description" content="Find any movie or series and see where it gets good, where people quit, and if it's worth watching.">
+<meta name="theme-color" content="#0b0b12">
+<meta property="og:title" content="Heartbeat — rate the journey">
+<meta property="og:description" content="See where any movie or show gets good, and where people quit.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+:root{--bg:#0b0b12;--card:#161622;--card2:#1e1e2e;--line:#2a2a3d;--text:#f4f4f8;--muted:#9a9ab0;--pink:#ff3d7f;--cyan:#2de2e6;--yellow:#ffd23f;--purple:#8a5cff;--green:#3ddc97;--blue:#4da3ff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.4}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+input,textarea,select{font:inherit;color:var(--text);background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;width:100%}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--pink);outline-offset:1px}
+a{color:var(--cyan)}
+#app{max-width:520px;margin:0 auto;min-height:100vh;padding-bottom:90px}
+.demo{background:linear-gradient(90deg,var(--purple),var(--pink));color:#fff;font-size:12px;font-weight:600;text-align:center;padding:6px 10px}
+header.top{display:flex;align-items:center;gap:10px;padding:16px 18px 6px}
+.logo{display:flex;align-items:center;gap:8px;font-weight:900;font-size:24px;letter-spacing:-.5px}
+.logo svg{width:30px;height:30px}
+.wrap{padding:0 16px}
+.tag-line{color:var(--muted);margin:2px 18px 14px;font-size:15px}
+.search{position:relative;margin:0 16px 18px}
+.search input{padding-left:44px;font-size:17px;border-radius:16px;background:var(--card)}
+.search .ico{position:absolute;left:15px;top:13px;opacity:.7}
+.sugg{position:absolute;left:0;right:0;top:54px;background:var(--card2);border:1px solid var(--line);border-radius:14px;overflow:hidden;z-index:20;box-shadow:0 12px 30px #0008}
+.sugg button{display:flex;gap:12px;align-items:center;width:100%;padding:10px 12px;text-align:left;border-bottom:1px solid var(--line)}
+.sugg button:last-child{border-bottom:0}
+.sugg button:hover,.sugg button:focus{background:#ffffff10}
+.sugg .hint{padding:10px 12px;color:var(--muted);font-size:13px}
+.poster{border-radius:10px;flex:none;display:flex;align-items:flex-end;padding:6px;font-weight:800;color:#fff;text-shadow:0 1px 4px #0009;overflow:hidden;background-size:cover;background-position:center;position:relative}
+.poster.sm{width:38px;height:56px;font-size:9px;border-radius:6px;padding:3px}
+.poster.md{width:110px;height:160px;font-size:14px}
+.poster.lg{width:120px;height:178px;font-size:16px}
+h2.sec{font-size:19px;margin:22px 16px 10px;display:flex;align-items:center;gap:8px}
+.row{display:flex;gap:12px;overflow-x:auto;padding:0 16px 6px;scroll-snap-type:x mandatory}
+.row::-webkit-scrollbar{display:none}
+.tile{scroll-snap-align:start;width:110px;flex:none;text-align:left}
+.tile .t{font-size:13px;font-weight:600;margin-top:6px;line-height:1.2}
+.tile .s{font-size:12px;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin:0 16px 14px}
+.card h3{margin:0 0 4px;font-size:17px;display:flex;align-items:center;gap:8px}
+.card .sub{color:var(--muted);font-size:13px;margin-bottom:10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--card2);border-radius:999px;padding:7px 12px;font-size:14px;font-weight:600}
+.chip.on{background:var(--pink);border-color:var(--pink);color:#fff}
+.chip.sm{padding:5px 10px;font-size:13px}
+.btn{background:var(--pink);color:#fff;font-weight:800;border-radius:14px;padding:12px 16px;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+.btn.ghost{background:var(--card2);border:1px solid var(--line);color:var(--text)}
+.btn.full{width:100%}
+.btn.small{padding:8px 12px;font-size:14px;border-radius:12px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.hero{display:flex;gap:14px;padding:6px 16px 14px}
+.hero h1{font-size:26px;line-height:1.1;margin:4px 0 6px;letter-spacing:-.5px}
+.meta{color:var(--muted);font-size:13px}
+.plot{font-size:14px;margin:8px 0 0;color:#d6d6e2}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-weight:600;padding:12px 16px 4px}
+.scopes{display:flex;gap:8px;overflow-x:auto;padding:0 16px 12px}
+.scopes::-webkit-scrollbar{display:none}
+.big{font-size:34px;font-weight:900;letter-spacing:-1px;line-height:1.05;background:linear-gradient(90deg,var(--yellow),var(--pink));-webkit-background-clip:text;background-clip:text;color:transparent}
+.bars{display:flex;align-items:flex-end;gap:4px;height:90px;margin-top:8px}
+.bars div{flex:1;background:var(--card2);border-radius:6px 6px 2px 2px;min-height:3px;position:relative}
+.bars div.hot{background:var(--pink)}
+.bars-lbl{display:flex;gap:4px;font-size:10px;color:var(--muted);margin-top:4px}
+.bars-lbl span{flex:1;text-align:center;overflow:hidden}
+.hvr{display:grid;grid-template-columns:72px 1fr 40px;align-items:center;gap:8px;margin:8px 0;font-size:14px}
+.track{height:14px;background:var(--card2);border-radius:99px;overflow:hidden}
+.track i{display:block;height:100%;border-radius:99px}
+.gap{font-size:26px;font-weight:900;margin:6px 0}
+.vibecard{border-radius:22px;padding:18px;color:#fff;position:relative;overflow:hidden}
+.vibecard .vt{font-size:12px;font-weight:800;letter-spacing:2px;opacity:.85;text-transform:uppercase}
+.vibecard .vn{font-size:24px;font-weight:900;margin:2px 0 12px;line-height:1.1}
+.vibecard .vrow{display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:700}
+.vibecard .vbar{flex:1;height:10px;background:#ffffff30;border-radius:9px;overflow:hidden}
+.vibecard .vbar i{display:block;height:100%;background:#fff;border-radius:9px}
+.verdict{display:flex;gap:8px;margin-top:12px}
+.verdict div{flex:1;background:#00000035;border-radius:14px;padding:10px;text-align:center}
+.verdict b{display:block;font-size:16px}
+.verdict small{opacity:.85;font-size:11px}
+.lbl{font-size:13px;color:var(--muted);font-weight:700;margin:14px 0 8px;text-transform:uppercase;letter-spacing:.5px}
+.review{border-top:1px solid var(--line);padding:12px 0}
+.review:first-of-type{border-top:0}
+.review .who{font-weight:700;font-size:14px}
+.review p{margin:4px 0 0;font-size:14px}
+.spoiler{filter:blur(6px);cursor:pointer;user-select:none}
+.spoil-tag{display:inline-block;background:var(--pink);color:#fff;font-size:11px;font-weight:800;border-radius:6px;padding:1px 6px;margin-left:6px}
+.pt-panel{background:var(--card2);border-radius:14px;padding:12px;margin-top:10px}
+.tbar{display:grid;grid-template-columns:110px 1fr 34px;gap:8px;align-items:center;font-size:13px;margin:4px 0}
+.yourscore{display:flex;gap:12px}
+.yourscore div{flex:1;background:var(--card2);border-radius:16px;padding:12px;text-align:center}
+.yourscore b{display:block;font-size:30px;font-weight:900}
+.yourscore .me b{color:var(--cyan)}
+nav.bottom{position:fixed;bottom:0;left:0;right:0;background:#0b0b12ee;backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;justify-content:center;z-index:30;padding-bottom:env(safe-area-inset-bottom)}
+nav.bottom div{display:flex;max-width:520px;width:100%}
+nav.bottom a{flex:1;text-align:center;padding:10px 0 12px;color:var(--muted);text-decoration:none;font-size:12px;font-weight:700}
+nav.bottom a span{display:block;font-size:22px}
+nav.bottom a.on{color:var(--text)}
+.sheet-bg{position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);width:100%;max-width:520px;border-radius:24px 24px 0 0;padding:18px 18px 28px;max-height:86vh;overflow:auto;border-top:1px solid var(--line)}
+.sheet h3{margin:0 0 12px}
+.grab{width:40px;height:5px;background:var(--line);border-radius:9px;margin:-6px auto 14px}
+.ok{color:var(--green);font-size:14px;font-weight:600;margin-top:8px}
+.err{color:#ff6b6b;font-size:14px;font-weight:600;margin-top:8px}
+.feed{position:fixed;inset:0;background:#000;z-index:40;overflow-y:auto;scroll-snap-type:y mandatory}
+.slide{height:100vh;height:100dvh;scroll-snap-align:start;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.slide .vid{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.slide iframe{width:100%;max-width:420px;height:100%;border:0}
+.slide .ph{width:100%;max-width:420px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:15px;color:#fffc}
+.slide .ph .play{width:74px;height:74px;border-radius:50%;background:#ffffff26;display:flex;align-items:center;justify-content:center;font-size:30px}
+.slide .over{position:absolute;left:0;right:70px;bottom:0;padding:16px 16px 34px;background:linear-gradient(transparent,#000c);pointer-events:none}
+.slide .over *{pointer-events:auto}
+.slide .acts{position:absolute;right:10px;bottom:40px;display:flex;flex-direction:column;gap:16px;align-items:center}
+.slide .acts button{display:flex;flex-direction:column;align-items:center;font-size:11px;font-weight:700;gap:2px}
+.slide .acts button span{width:48px;height:48px;border-radius:50%;background:#ffffff1f;display:flex;align-items:center;justify-content:center;font-size:22px}
+.slide .acts button.on span{background:var(--pink)}
+.slide .lock{position:absolute;inset:0;backdrop-filter:blur(24px);background:#0008;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:30px}
+.feed-top{position:fixed;top:0;left:0;right:0;z-index:45;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:linear-gradient(#000a,transparent)}
+.pill{background:#ffffff22;border-radius:99px;padding:6px 12px;font-size:13px;font-weight:700}
+.match-ring{width:150px;height:150px;border-radius:50%;margin:8px auto;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.match-ring b{font-size:40px;font-weight:900}
+.person{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.person:first-child{border-top:0}
+.av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;flex:none}
+.badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,var(--yellow),#ff9f1c);color:#1a1200;font-weight:900;border-radius:99px;padding:6px 12px;font-size:13px}
+.toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:700;z-index:99;font-size:14px}
+footer.tmdb{color:var(--muted);font-size:12px;text-align:center;padding:24px 20px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.tmdb-mark{background:linear-gradient(90deg,#90cea1,#01b4e4);color:#0d253f;font-weight:900;border-radius:6px;padding:2px 8px;font-size:12px;letter-spacing:1px}
+.slider{display:flex;align-items:center;gap:10px}
+.slider input{padding:0;accent-color:var(--pink);background:none;border:0}
+.slider b{width:32px;text-align:right}
+.slider span{white-space:nowrap;flex:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.empty{color:var(--muted);font-size:14px}
+@keyframes pulse{0%{r:5;opacity:1}100%{r:16;opacity:0}}
+.pulse{animation:pulse 1.4s ease-out infinite}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* =============== helpers =============== */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function hash(s){let h=1779033703^s.length;for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=h<<13|h>>>19}return h>>>0}
+function rng(seed){let a=seed;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function toast(m){const d=document.createElement('div');d.className='toast';d.textContent=m;document.body.appendChild(d);setTimeout(()=>d.remove(),2000)}
+const LIVE=/^https?:$/.test(location.protocol)&&!/claudeusercontent|claude\.ai/.test(location.host);
+
+/* =============== data =============== */
+const TAGS=['Boring','Amazing','Funny','Scary','Sad','Plot twist'];
+const TAGC={'Boring':'#6b6b80','Amazing':'#ffd23f','Funny':'#3ddc97','Scary':'#8a5cff','Sad':'#4da3ff','Plot twist':'#ff3d7f'};
+const TAGE={'Boring':'😴','Amazing':'🔥','Funny':'😂','Scary':'😱','Sad':'😢','Plot twist':'🤯'};
+const VIBES=['Funny','Scary','Sad','Mind-blowing','Boring','Comfort watch'];
+const VIBEE={'Funny':'😂','Scary':'😱','Sad':'😢','Mind-blowing':'🤯','Boring':'😴','Comfort watch':'🛋️'};
+const WORTH=['Must watch','Watch if bored','Skip'];
+const BEST=['Date night','Family','Alone at 2am','With friends'];
+const BESTE={'Date night':'💘','Family':'👨‍👩‍👧','Alone at 2am':'🌙','With friends':'🍕'};
+
+const TITLES=[
+{id:'bb',name:'Breaking Bad',type:'tv',year:2008,genres:['Crime','Drama','Thriller'],cast:['Bryan Cranston','Aaron Paul','Anna Gunn'],plot:'A chemistry teacher gets bad news about his health and starts cooking meth to pay the bills. Slowly, he becomes someone else.',seasons:[7,13,13,13,16],shape:[.3,.5,.75,.85,1],flavor:{funny:.15,scary:.3,sad:.35},twists:[.55,.95],hype:[8.9,9.4],vibes:{'Mind-blowing':.62,'Sad':.2,'Scary':.18,'Funny':.1,'Boring':.06,'Comfort watch':.03},worth:[.86,.11,.03],best:{'Alone at 2am':.55,'With friends':.3,'Date night':.1,'Family':.05},colors:['#1d5c34','#c9b23a']},
+{id:'inc',name:'Inception',type:'movie',year:2010,genres:['Sci-Fi','Action'],cast:['Leonardo DiCaprio','Joseph Gordon-Levitt','Elliot Page'],plot:'A thief who steals secrets from dreams gets one last job: plant an idea in someone\'s mind instead.',runtime:148,shape:[.45,.55,.6,.8,.9,1,.95],flavor:{funny:.1,scary:.15,sad:.2},twists:[.5,1],hype:[8.6,8.8],vibes:{'Mind-blowing':.78,'Sad':.1,'Funny':.05,'Scary':.06,'Boring':.05,'Comfort watch':.08},worth:[.8,.16,.04],best:{'With friends':.45,'Alone at 2am':.35,'Date night':.15,'Family':.05},colors:['#1b3a6b','#c8873a']},
+{id:'st',name:'Stranger Things',type:'tv',year:2016,genres:['Sci-Fi','Horror','Drama'],cast:['Millie Bobby Brown','Finn Wolfhard','Winona Ryder'],plot:'A boy goes missing in a small Indiana town. His friends find a strange girl with powers who might know where he is.',seasons:[8,9,8,9,8],shape:[.7,.8,.6,.85,.7],flavor:{funny:.35,scary:.6,sad:.25},twists:[.3,.75],hype:[8.5,8.0],vibes:{'Scary':.45,'Funny':.3,'Comfort watch':.28,'Mind-blowing':.2,'Sad':.12,'Boring':.08},worth:[.6,.32,.08],best:{'With friends':.5,'Family':.25,'Alone at 2am':.15,'Date night':.1},colors:['#5a0d13','#e2362f']},
+{id:'opp',name:'Oppenheimer',type:'movie',year:2023,genres:['History','Drama'],cast:['Cillian Murphy','Emily Blunt','Robert Downey Jr.'],plot:'The story of the scientist who led the team that built the first atomic bomb, and what it cost him after.',runtime:180,shape:[.4,.35,.5,.65,.95,.6,.7],flavor:{funny:.05,scary:.2,sad:.4},twists:[.62],hype:[8.9,8.3],vibes:{'Mind-blowing':.48,'Boring':.22,'Sad':.25,'Scary':.1,'Funny':.02,'Comfort watch':.01},worth:[.55,.33,.12],best:{'Alone at 2am':.45,'Date night':.25,'With friends':.25,'Family':.05},colors:['#3a1a0a','#e0772b']},
+{id:'bear',name:'The Bear',type:'tv',year:2022,genres:['Comedy','Drama'],cast:['Jeremy Allen White','Ayo Edebiri','Ebon Moss-Bachrach'],plot:'A top chef comes home to run his late brother\'s messy sandwich shop in Chicago.',seasons:[8,10,10],shape:[.55,.85,.6],flavor:{funny:.5,scary:.05,sad:.45},twists:[.85],hype:[8.0,8.4],vibes:{'Sad':.35,'Funny':.38,'Mind-blowing':.2,'Comfort watch':.15,'Boring':.1,'Scary':.03},worth:[.62,.3,.08],best:{'Alone at 2am':.4,'Date night':.3,'With friends':.2,'Family':.1},colors:['#0e3b4a','#3fb6c9']},
+{id:'inter',name:'Interstellar',type:'movie',year:2014,genres:['Sci-Fi','Drama'],cast:['Matthew McConaughey','Anne Hathaway','Jessica Chastain'],plot:'Earth is dying. A pilot leaves his kids to look for a new home for people through a hole in space.',runtime:169,shape:[.35,.4,.7,.85,.75,.95,1],flavor:{funny:.1,scary:.25,sad:.65},twists:[.88],hype:[8.4,9.0],vibes:{'Mind-blowing':.7,'Sad':.55,'Scary':.1,'Comfort watch':.1,'Funny':.04,'Boring':.07},worth:[.84,.13,.03],best:{'Alone at 2am':.5,'Date night':.25,'With friends':.15,'Family':.1},colors:['#0a0f24','#7a8bb5']},
+{id:'squid',name:'Squid Game',type:'tv',year:2021,genres:['Thriller','Drama'],cast:['Lee Jung-jae','Park Hae-soo','Jung Ho-yeon'],plot:'Hundreds of people deep in debt join a set of kids\' games. The prize is huge. Losing is deadly.',seasons:[9,7,6],shape:[.85,.55,.6],flavor:{funny:.1,scary:.55,sad:.55},twists:[.65,.9],hype:[8.7,7.6],vibes:{'Scary':.5,'Sad':.45,'Mind-blowing':.3,'Boring':.15,'Funny':.05,'Comfort watch':.02},worth:[.5,.35,.15],best:{'With friends':.45,'Alone at 2am':.4,'Date night':.1,'Family':.05},colors:['#0d5c55','#ef2f74']},
+{id:'barbie',name:'Barbie',type:'movie',year:2023,genres:['Comedy','Fantasy'],cast:['Margot Robbie','Ryan Gosling','America Ferrera'],plot:'Barbie starts having very un-Barbie thoughts, so she goes to the real world to fix it.',runtime:114,shape:[.75,.7,.55,.65,.8],flavor:{funny:.75,scary:.02,sad:.3},twists:[],hype:[7.8,7.4],vibes:{'Funny':.7,'Comfort watch':.35,'Sad':.15,'Mind-blowing':.1,'Boring':.12,'Scary':.01},worth:[.45,.4,.15],best:{'With friends':.5,'Date night':.3,'Family':.15,'Alone at 2am':.05},colors:['#e0418f','#ff9fca']},
+];
+const BYID=Object.fromEntries(TITLES.map(t=>[t.id,t]));
+
+const PEOPLE=[
+{h:'maya.watches',c:'#ff3d7f',r:{bb:10,inc:9,st:8,opp:7,bear:9,inter:9,squid:7,barbie:6}},
+{h:'deshawn_films',c:'#2de2e6',r:{bb:9,inc:10,st:6,opp:9,inter:10,squid:6,barbie:5}},
+{h:'priya.reels',c:'#ffd23f',r:{bb:7,st:9,bear:6,squid:9,barbie:9,inc:6}},
+{h:'leo2am',c:'#8a5cff',r:{bb:10,inc:8,opp:8,bear:9,inter:8,squid:8}},
+{h:'sofi.cine',c:'#3ddc97',r:{st:10,squid:9,barbie:8,bear:5,inc:7,opp:6}},
+{h:'tomvsfilm',c:'#4da3ff',r:{bb:8,inc:9,opp:10,inter:9,barbie:4,bear:7}},
+];
+
+/* =============== user state (saved on this device) =============== */
+const LS='heartbeat_v1';
+let U=null;try{U=JSON.parse(localStorage.getItem(LS))}catch(e){}
+U=Object.assign({name:'You',ratings:{inc:9,bb:10,bear:8,barbie:6},tags:[],gotGood:{},quit:{},hype:{},vibes:{},worth:{},best:{},progress:{},videos:{},likes:{},helped:{},reported:{},reviews:{},comments:{},joined:Date.now()},U||{});
+function save(){try{localStorage.setItem(LS,JSON.stringify(U))}catch(e){}}
+
+/* =============== journey model =============== */
+function timeline(t,sc){
+  if(t.type==='movie'){const n=Math.ceil(t.runtime/10);return Array.from({length:n},(_,i)=>({s:i*10+'m',l:'minute '+i*10}))}
+  if(sc==='all')return t.seasons.map((_,i)=>({s:'S'+(i+1),l:'Season '+(i+1)}));
+  const m=sc.match(/^s(\d+)(?:e(\d+))?$/);
+  if(m&&m[2])return Array.from({length:6},(_,i)=>({s:i*8+'m',l:'minute '+i*8}));
+  const n=t.seasons[+m[1]-1]||8;return Array.from({length:n},(_,i)=>({s:'E'+(i+1),l:'Episode '+(i+1)}));
+}
+function shapeAt(sh,x){if(sh.length<2)return sh[0]||.5;const p=x*(sh.length-1),i=Math.floor(p),f=p-i;return i>=sh.length-1?sh[sh.length-1]:sh[i]*(1-f)+sh[i+1]*f}
+const JC={};
+function baseJourney(t,sc){
+  const k=t.id+'|'+sc;if(JC[k])return JC[k];
+  const tl=timeline(t,sc),n=tl.length,r=rng(hash(k));
+  let off=0;const m=sc.match(/^s(\d+)/);if(m&&t.seasons)off=(shapeAt(t.shape,(+m[1]-1)/Math.max(1,t.seasons.length-1))-.6)*.35;
+  const pts=tl.map((lab,i)=>{
+    const x=n>1?i/(n-1):0;let I=clamp(shapeAt(t.shape,x)+off+(r()-.5)*.25,0,1);
+    const tw=(t.twists||[]).some(f=>Math.abs(f-x)<.5/n);
+    const v=18+Math.round(r()*40),f=t.flavor;
+    const w={'Boring':Math.pow(1-I,2)*1.3,'Amazing':I*I*1.3,'Funny':f.funny*(.3+r()*.5),'Scary':f.scary*(.3+r()*.5)*(.5+I),'Sad':f.sad*(.2+r()*.5)*(.4+x),'Plot twist':tw?1.4:(I>.7?.15*r():.02)};
+    const sum=Object.values(w).reduce((a,b)=>a+b,0),tags={};
+    TAGS.forEach(g=>tags[g]=Math.round(w[g]/sum*v));
+    return{...lab,I,tags};
+  });
+  let g=pts.findIndex(p=>p.I>=.62);if(g<0)g=pts.reduce((b,p,i)=>p.I>pts[b].I?i:b,0);
+  const gotGood=pts.map((_,i)=>Math.round(120*Math.exp(-Math.pow(i-g,2)/(2*(n>6?1.3:.7)))*(0.85+r()*.3)));
+  const quits=pts.map((p,i)=>i===n-1?0:Math.round((1-p.I)*34*(1-i/n*.65)*(0.7+r()*.6)));
+  JC[k]={pts,gotGood,quits};return JC[k];
+}
+function journey(t,sc){
+  const b=baseJourney(t,sc),k=t.id+'|'+sc;
+  const pts=b.pts.map(p=>({...p,tags:{...p.tags}}));
+  U.tags.filter(x=>x.k===k).forEach(x=>{if(pts[x.i])pts[x.i].tags[x.tag]++});
+  const gotGood=b.gotGood.slice(),quits=b.quits.slice();
+  if(U.gotGood[k]!=null&&gotGood[U.gotGood[k]]!=null)gotGood[U.gotGood[k]]++;
+  if(U.quit[k]!=null&&quits[U.quit[k]]!=null)quits[U.quit[k]]++;
+  return{pts,gotGood,quits};
+}
+function beat(tags){const tot=Object.values(tags).reduce((a,b)=>a+b,0)||1;return(tags['Amazing']*1+tags['Plot twist']*1.25+tags['Funny']*.7+tags['Scary']*.85+tags['Sad']*.65-tags['Boring']*1.1)/tot}
+const dom=tags=>TAGS.reduce((b,g)=>tags[g]>tags[b]?g:b,TAGS[0]);
+const argmax=a=>a.reduce((b,v,i)=>v>a[b]?i:b,0);
+
+/* =============== taste =============== */
+function sim(a,b){const ks=Object.keys(a).filter(k=>b[k]!=null);if(ks.length<2)return null;const d=ks.reduce((s,k)=>s+Math.abs(a[k]-b[k]),0)/ks.length;return{pct:clamp(Math.round(100-d*15+Math.min(ks.length,6)),0,99),shared:ks}}
+function yourScore(t){
+  let w=0,s=0,n=0;PEOPLE.forEach(p=>{if(p.r[t.id]==null)return;const m=sim(U.ratings,p.r);if(!m)return;const wt=Math.pow(m.pct/100,3);w+=wt;s+=wt*p.r[t.id];n++});
+  if(!w||Object.keys(U.ratings).length<2)return null;
+  return{score:Math.round((s/w*.75+t.hype[1]*.25)*10)/10,n};
+}
+
+/* =============== videos & reviews (sample) =============== */
+const HANDLES=['nina.reacts','bingeboss','2amcinema','filmfrank','reelrachel','couchcritic','popcornpete','slowburnsam'];
+function videosFor(t){
+  const tl=timeline(t,'all'),n=tl.length,b=baseJourney(t,'all'),g=argmax(b.gotGood),r=rng(hash(t.id+'v')),h=hash(t.id);
+  const caps=[`Is ${t.name} worth it? My honest 60-second take`,`Don't quit before ${tl[g].l}. Trust me.`,`That moment near the end… I can't believe it`,`Rating ${t.name} with zero spoilers`];
+  const plats=['YouTube Shorts','TikTok','Instagram Reel','YouTube Shorts'];
+  const base=caps.map((c,i)=>({id:t.id+'v'+i,h:HANDLES[(i+h)%HANDLES.length],plat:plats[i],cap:c,moment:i===1?g:i===2?Math.max(0,n-2):null,likes:Math.round(300+r()*5200),helped:Math.round(30+r()*600),comments:[{h:HANDLES[(i+h+3)%8],t:'Needed this before starting it 🙏'},{h:HANDLES[(i+h+5)%8],t:'Fully agree with this take'}],url:null,sample:true}));
+  return base.concat(U.videos[t.id]||[]);
+}
+function reviewsFor(t){
+  const h=hash(t.id);
+  const base=[{h:HANDLES[h%8],s:false,t:'Slow at first, then it just does not let go. Give it time.'},{h:HANDLES[(h+2)%8],s:true,t:'When the big reveal happens near the end, everything from the start suddenly makes sense. Chills.'},{h:HANDLES[(h+4)%8],s:false,t:'Great to watch with friends. Have snacks ready.'}];
+  return(U.reviews[t.id]||[]).concat(base);
+}
+
+/* =============== link checking for video reviews =============== */
+function parseVideo(url){
+  url=(url||'').trim();let m;
+  if(m=url.match(/^(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:shorts\/|watch\?v=)|youtu\.be\/)([\w-]{11})(?:[?&#].*)?$/))return{plat:'YouTube Shorts',embed:'https://www.youtube-nocookie.com/embed/'+m[1]};
+  if(m=url.match(/^(?:https?:\/\/)?(?:www\.|m\.)?tiktok\.com\/@[\w.-]+\/video\/(\d{8,})(?:[?#].*)?$/))return{plat:'TikTok',embed:'https://www.tiktok.com/embed/v2/'+m[1]};
+  if(m=url.match(/^(?:https?:\/\/)?(?:vm|vt)\.tiktok\.com\/[\w]+\/?$/))return{plat:'TikTok',embed:null};
+  if(m=url.match(/^(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:reel|reels|p)\/([\w-]+)\/?(?:[?#].*)?$/))return{plat:'Instagram Reel',embed:'https://www.instagram.com/reel/'+m[1]+'/embed'};
+  return null;
+}
+
+/* =============== search (with spelling mistakes) =============== */
+function lev(a,b){const d=Array.from({length:a.length+1},(_,i)=>[i]);for(let j=1;j<=b.length;j++)d[0][j]=j;for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[a.length][b.length]}
+const norm=s=>s.toLowerCase().replace(/[^a-z0-9 ]/g,'').trim();
+function localSearch(q){
+  q=norm(q);if(!q)return[];
+  return TITLES.map(t=>{const n=norm(t.name);let sc=n.startsWith(q)?0:n.includes(q)?1:99;
+    if(sc===99){const words=n.split(' ').concat([n]);const best=Math.min(...words.map(w=>lev(q,w.slice(0,Math.max(q.length,Math.min(w.length,q.length+1))))));if(best<=Math.max(1,Math.floor(q.length/3)))sc=2+best}
+    return{t,sc}}).filter(x=>x.sc<99).sort((a,b)=>a.sc-b.sc).map(x=>x.t);
+}
+async function tmdbSearch(q){
+  if(!LIVE)return[];
+  try{const r=await fetch('/api/tmdb?q='+encodeURIComponent(q));if(!r.ok)return[];const j=await r.json();return j.results||[]}catch(e){return[]}
+}
+async function tmdbLoad(type,id){
+  const key='tmdb-'+type+'-'+id;if(BYID[key])return BYID[key];
+  const r=await fetch(`/api/tmdb?type=${type}&id=${id}`);if(!r.ok)throw new Error('load failed');const d=await r.json();
+  const rr=rng(hash(key));const sh=Array.from({length:5},()=>.35+rr()*.6);
+  const t={id:key,name:d.name,type,year:d.year,genres:d.genres||[],cast:d.cast||[],plot:d.plot||'',poster:d.poster,runtime:d.runtime||110,seasons:d.seasons&&d.seasons.length?d.seasons:[8],shape:sh,flavor:{funny:rr()*.6,scary:rr()*.5,sad:rr()*.5},twists:[.5+rr()*.45],hype:[Math.round((6.5+rr()*2.5)*10)/10,Math.round((6.5+rr()*2.5)*10)/10],vibes:{'Funny':rr()*.6,'Scary':rr()*.5,'Sad':rr()*.5,'Mind-blowing':rr()*.6,'Boring':rr()*.25,'Comfort watch':rr()*.4},worth:[.5,.35,.15],best:{'With friends':.4,'Date night':.25,'Alone at 2am':.25,'Family':.1},colors:['#2a2a40','#ff3d7f'],live:true};
+  BYID[key]=t;return t;
+}
+
+/* =============== small UI parts =============== */
+function poster(t,size){
+  if(t.poster)return`<div class="poster ${size}" style="background-image:url('${esc(t.poster)}')" role="img" aria-label="${esc(t.name)} poster"></div>`;
+  return`<div class="poster ${size}" style="background:linear-gradient(160deg,${t.colors[1]},${t.colors[0]} 70%)">${esc(t.name)}</div>`;
+}
+const LOGO=`<svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff3d7f"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M4 17h6l2.5-6 4 12 3-9 2 3H28" fill="none" stroke="#0b0b12" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+function nav(on){
+  const it=[['#/','🏠','Home'],['#/search','🔎','Search'],['#/match','💞','Taste Match'],['#/me','👤','Me']];
+  return`<nav class="bottom"><div>${it.map(([h,e,l])=>`<a href="${h}" class="${on===l?'on':''}"><span>${e}</span>${l}</a>`).join('')}</div></nav>`;
+}
+const DEMO=`<div class="demo">Prototype · sample data · your taps are saved on this device only</div>`;
+const FOOT=`<footer class="tmdb"><span class="tmdb-mark">TMDB</span>This product uses the TMDB API but is not endorsed or certified by TMDB.</footer>`;
+function setMeta(title,desc){document.title=title;const m=document.querySelector('meta[name=description]');if(m)m.content=desc}
+
+/* =============== router =============== */
+const S={scope:{},sel:{}};
+window.addEventListener('hashchange',render);
+function route(){const h=location.hash.replace(/^#\/?/,'').split('/');return{p:h[0]||'',a:decodeURIComponent(h[1]||''),b:decodeURIComponent(h[2]||'')}}
+async function render(){
+  const r=route();closeSheet();
+  if(r.p==='t'){let t=BYID[r.a];if(!t&&r.a.startsWith('tmdb-')){const[, ty,id]=r.a.split('-');try{t=await tmdbLoad(ty,id)}catch(e){}}
+    if(t)return renderTitle(t);}
+  if(r.p==='feed'&&BYID[r.a])return renderFeed(BYID[r.a],r.b);
+  if(r.p==='match')return renderMatch();
+  if(r.p==='invite')return renderInvite(r.a);
+  if(r.p==='me')return renderMe();
+  if(r.p==='search')return renderHome(true);
+  renderHome(false);
+}
+
+/* =============== HOME =============== */
+function renderHome(focus){
+  setMeta('Heartbeat — rate the journey, not just the ending','Find any movie or series and see where it gets good, where people quit, and if it\'s worth watching.');
+  const gap=t=>(t.hype[1]-t.hype[0])/t.hype[0];
+  const quitRate=t=>{const j=baseJourney(t,'all');return j.quits.reduce((a,b)=>a+b,0)};
+  const lists=[
+    ['🔥','Trending this week',['st','bear','opp','squid','inc','barbie','bb','inter']],
+    ['💎','Hidden gems',TITLES.slice().sort((a,b)=>gap(b)-gap(a)).slice(0,4).map(t=>t.id)],
+    ['🎈','Most overhyped',TITLES.slice().sort((a,b)=>gap(a)-gap(b)).slice(0,4).map(t=>t.id)],
+    ['🚪','Most quit',TITLES.slice().sort((a,b)=>quitRate(b)-quitRate(a)).slice(0,4).map(t=>t.id)],
+  ];
+  const tile=(t,extra)=>`<a class="tile" href="#/t/${t.id}" style="color:inherit;text-decoration:none">${poster(t,'md')}<div class="t">${esc(t.name)}</div><div class="s">${extra||t.year+' · '+(t.type==='tv'?'Series':'Movie')}</div></a>`;
+  const extra=(i,t)=>i===1?'Underrated by '+Math.round(gap(t)*100)+'%':i===2?'Overhyped by '+Math.round(-gap(t)*100)+'%':i===3?'🚪 '+baseJourney(t,'all').pts[argmax(baseJourney(t,'all').quits)].s+' is the drop-off':'';
+  $('#app').innerHTML=DEMO+`
+  <header class="top"><div class="logo">${LOGO}heartbeat</div></header>
+  <div class="tag-line">Rate the journey, not just the ending.</div>
+  <div class="search"><span class="ico">🔎</span><input id="q" type="search" placeholder="Search a movie or series…" autocomplete="off" aria-label="Search a movie or series"><div id="sg"></div></div>
+  ${lists.map(([e,l,ids],i)=>`<h2 class="sec">${e} ${l}</h2><div class="row">${ids.map(id=>tile(BYID[id],extra(i,BYID[id]))).join('')}</div>`).join('')}
+  <div class="card" style="margin-top:22px"><h3>💞 Find your movie twin</h3><div class="sub">See how much your taste matches a friend's.</div><a class="btn" href="#/match">Try Taste Match</a></div>
+  ${FOOT}${nav(focus?'Search':'Home')}`;
+  const q=$('#q');let timer;
+  q.addEventListener('input',()=>{clearTimeout(timer);const v=q.value;showSugg(localSearch(v),v,false);timer=setTimeout(async()=>{if(v.length<2)return;const live=await tmdbSearch(v);if(q.value===v&&live.length)showSugg(localSearch(v),v,live)},300)});
+  q.addEventListener('keydown',e=>{if(e.key==='Enter'){const f=$('#sg button');if(f)f.click()}});
+  if(focus)setTimeout(()=>q.focus(),50);
+}
+function showSugg(local,q,live){
+  const sg=$('#sg');if(!q.trim()){sg.innerHTML='';return}
+  const items=local.map(t=>`<button data-go="#/t/${t.id}">${poster(t,'sm')}<div><b>${esc(t.name)}</b><div class="meta">${t.year} · ${t.type==='tv'?'Series':'Movie'} · ${t.genres.join(', ')}</div></div></button>`);
+  (live||[]).filter(x=>!local.some(t=>norm(t.name)===norm(x.name))).slice(0,6).forEach(x=>items.push(`<button data-go="#/t/tmdb-${x.type}-${x.id}">${x.poster?`<div class="poster sm" style="background-image:url('${esc(x.poster)}')"></div>`:`<div class="poster sm" style="background:#2a2a40"></div>`}<div><b>${esc(x.name)}</b><div class="meta">${esc(x.year||'')} · ${x.type==='tv'?'Series':'Movie'}</div></div></button>`));
+  sg.innerHTML=`<div class="sugg">${items.join('')||`<div class="hint">No match yet. ${LIVE?'Searching TMDB…':'In this demo, try “breking bad”, “intersteller” or “squid”.'}</div>`}${local.length&&local[0]&&norm(local[0].name).indexOf(norm(q))<0?`<div class="hint">Showing results for “${esc(local[0].name)}”</div>`:''}</div>`;
+  sg.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>location.hash=b.dataset.go);
+}
+
+/* =============== TITLE PAGE =============== */
+function scopesFor(t){if(t.type==='movie')return[['all','Whole movie']];return[['all','Whole show']].concat(t.seasons.map((_,i)=>['s'+(i+1),'Season '+(i+1)]))}
+function renderTitle(t){
+  const sc=S.scope[t.id]||'all',k=t.id+'|'+sc,tl=timeline(t,sc),J=journey(t,sc),n=tl.length;
+  const sel=S.sel[k]??argmax(J.pts.map(p=>beat(p.tags)));
+  const prog=U.progress[k]??-1;
+  const vids=sc==='all'?videosFor(t):[];
+  const gIdx=argmax(J.gotGood),gTot=J.gotGood.reduce((a,b)=>a+b,0),gPct=Math.round(J.gotGood[gIdx]/gTot*100);
+  const qIdx=argmax(J.quits),qMax=Math.max(...J.quits,1);
+  const pred=t.hype[0],real=t.hype[1],gap=Math.round((real-pred)/pred*100);
+  const me=U.hype[t.id]||{};
+  const ys=yourScore(t);
+  const unit=t.type==='movie'?'':sc==='all'?'':'';
+  setMeta(`Is ${t.name} worth watching? Where it gets good — Heartbeat`,`${t.name} gets good at ${tl[gIdx].l}. See the Heartbeat graph, where people quit, and the hype vs reality score.`);
+  const seasonMatch=sc.match(/^s(\d+)$/);
+  $('#app').innerHTML=DEMO+`
+  <a class="back" href="#/">← Back</a>
+  <div class="hero">${poster(t,'lg')}<div><h1>${esc(t.name)}</h1><div class="meta">${t.year} · ${t.type==='tv'?'Series · '+t.seasons.length+' seasons':'Movie · '+Math.floor(t.runtime/60)+'h '+t.runtime%60+'m'}</div><div class="meta">${esc(t.genres.join(' · '))}</div><div class="meta" style="margin-top:4px">${esc(t.cast.slice(0,3).join(', '))}</div><p class="plot">${esc(t.plot)}</p></div></div>
+  ${t.live?`<div class="card" style="padding:10px 14px"><div class="sub" style="margin:0">Real title from TMDB. The journey numbers below are made-up demo data until real people rate it.</div></div>`:''}
+  <div class="scopes">${scopesFor(t).map(([s,l])=>`<button class="chip ${s===sc||(sc.startsWith(s+'e'))?'on':''}" data-scope="${s}">${l}</button>`).join('')}</div>
+  ${seasonMatch||/e\d+$/.test(sc)?`<div class="scopes" style="padding-top:0">${Array.from({length:t.seasons[+(sc.match(/^s(\d+)/)[1])-1]},(_,i)=>{const s=sc.match(/^s\d+/)[0]+'e'+(i+1);return`<button class="chip sm ${s===sc?'on':''}" data-scope="${s}">Ep ${i+1}</button>`}).join('')}</div>`:''}
+
+  <div class="card"><h3>💓 Heartbeat</h3><div class="sub">How people felt from start to end. Tap any point.</div>
+    <div id="hb">${heartbeatSVG(t,tl,J,sel,vids,prog)}</div>
+    <div class="pt-panel" id="pp">${pointPanel(t,tl,J,sel,vids,prog,sc)}</div>
+    <div class="btns"><button class="btn ghost small" id="saveHb">⬇️ Save as image</button><button class="btn ghost small" data-share="heartbeat">📤 Share graph</button></div>
+  </div>
+
+  <div class="card"><h3>⏩ It gets good at</h3>
+    <div class="big">${tl[gIdx].l.replace(/^./,c=>c.toUpperCase())}</div>
+    <div class="sub" style="margin-top:6px">${gPct}% of people said it got good here.${U.gotGood[k]!=null?' You said: <b>'+tl[U.gotGood[k]].l+'</b>.':''}</div>
+    <div class="lbl">When did it get good for you?</div>
+    <div class="chips">${tl.map((x,i)=>`<button class="chip sm ${U.gotGood[k]===i?'on':''}" data-gg="${i}">${x.s}</button>`).join('')}</div>
+  </div>
+
+  <div class="card"><h3>🚪 Where people quit</h3><div class="sub">Most people who gave up stopped at <b>${tl[qIdx].l}</b>.</div>
+    <div class="bars">${J.quits.map((v,i)=>`<div class="${i===qIdx?'hot':''}" style="height:${Math.max(3,v/qMax*100)}%" title="${tl[i].s}: ${v} people"></div>`).join('')}</div>
+    <div class="bars-lbl">${tl.map((x,i)=>`<span>${n>12&&i%2?'':x.s}</span>`).join('')}</div>
+    <div class="lbl">I stopped watching at…</div>
+    <div class="chips">${tl.map((x,i)=>`<button class="chip sm ${U.quit[k]===i?'on':''}" data-quit="${i}">${x.s}</button>`).join('')}</div>
+  </div>
+
+  <div class="card"><h3>🎈 Hype vs Reality</h3>
+    <div class="gap" style="color:${gap<0?'var(--pink)':'var(--green)'}">${gap<0?'Overhyped by '+(-gap)+'%':gap>0?'Underrated by '+gap+'%':'Lives up to the hype'}</div>
+    <div class="hvr"><span>Expected</span><div class="track"><i style="width:${pred*10}%;background:var(--purple)"></i></div><b>${pred}</b></div>
+    <div class="hvr"><span>Actual</span><div class="track"><i style="width:${real*10}%;background:${gap<0?'var(--pink)':'var(--green)'}"></i></div><b>${real}</b></div>
+    <div class="lbl">Your scores</div>
+    <div class="slider"><span style="width:118px;font-size:14px">Before watching</span><input type="range" min="1" max="10" step="1" value="${me.pred||7}" id="pred" aria-label="Predicted score"><b id="predv">${me.pred||'–'}</b></div>
+    <div class="slider"><span style="width:118px;font-size:14px">After watching</span><input type="range" min="1" max="10" step="1" value="${me.real||7}" id="real" aria-label="Real score"><b id="realv">${me.real||'–'}</b></div>
+    ${me.pred&&me.real?`<div class="sub" style="margin-top:8px">For you it was ${me.real<me.pred?'<b style="color:var(--pink)">overhyped by '+Math.round((me.pred-me.real)/me.pred*100)+'%</b>':me.real>me.pred?'<b style="color:var(--green)">underrated by '+Math.round((me.real-me.pred)/me.pred*100)+'%</b>':'exactly what you expected'}.</div>`:''}
+  </div>
+
+  <div class="card"><h3>🎯 Your Score</h3><div class="sub">Based on people whose taste is like yours, not just everyone.</div>
+    ${ys?`<div class="yourscore"><div class="me"><b>${ys.score}</b>For you</div><div><b>${real}</b>Everyone</div></div><div class="sub" style="margin-top:8px">From ${ys.n} people who rate like you. ${ys.score>real+.3?'You will probably like it more than most.':ys.score<real-.3?'You might like it less than most.':'You will probably feel like most people.'}</div>`:`<div class="empty">Rate 2 or more titles to unlock your personal score.</div>`}
+    <div class="lbl">Your rating</div>
+    <div class="slider"><input type="range" min="1" max="10" value="${U.ratings[t.id]||7}" id="rate" aria-label="Your rating"><b id="ratev">${U.ratings[t.id]||'–'}</b></div>
+  </div>
+
+  <div class="card"><h3>✨ Vibe Card</h3><div class="sub">Quick ratings from everyone, in one card.</div>
+    <div id="vc">${vibeCardHTML(t)}</div>
+    <div class="btns"><button class="btn ghost small" id="saveVc">⬇️ Save as image</button><button class="btn ghost small" data-share="vibe">📤 Share card</button></div>
+    <div class="lbl">Your vibe</div><div class="chips">${VIBES.map(v=>`<button class="chip sm ${(U.vibes[t.id]||[]).includes(v)?'on':''}" data-vibe="${v}">${VIBEE[v]} ${v}</button>`).join('')}</div>
+    <div class="lbl">Worth it?</div><div class="chips">${WORTH.map(v=>`<button class="chip sm ${U.worth[t.id]===v?'on':''}" data-worth="${v}">${v}</button>`).join('')}</div>
+    <div class="lbl">Best for</div><div class="chips">${BEST.map(v=>`<button class="chip sm ${(U.best[t.id]||[]).includes(v)?'on':''}" data-best="${v}">${BESTE[v]} ${v}</button>`).join('')}</div>
+  </div>
+
+  <div class="card"><h3>🎬 Video reviews</h3><div class="sub">Short reviews from TikTok, YouTube Shorts and Instagram Reels.</div>
+    <div class="btns" style="margin-top:0"><a class="btn" href="#/feed/${t.id}">▶ Watch reviews (${videosFor(t).length})</a><button class="btn ghost" id="addVid">＋ Add yours</button></div>
+  </div>
+
+  <div class="card"><h3>💬 Reviews</h3>
+    ${reviewsFor(t).map((rv,i)=>`<div class="review"><div class="who">@${esc(rv.h)}${rv.s?'<span class="spoil-tag">SPOILER</span>':''}</div><p class="${rv.s?'spoiler':''}" data-reveal tabindex="${rv.s?0:-1}" title="${rv.s?'Tap to show spoiler':''}">${esc(rv.t)}</p></div>`).join('')}
+    <div class="lbl">Write a short review</div>
+    <textarea id="rvt" rows="2" maxlength="280" placeholder="What did you think?"></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px"><label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" id="rvs" style="width:auto">Contains spoilers</label><button class="btn small" id="rvp">Post</button></div>
+  </div>
+
+  <div class="card"><h3>📤 Share this title</h3><div class="sub">Every title has its own link.</div><button class="btn full" data-share="title">Share “Is ${esc(t.name)} worth watching?”</button></div>
+  ${FOOT}${nav('')}`;
+  wireTitle(t,sc,k,tl);
+  window.scrollTo(0,S.keepScroll||0);S.keepScroll=0;
+}
+function rerenderTitle(t){S.keepScroll=window.scrollY;renderTitle(t)}
+
+function heartbeatSVG(t,tl,J,sel,vids,prog,forExport){
+  const W=360,H=190,P=20,top=forExport?60:30,bot=H-34+(forExport?40:0),HH=forExport?H+70:H;
+  const n=tl.length,raw=J.pts.map(p=>beat(p.tags));
+  const vals=raw.map((v,i)=>(raw[i-1]??v)*.25+v*.5+(raw[i+1]??v)*.25);
+  const mn=Math.min(...vals)-.1,mx=Math.max(...vals)+.1;
+  const xs=vals.map((_,i)=>n>1?P+i*(W-2*P)/(n-1):W/2),ys=vals.map(v=>bot-(v-mn)/(mx-mn)*(bot-top));
+  let d=`M${xs[0]},${ys[0]}`;
+  for(let i=0;i<n-1;i++){const x0=xs[i-1]??xs[i],y0=ys[i-1]??ys[i],x3=xs[i+2]??xs[i+1],y3=ys[i+2]??ys[i+1];
+    d+=` C${xs[i]+(xs[i+1]-x0)/6},${ys[i]+(ys[i+1]-y0)/6} ${xs[i+1]-(x3-xs[i])/6},${ys[i+1]-(y3-ys[i])/6} ${xs[i+1]},${ys[i+1]}`}
+  const area=d+` L${xs[n-1]},${bot} L${xs[0]},${bot} Z`;
+  const step=n>1?(W-2*P)/(n-1):W;const every=n>14?3:n>9?2:1;
+  const pk=argmax(vals);
+  const vm={};vids.forEach(v=>{if(v.moment!=null)vm[v.moment]=(vm[v.moment]||0)+1});
+  return`<svg viewBox="0 0 ${W} ${HH}" width="100%" role="img" aria-label="Heartbeat graph for ${esc(t.name)}" xmlns="http://www.w3.org/2000/svg" style="display:block;font-family:system-ui,Segoe UI,sans-serif">
+  <defs><linearGradient id="hbf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff3d7f" stop-opacity=".45"/><stop offset="1" stop-color="#ff3d7f" stop-opacity="0"/></linearGradient>
+  <linearGradient id="hbl" x1="0" x2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff3d7f"/></linearGradient></defs>
+  ${forExport?`<rect width="${W}" height="${HH}" fill="#0b0b12"/><text x="${P}" y="26" fill="#fff" font-size="17" font-weight="900">${esc(t.name)} · Heartbeat</text><text x="${P}" y="44" fill="#9a9ab0" font-size="11">Where it gets good: ${esc(tl[argmax(J.gotGood)].l)}</text>`:''}
+  <line x1="${P}" x2="${W-P}" y1="${bot}" y2="${bot}" stroke="#2a2a3d"/>
+  <path d="${area}" fill="url(#hbf)"/>
+  <path d="${d}" fill="none" stroke="url(#hbl)" stroke-width="3.2" stroke-linecap="round"/>
+  ${forExport?'':`<circle cx="${xs[pk]}" cy="${ys[pk]}" r="5" fill="none" stroke="#ff3d7f" stroke-width="2" class="pulse"/>`}
+  ${xs.map((x,i)=>{const g=dom(J.pts[i].tags);return`<circle cx="${x}" cy="${ys[i]}" r="${i===sel&&!forExport?7:4}" fill="${TAGC[g]}" stroke="${i===sel&&!forExport?'#fff':'#0b0b12'}" stroke-width="2"/>`}).join('')}
+  ${Object.keys(vm).map(i=>`<text x="${xs[i]}" y="${ys[i]-12}" font-size="12" text-anchor="middle">${+i>prog&&!forExport?'🔒':'🎬'}</text>`).join('')}
+  ${tl.map((x,i)=>i%every===0||i===n-1?`<text x="${xs[i]}" y="${bot+16}" fill="#9a9ab0" font-size="10" text-anchor="middle">${esc(x.s)}</text>`:'').join('')}
+  ${forExport?`<text x="${W-P}" y="${HH-8}" fill="#ff3d7f" font-size="11" font-weight="800" text-anchor="end">heartbeat · rate the journey</text>`:xs.map((x,i)=>`<rect data-pt="${i}" x="${x-step/2}" y="0" width="${step}" height="${H}" fill="transparent" style="cursor:pointer"><title>${esc(tl[i].l)}</title></rect>`).join('')}
+  </svg>`;
+}
+function pointPanel(t,tl,J,i,vids,prog,sc){
+  const p=J.pts[i],tot=Object.values(p.tags).reduce((a,b)=>a+b,0)||1,mx=Math.max(...Object.values(p.tags),1);
+  const here=vids.filter(v=>v.moment===i);
+  return`<div style="display:flex;justify-content:space-between;align-items:center"><b>${esc(tl[i].l.replace(/^./,c=>c.toUpperCase()))}</b><span class="meta">${tot} reactions</span></div>
+  ${TAGS.slice().sort((a,b)=>p.tags[b]-p.tags[a]).map(g=>`<div class="tbar"><span>${TAGE[g]} ${g}</span><div class="track" style="height:10px"><i style="width:${p.tags[g]/mx*100}%;background:${TAGC[g]}"></i></div><span class="meta">${Math.round(p.tags[g]/tot*100)}%</span></div>`).join('')}
+  ${here.length?`<div class="lbl">Videos at this moment</div>${here.map(v=>i>prog?`<div class="meta">🔒 ${esc('@'+v.h)}'s video is spoiler-locked. You're at ${prog<0?'the start':esc(tl[prog].l)}.</div>`:`<a href="#/feed/${t.id}/${v.id}" class="meta" style="display:block">🎬 @${esc(v.h)} — ${esc(v.cap)}</a>`).join('')}`:''}
+  <div class="lbl">How did you feel here?</div>
+  <div class="chips">${TAGS.map(g=>`<button class="chip sm ${U.tags.some(x=>x.k===t.id+'|'+sc&&x.i===i&&x.tag===g)?'on':''}" data-tag="${g}">${TAGE[g]} ${g}</button>`).join('')}</div>
+  <div class="lbl">I'm up to (hides spoilers after this)</div>
+  <select id="prog" aria-label="How far you have watched"><option value="-1">Not started</option>${tl.map((x,j)=>`<option value="${j}" ${prog===j?'selected':''}>${esc(x.l)}</option>`).join('')}</select>`;
+}
+function vibeCardHTML(t){
+  const v=Object.entries(t.vibes).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  const wi=argmax(t.worth),be=Object.entries(t.best).sort((a,b)=>b[1]-a[1])[0];
+  return`<div class="vibecard" style="background:linear-gradient(135deg,${t.colors[0]},${t.colors[1]} 60%,#ff3d7f)">
+  <div class="vt">Vibe Card</div><div class="vn">${esc(t.name)}</div>
+  ${v.map(([k,x])=>`<div class="vrow"><span style="width:150px">${VIBEE[k]} ${k}</span><div class="vbar"><i style="width:${Math.round(x*100)}%"></i></div><span style="width:40px;text-align:right">${Math.round(x*100)}%</span></div>`).join('')}
+  <div class="verdict"><div><small>Worth it?</small><b>${WORTH[wi]}</b><small>${Math.round(t.worth[wi]*100)}% say so</small></div><div><small>Best for</small><b>${BESTE[be[0]]} ${be[0]}</b><small>${Math.round(be[1]*100)}% pick</small></div></div></div>`;
+}
+
+function wireTitle(t,sc,k,tl){
+  const app=$('#app');
+  app.querySelectorAll('[data-scope]').forEach(b=>b.onclick=()=>{S.scope[t.id]=b.dataset.scope;rerenderTitle(t)});
+  const hb=$('#hb');hb.onclick=e=>{const r=e.target.closest('[data-pt]');if(!r)return;S.sel[k]=+r.dataset.pt;rerenderTitle(t)};
+  $('#pp').onclick=e=>{const b=e.target.closest('[data-tag]');if(!b)return;const i=S.sel[k]??argmax(journey(t,sc).pts.map(p=>beat(p.tags)));const tag=b.dataset.tag;const ix=U.tags.findIndex(x=>x.k===k&&x.i===i&&x.tag===tag);if(ix>=0)U.tags.splice(ix,1);else U.tags.push({k,i,tag});save();rerenderTitle(t)};
+  $('#prog').onchange=e=>{U.progress[k]=+e.target.value;save();rerenderTitle(t)};
+  app.querySelectorAll('[data-gg]').forEach(b=>b.onclick=()=>{const i=+b.dataset.gg;U.gotGood[k]=U.gotGood[k]===i?null:i;if(U.gotGood[k]==null)delete U.gotGood[k];save();rerenderTitle(t)});
+  app.querySelectorAll('[data-quit]').forEach(b=>b.onclick=()=>{const i=+b.dataset.quit;if(U.quit[k]===i)delete U.quit[k];else U.quit[k]=i;save();rerenderTitle(t)});
+  const sl=(id,f)=>{const el=$('#'+id);el.oninput=()=>{$('#'+id+'v').textContent=el.value};el.onchange=()=>{f(+el.value);save();rerenderTitle(t)}};
+  sl('pred',v=>{U.hype[t.id]={...(U.hype[t.id]||{}),pred:v}});
+  sl('real',v=>{U.hype[t.id]={...(U.hype[t.id]||{}),real:v}});
+  sl('rate',v=>{U.ratings[t.id]=v});
+  const tog=(obj,v)=>{const a=U[obj][t.id]||[];U[obj][t.id]=a.includes(v)?a.filter(x=>x!==v):a.concat(v);save();rerenderTitle(t)};
+  app.querySelectorAll('[data-vibe]').forEach(b=>b.onclick=()=>tog('vibes',b.dataset.vibe));
+  app.querySelectorAll('[data-best]').forEach(b=>b.onclick=()=>tog('best',b.dataset.best));
+  app.querySelectorAll('[data-worth]').forEach(b=>b.onclick=()=>{U.worth[t.id]=U.worth[t.id]===b.dataset.worth?null:b.dataset.worth;save();rerenderTitle(t)});
+  app.querySelectorAll('[data-reveal]').forEach(p=>{const f=()=>p.classList.remove('spoiler');p.onclick=f;p.onkeydown=e=>{if(e.key==='Enter')f()}});
+  $('#rvp').onclick=()=>{const tx=$('#rvt').value.trim();if(!tx)return toast('Write something first');(U.reviews[t.id]=U.reviews[t.id]||[]).unshift({h:U.name.toLowerCase().replace(/\s+/g,''),s:$('#rvs').checked,t:tx});save();toast('Review posted');rerenderTitle(t)};
+  $('#addVid').onclick=()=>addVideoSheet(t);
+  $('#saveVc').onclick=()=>saveVibeImage(t);
+  $('#saveHb').onclick=()=>{const J=journey(t,sc);saveSvgImage(heartbeatSVG(t,tl,J,-1,sc==='all'?videosFor(t):[],99,true),t.id+'-heartbeat.png')};
+  app.querySelectorAll('[data-share]').forEach(b=>b.onclick=()=>{const w=b.dataset.share;const url=location.href.split('#')[0]+'#/t/'+t.id;
+    const txt=w==='vibe'?`${t.name}'s vibe: ${Object.entries(t.vibes).sort((a,b)=>b[1]-a[1])[0][0]}. Worth it? ${WORTH[argmax(t.worth)]}.`:w==='heartbeat'?`${t.name} gets good at ${tl[argmax(journey(t,sc).gotGood)].l}. See the Heartbeat 💓`:`Is ${t.name} worth watching? See where it gets good 💓`;
+    shareSheet(url,txt,w==='vibe'?()=>saveVibeImage(t):w==='heartbeat'?()=>$('#saveHb').click():null)});
+}
+
+/* =============== sheets: share, add video, comments =============== */
+function openSheet(html){closeSheet();const bg=document.createElement('div');bg.className='sheet-bg';bg.id='sheet';bg.innerHTML=`<div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;bg.onclick=e=>{if(e.target===bg)closeSheet()};document.body.appendChild(bg);return bg}
+function closeSheet(){const s=$('#sheet');if(s)s.remove()}
+function shareSheet(url,text,saveImg){
+  const u=encodeURIComponent(url),tx=encodeURIComponent(text);
+  const s=openSheet(`<h3>Share</h3><div class="grid2">
+  ${navigator.share?`<button class="btn" id="natv">📱 Share…</button>`:''}
+  <a class="btn ghost" target="_blank" rel="noopener" href="https://wa.me/?text=${tx}%20${u}">💬 WhatsApp</a>
+  <a class="btn ghost" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=${tx}&url=${u}">𝕏 Post on X</a>
+  <button class="btn ghost" id="cpy">🔗 Copy link</button>
+  ${saveImg?`<button class="btn ghost" id="ig">📸 Instagram story</button><button class="btn ghost" id="tt">🎵 TikTok</button>`:''}
+  </div><div class="sub" style="margin-top:12px">${saveImg?'For Instagram stories and TikTok: we save the image, then you add it in the app. (Those apps don\'t let websites post for you.)':''}</div>`);
+  const nv=$('#natv',s);if(nv)nv.onclick=()=>navigator.share({title:'Heartbeat',text,url}).catch(()=>{});
+  $('#cpy',s).onclick=()=>{(navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast('Link copied')).catch(()=>{prompt('Copy this link:',url)})};
+  if(saveImg){$('#ig',s).onclick=()=>{saveImg();toast('Image saved — open Instagram and add it to your story')};$('#tt',s).onclick=()=>{saveImg();toast('Image saved — open TikTok and add it as a photo post')}}
+}
+function addVideoSheet(t){
+  const tl=timeline(t,'all');
+  const s=openSheet(`<h3>Add your video review</h3><div class="sub">Paste a link to your YouTube Short, TikTok or Instagram Reel. We don't store the video — just the link.</div>
+  <input id="vurl" placeholder="https://www.tiktok.com/@you/video/…" inputmode="url">
+  <div class="lbl">Attach to a moment (optional)</div>
+  <select id="vmom"><option value="">General review (no spoilers)</option>${tl.map((x,i)=>`<option value="${i}">${esc(x.l)}</option>`).join('')}</select>
+  <div class="lbl">Caption</div><input id="vcap" maxlength="90" placeholder="My 60-second verdict">
+  <div id="vmsg"></div><button class="btn full" id="vsave" style="margin-top:14px">Check link & save</button>`);
+  $('#vsave',s).onclick=()=>{const url=$('#vurl',s).value,p=parseVideo(url),m=$('#vmsg',s);
+    if(!p){m.innerHTML='<div class="err">That link doesn\'t look like a YouTube Short, TikTok or Instagram Reel. Check it and try again.</div>';return}
+    const mv=$('#vmom',s).value;(U.videos[t.id]=U.videos[t.id]||[]).push({id:t.id+'u'+Date.now(),h:U.name.toLowerCase().replace(/\s+/g,''),plat:p.plat,cap:$('#vcap',s).value||'My review',moment:mv===''?null:+mv,likes:0,helped:0,comments:[],url:url.trim(),embed:p.embed});
+    save();m.innerHTML='<div class="ok">✓ Valid '+p.plat+' link. Saved!</div>';setTimeout(()=>{location.hash='#/feed/'+t.id},700)};
+}
+
+/* =============== VIDEO FEED =============== */
+function renderFeed(t,startId){
+  const vids=videosFor(t),tl=timeline(t,'all'),prog=U.progress[t.id+'|all']??-1;
+  setMeta(`${t.name} video reviews — Heartbeat`,`Short video reviews of ${t.name}.`);
+  $('#app').innerHTML=`<div class="feed-top"><a class="pill" href="#/t/${t.id}" style="color:#fff;text-decoration:none">← ${esc(t.name)}</a><span class="pill">${prog<0?'Not started':'Up to '+esc(tl[prog].s)}</span></div>
+  <div class="feed" id="feed">${vids.map(v=>{const locked=v.moment!=null&&v.moment>prog;return`<section class="slide" id="${v.id}" data-v="${v.id}">
+    <div class="vid">${v.embed&&!locked?`<iframe src="${esc(v.embed)}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen title="Video review by ${esc(v.h)}"></iframe>`:`<div class="ph" style="background:linear-gradient(170deg,${t.colors[0]},#000 80%)"><div class="play">▶</div><div>${v.sample?'Sample video':v.plat}</div><div class="meta">${v.sample?'Real reviews show the TikTok/Short/Reel here':'Preview not available — open the link'}</div>${v.url?`<a class="pill" href="${esc(v.url)}" target="_blank" rel="noopener" style="color:#fff;text-decoration:none">Open on ${esc(v.plat)}</a>`:''}</div>`}</div>
+    ${locked?`<div class="lock"><div style="font-size:40px">🔒</div><b>Spoiler lock</b><div class="meta">This video is about ${esc(tl[v.moment].l)}. You're at ${prog<0?'the start':esc(tl[prog].l)}.</div><button class="btn small" data-unlock>Show anyway</button></div>`:''}
+    <div class="over"><div style="font-weight:800">@${esc(v.h)} <span class="meta">· ${esc(v.plat)}</span></div><div style="margin:4px 0">${esc(v.cap)}</div>${v.moment!=null?`<span class="pill">📍 ${esc(tl[v.moment].l)}</span>`:''}</div>
+    <div class="acts">
+      <button data-like class="${U.likes[v.id]?'on':''}" aria-label="Like"><span>❤️</span>${v.likes+(U.likes[v.id]?1:0)}</button>
+      <button data-cm aria-label="Comments"><span>💬</span>${v.comments.length+(U.comments[v.id]||[]).length}</button>
+      <button data-help class="${U.helped[v.id]?'on':''}" aria-label="This helped me decide"><span>✅</span>Helped<br>${v.helped+(U.helped[v.id]?1:0)}</button>
+      <button data-rep aria-label="Report"><span>🚩</span>Report</button>
+    </div></section>`}).join('')}
+    ${!vids.length?'<div class="slide"><div class="empty">No videos yet</div></div>':''}
+  </div>`;
+  const feed=$('#feed');
+  if(startId){const el=document.getElementById(startId);if(el)feed.scrollTop=el.offsetTop}
+  feed.onclick=e=>{const sl=e.target.closest('[data-v]');if(!sl)return;const id=sl.dataset.v,v=vids.find(x=>x.id===id);
+    const keep=()=>{const y=feed.scrollTop;renderFeed(t);$('#feed').scrollTop=y};
+    if(e.target.closest('[data-unlock]')){const l=sl.querySelector('.lock');l.remove();if(v.embed)sl.querySelector('.vid').innerHTML=`<iframe src="${esc(v.embed)}" allow="autoplay; encrypted-media" allowfullscreen title="Video review"></iframe>`;return}
+    if(e.target.closest('[data-like]')){U.likes[id]=!U.likes[id];save();keep()}
+    else if(e.target.closest('[data-help]')){U.helped[id]=!U.helped[id];save();keep();if(U.helped[id])toast('Thanks! This helps others decide')}
+    else if(e.target.closest('[data-rep]')){const s=openSheet(`<h3>Report this video</h3><div class="chips">${['Spoiler not marked','Wrong title','Spam','Hateful or unsafe'].map(r=>`<button class="chip" data-r="${r}">${r}</button>`).join('')}</div>`);s.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{U.reported[id]=b.dataset.r;save();closeSheet();toast('Reported. Thanks for keeping it clean.')})}
+    else if(e.target.closest('[data-cm]'))commentSheet(v,()=>keep());
+  };
+}
+function commentSheet(v,done){
+  const all=v.comments.concat(U.comments[v.id]||[]);
+  const s=openSheet(`<h3>Comments</h3>${all.map(c=>`<div class="review"><div class="who">@${esc(c.h)}</div><p>${esc(c.t)}</p></div>`).join('')||'<div class="empty">No comments yet.</div>'}<div style="display:flex;gap:8px;margin-top:12px"><input id="ct" placeholder="Add a comment…" maxlength="200"><button class="btn small" id="cp">Post</button></div>`);
+  $('#cp',s).onclick=()=>{const tx=$('#ct',s).value.trim();if(!tx)return;(U.comments[v.id]=U.comments[v.id]||[]).push({h:U.name.toLowerCase().replace(/\s+/g,''),t:tx});save();done();commentSheet(v,done)};
+}
+
+/* =============== TASTE MATCH =============== */
+function renderMatch(){
+  setMeta('Taste Match — find your movie twin · Heartbeat','See how much your movie and TV taste matches your friends.');
+  const rated=Object.keys(U.ratings).length;
+  const ms=PEOPLE.map(p=>({p,m:sim(U.ratings,p.r)})).filter(x=>x.m).sort((a,b)=>b.m.pct-a.m.pct);
+  const best=ms[0];
+  $('#app').innerHTML=DEMO+`<header class="top"><div class="logo">${LOGO}Taste Match</div></header>
+  <div class="tag-line">How close is your taste to someone else's?</div>
+  ${best?`<div class="card" style="text-align:center"><div class="sub">Your closest match</div>
+  <div class="match-ring" style="background:conic-gradient(var(--pink) ${best.m.pct*3.6}deg,var(--card2) 0)"><div style="background:var(--card);width:122px;height:122px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center"><b>${best.m.pct}%</b><span class="meta">${best.m.pct>=80?'movie twins':'match'}</span></div></div>
+  <div style="font-weight:800;font-size:18px">You + @${esc(best.p.h)}</div><div class="sub">You both rated ${best.m.shared.length} of the same titles.</div></div>`:''}
+  <div class="card"><h3>🔗 Invite a friend</h3><div class="sub">Send a link. They join, rate a few titles, and you both see your match score.</div><button class="btn full" id="inv">Send Taste Match invite</button></div>
+  <div class="card"><h3>👥 People like you</h3>${ms.map(({p,m})=>`<div class="person"><div class="av" style="background:${p.c}22;color:${p.c}">${esc(p.h[0].toUpperCase())}</div><div style="flex:1"><b>@${esc(p.h)}</b><div class="meta">${m.shared.length} titles in common</div></div><b style="font-size:20px;color:${m.pct>=80?'var(--pink)':'var(--text)'}">${m.pct}%</b></div>`).join('')}</div>
+  <div class="card"><h3>⭐ Your ratings (${rated})</h3><div class="sub">More ratings = better matches.</div>${TITLES.map(t=>`<div class="slider" style="margin:6px 0"><span style="width:130px;font-size:14px">${esc(t.name)}</span><input type="range" min="0" max="10" value="${U.ratings[t.id]||0}" data-r="${t.id}" aria-label="Rate ${esc(t.name)}"><b>${U.ratings[t.id]||'–'}</b></div>`).join('')}<div class="meta">Slide to 0 to remove a rating.</div></div>
+  ${FOOT}${nav('Taste Match')}`;
+  $('#inv').onclick=()=>{const code=(hash(U.name+U.joined)%1e8).toString(36);shareSheet(location.href.split('#')[0]+'#/invite/'+code,`Are we movie twins? 💞 Join Heartbeat and see our Taste Match score.`,null)};
+  document.querySelectorAll('[data-r]').forEach(el=>{el.oninput=()=>{el.nextElementSibling.textContent=el.value==='0'?'–':el.value};el.onchange=()=>{const v=+el.value;if(v)U.ratings[el.dataset.r]=v;else delete U.ratings[el.dataset.r];save();const y=scrollY;renderMatch();scrollTo(0,y)}});
+}
+function renderInvite(code){
+  setMeta('You got a Taste Match invite · Heartbeat','Join to see how much your movie taste matches your friend.');
+  const p=PEOPLE[hash(code)%PEOPLE.length];
+  $('#app').innerHTML=DEMO+`<header class="top"><div class="logo">${LOGO}heartbeat</div></header>
+  <div class="card" style="text-align:center;margin-top:20px"><div style="font-size:48px">💞</div><h3 style="justify-content:center;font-size:22px">Are you movie twins?</h3>
+  <div class="sub">A friend wants to compare your taste. Join and rate 3 titles to see your score.</div>
+  <div class="match-ring" style="background:var(--card2)"><b style="filter:blur(8px)">87%</b><span class="meta">hidden</span></div>
+  <button class="btn full" id="join">Join with Google</button><button class="btn ghost full" style="margin-top:8px" id="join2">Join with email</button>
+  <div class="meta" style="margin-top:10px">Demo: login turns on after you set up Supabase.</div></div>${FOOT}`;
+  const go=()=>{toast('Demo: pretending you joined');setTimeout(()=>location.hash='#/match',600)};
+  $('#join').onclick=go;$('#join2').onclick=go;
+}
+
+/* =============== PROFILE =============== */
+function renderMe(){
+  setMeta('My profile · Heartbeat','Your ratings, video reviews and taste summary.');
+  const vibeCount={};Object.values(U.vibes).flat().forEach(v=>vibeCount[v]=(vibeCount[v]||0)+1);
+  TITLES.forEach(t=>{if((U.ratings[t.id]||0)>=8)Object.entries(t.vibes).forEach(([v,x])=>vibeCount[v]=(vibeCount[v]||0)+x)});
+  const top=Object.entries(vibeCount).sort((a,b)=>b[1]-a[1]).slice(0,2).map(x=>x[0]).filter(x=>x!=='Boring');
+  const myVids=Object.entries(U.videos).flatMap(([id,a])=>a.map(v=>({...v,tid:id})));
+  const ms=PEOPLE.map(p=>({p,m:sim(U.ratings,p.r)})).filter(x=>x.m).sort((a,b)=>b.m.pct-a.m.pct).slice(0,3);
+  $('#app').innerHTML=DEMO+`<header class="top"><div class="logo">${LOGO}Me</div></header>
+  <div class="card"><div style="display:flex;gap:12px;align-items:center"><div class="av" style="width:60px;height:60px;font-size:24px;background:linear-gradient(135deg,var(--yellow),var(--pink));color:#0b0b12">${esc((U.name[0]||'Y').toUpperCase())}</div>
+  <div style="flex:1"><input id="nm" value="${esc(U.name)}" aria-label="Your name" style="padding:8px 10px;font-weight:800"></div></div>
+  <div style="margin-top:12px"><span class="badge">🏅 Founding Reviewer</span></div>
+  <div class="lbl">Your taste</div><div style="font-size:18px;font-weight:800">${top.length?'You love '+top.map(v=>VIBEE[v]+' '+v.toLowerCase()).join(' and ')+' stories.':'Rate a few titles to see your taste.'}</div></div>
+  <div class="card"><h3>⭐ Ratings</h3>${Object.entries(U.ratings).map(([id,v])=>BYID[id]?`<a class="person" href="#/t/${id}" style="color:inherit;text-decoration:none">${poster(BYID[id],'sm')}<div style="flex:1"><b>${esc(BYID[id].name)}</b></div><b>${v}/10</b></a>`:'').join('')||'<div class="empty">No ratings yet.</div>'}</div>
+  <div class="card"><h3>🎬 My video reviews</h3>${myVids.map(v=>`<a class="person" href="#/feed/${v.tid}/${v.id}" style="color:inherit;text-decoration:none"><div class="av" style="background:var(--card2)">▶</div><div><b>${esc(BYID[v.tid]?.name||'')}</b><div class="meta">${esc(v.plat)} · ${esc(v.cap)}</div></div></a>`).join('')||'<div class="empty">No video reviews yet. Add one from any title page.</div>'}</div>
+  <div class="card"><h3>💞 Taste Match</h3>${ms.map(({p,m})=>`<div class="person"><div class="av" style="background:${p.c}22;color:${p.c}">${esc(p.h[0].toUpperCase())}</div><div style="flex:1">@${esc(p.h)}</div><b>${m.pct}%</b></div>`).join('')}</div>
+  <div class="card"><h3>🔐 Account</h3><div class="sub">Sign in to save your ratings everywhere. (Turns on after you connect Supabase.)</div><div class="btns"><button class="btn ghost" data-demo>Continue with Google</button><button class="btn ghost" data-demo>Sign up with email</button></div>
+  <button class="btn ghost small" id="reset" style="margin-top:14px">Clear my demo data</button></div>
+  ${FOOT}${nav('Me')}`;
+  $('#nm').onchange=e=>{U.name=e.target.value.trim()||'You';save();renderMe()};
+  document.querySelectorAll('[data-demo]').forEach(b=>b.onclick=()=>toast('Login turns on after Supabase setup'));
+  $('#reset').onclick=()=>{if(confirm('Clear everything you rated in this demo?')){try{localStorage.removeItem(LS)}catch(e){}location.hash='#/';location.reload()}};
+}
+
+/* =============== save as image =============== */
+function download(canvas,name){canvas.toBlob(b=>{if(!b)return toast('Could not save image');const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);toast('Image saved')},'image/png')}
+function saveSvgImage(svg,name){
+  const img=new Image();img.onload=()=>{const c=document.createElement('canvas'),s=3;c.width=360*s;c.height=260*s;const x=c.getContext('2d');x.drawImage(img,0,0,c.width,c.height);download(c,name)};
+  img.onerror=()=>toast('Could not make image');img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+function saveVibeImage(t){
+  const c=document.createElement('canvas');c.width=1080;c.height=1350;const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,1080,1350);g.addColorStop(0,t.colors[0]);g.addColorStop(.6,t.colors[1]);g.addColorStop(1,'#ff3d7f');x.fillStyle=g;x.fillRect(0,0,1080,1350);
+  x.fillStyle='#fff';x.font='800 40px system-ui,Segoe UI,sans-serif';x.fillText('VIBE CARD',80,140);
+  x.font='900 92px system-ui,Segoe UI,sans-serif';wrapText(x,t.name,80,250,920,100);
+  const v=Object.entries(t.vibes).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  v.forEach(([k,val],i)=>{const y=520+i*130;x.font='800 48px system-ui,Segoe UI Emoji,sans-serif';x.fillText(VIBEE[k]+' '+k,80,y);x.fillStyle='#ffffff40';rr(x,80,y+24,920,26,13);x.fillStyle='#fff';rr(x,80,y+24,920*val,26,13);x.font='800 40px system-ui';x.textAlign='right';x.fillText(Math.round(val*100)+'%',1000,y);x.textAlign='left'});
+  const wi=argmax(t.worth),be=Object.entries(t.best).sort((a,b)=>b[1]-a[1])[0];
+  [['WORTH IT?',WORTH[wi]],['BEST FOR',BESTE[be[0]]+' '+be[0]]].forEach(([l,val],i)=>{const bx=80+i*470;x.fillStyle='#00000040';rr(x,bx,960,450,200,30);x.fillStyle='#fff';x.font='700 32px system-ui';x.fillText(l,bx+36,1030);x.font='900 50px system-ui,Segoe UI Emoji,sans-serif';x.fillText(val,bx+36,1110)});
+  x.font='900 44px system-ui';x.fillText('💓 heartbeat',80,1270);x.font='600 30px system-ui';x.textAlign='right';x.fillText('rate the journey',1000,1270);
+  download(c,t.id+'-vibe-card.png');
+}
+function rr(x,a,b,w,h,r){x.beginPath();x.roundRect?x.roundRect(a,b,Math.max(w,h),h,r):x.rect(a,b,w,h);x.fill()}
+function wrapText(x,s,a,b,w,lh){const ws=s.split(' ');let line='';ws.forEach(word=>{const t=line?line+' '+word:word;if(x.measureText(t).width>w&&line){x.fillText(line,a,b);b+=lh;line=word}else line=t});x.fillText(line,a,b)}
+
+/* =============== start =============== */
+if('serviceWorker' in navigator&&LIVE&&(location.protocol==='https:'||location.hostname==='localhost')){try{navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}}
+render();
+</script>
+</body>
+</html>

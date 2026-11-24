@@ -1,0 +1,8 @@
+{
+  "name": "heartbeat",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Heartbeat — rate the journey, not just the ending",
+  "engines": { "node": ">=18" }
+}
