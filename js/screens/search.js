@@ -20,12 +20,12 @@ export function localSearch(q) {
 export function renderSearch(app, initial = '') {
   document.title = 'Search — Heartbeat';
   app.innerHTML = `<div class="screen">
-    <header class="top"><div class="logo" style="font-size:24px">Search</div></header>
+    <header class="top"><h1 class="logo" style="font-size:26px;margin:0">Search</h1></header>
     <label class="searchbar" style="cursor:text"><span aria-hidden="true">🔎</span><input id="q" type="search" placeholder="Movie, series or genre…" autocomplete="off" aria-label="Search movies and series" value="${esc(initial)}"></label>
     <div id="out"></div>
   </div>`;
   const q = $('#q'), out = $('#out'); let timer, live = [];
-  const row = (t, href) => `<a class="res" href="${href}">${poster(t, { mine: false })}<div><b>${esc(t.name)}</b><div class="meta">${t.year || ''} · ${t.type === 'tv' ? 'Series' : 'Movie'}${t.genres?.length ? ' · ' + esc(t.genres.slice(0, 2).join(', ')) : ''}</div></div></a>`;
+  const row = (t, href) => `<a class="res" href="${href}">${poster(t, { mine: false, small: true })}<div><b>${esc(t.name)}</b><div class="meta">${t.year || ''} · ${t.type === 'tv' ? 'Series' : 'Movie'}${t.genres?.length ? ' · ' + esc(t.genres.slice(0, 2).join(', ')) : ''}</div></div></a>`;
   const draw = () => {
     const v = q.value;
     if (!v.trim()) {
@@ -34,9 +34,9 @@ export function renderSearch(app, initial = '') {
     } else {
       const loc = localSearch(v);
       const extra = live.filter(x => !loc.some(t => norm(t.name) === norm(x.name))).slice(0, 8)
-        .map(x => ({ id: 'x', name: x.name, year: x.year, type: x.type, genres: [], poster: x.poster, colors: ['#262036', '#ff4f9a'] }));
+        .map(x => ({ id: `tmdb-${x.type}-${x.id}`, name: x.name, year: x.year, type: x.type, genres: [], posterPath: x.posterPath, colors: ['#262036', '#ff4f9a'] }));
       out.innerHTML = loc.map(t => row(t, `#/t/${t.id}`)).join('')
-        + (extra.length ? `<div class="sec"><h2>🌍 More from TMDB</h2></div>` + extra.map(t => row(t, `#/search/${encodeURIComponent(t.name)}`)).join('') : '')
+        + (extra.length ? `<div class="sec"><h2>🌍 More from TMDB</h2></div>` + extra.map(t => row(t, `#/t/${t.id}`)).join('') : '')
         + (!loc.length && !extra.length ? empty(`No match for “${esc(v)}” yet.<br>Check the spelling or try a genre.`, 'sad') : '');
     }
     hydratePosters(out);

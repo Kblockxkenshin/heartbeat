@@ -1,24 +1,60 @@
-// Offline support so Heartbeat installs like an app.
-const CACHE = 'heartbeat-v2';
-const FILES = ['./', './index.html', './manifest.json', './icon.svg', './css/app.css',
-  './js/app.js', './js/config.js', './js/data.js', './js/store.js', './js/tmdb.js', './js/ui.js', './js/journey.js',
-  './js/screens/home.js', './js/screens/detail.js', './js/screens/quickrate.js', './js/screens/me.js',
-  './js/screens/search.js', './js/screens/match.js', './js/screens/list.js', './js/screens/feed.js', './js/screens/about.js'];
+// Heartbeat service worker: opens fast and works offline.
+//  - App shell: cached on install, updated in the background.
+//  - TMDB data (/api/tmdb): network first, saved copy when offline.
+//  - Posters & backdrops: cache first, keeps the most recent 200.
+const VERSION = 'v3';
+const SHELL = `hb-shell-${VERSION}`, API = 'hb-api', IMG = 'hb-img', IMG_MAX = 200;
+const FILES = ['/', '/index.html', '/manifest.json', '/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png',
+  '/css/app.css', '/js/app.js', '/js/config.js', '/js/data.js', '/js/store.js', '/js/tmdb.js', '/js/ui.js', '/js/journey.js',
+  '/js/screens/home.js', '/js/screens/detail.js', '/js/screens/quickrate.js', '/js/screens/me.js', '/js/screens/search.js',
+  '/js/screens/match.js', '/js/screens/list.js', '/js/screens/feed.js', '/js/screens/about.js'];
 
-self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
-self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))));
-  self.clients.claim();
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(SHELL).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('hb-shell-') && k !== SHELL || k.startsWith('heartbeat-')).map(k => caches.delete(k))))
+    .then(() => self.clients.claim()));
+});
+
+async function trim(name, max) {
+  const c = await caches.open(name), keys = await c.keys();
+  for (let i = 0; i < keys.length - max; i++) await c.delete(keys[i]);
+}
+
 self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
-  if (e.request.method !== 'GET' || url.pathname.startsWith('/api/')) return;
-  // TMDB images: cache-first (they never change).
+  const req = e.request, url = new URL(req.url);
+  if (req.method !== 'GET') return;
+
+  // Posters & backdrops: cache first.
   if (url.host === 'image.tmdb.org') {
-    e.respondWith(caches.open('heartbeat-img').then(c => c.match(e.request).then(hit => hit || fetch(e.request).then(r => { if (r.ok || r.type === 'opaque') c.put(e.request, r.clone()); return r; }))));
+    e.respondWith(caches.open(IMG).then(async c => {
+      const hit = await c.match(req); if (hit) return hit;
+      try { const r = await fetch(req); if (r.ok || r.type === 'opaque') { c.put(req, r.clone()); trim(IMG, IMG_MAX); } return r; }
+      catch (err) { return new Response('', { status: 504 }); }
+    }));
     return;
   }
   if (url.origin !== location.origin) return;
-  e.respondWith(fetch(e.request).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
-    .catch(() => caches.match(e.request).then(r => r || caches.match('./index.html'))));
+
+  // TMDB data: network first, cached copy when offline.
+  if (url.pathname.startsWith('/api/')) {
+    e.respondWith(fetch(req).then(r => { if (r.ok) { const cp = r.clone(); caches.open(API).then(c => c.put(req, cp)); } return r; })
+      .catch(() => caches.match(req).then(r => r || new Response(JSON.stringify({ error: 'offline' }), { status: 503, headers: { 'content-type': 'application/json' } }))));
+    return;
+  }
+
+  // Pages: network first so updates show up, cached shell when offline.
+  if (req.mode === 'navigate') {
+    e.respondWith(fetch(req).then(r => { const cp = r.clone(); caches.open(SHELL).then(c => c.put('/', cp)); return r; })
+      .catch(() => caches.match('/', { ignoreSearch: true }).then(r => r || caches.match('/index.html'))));
+    return;
+  }
+
+  // App files: serve fast from cache, refresh in the background.
+  e.respondWith(caches.open(SHELL).then(async c => {
+    const hit = await c.match(req, { ignoreSearch: true });
+    const net = fetch(req).then(r => { if (r.ok) c.put(req, r.clone()); return r; }).catch(() => hit);
+    return hit || net;
+  }));
 });

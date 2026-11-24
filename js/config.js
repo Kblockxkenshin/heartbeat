@@ -4,10 +4,12 @@
 export const CONFIG = {
   tmdbProxy: '/api/tmdb',
   imageBase: 'https://image.tmdb.org/t/p/',
-  posterSize: 'w500',
+  // Responsive sizes: phone gets w342, bigger screens w500, backdrops w1280.
+  posterSizes: [['w342', 342], ['w500', 500]],
   backdropSize: 'w1280',
   cacheDays: 7,
+  failRetryMinutes: 10,
 };
 
-// TMDB only works when the app runs on a real web server (like Vercel).
-export const LIVE = /^https?:$/.test(location.protocol) && !/claudeusercontent|claude\.ai|localhost|127\.0\.0\.1/.test(location.host);
+// TMDB works whenever the app runs on a real web server (Vercel, or a local test server).
+export const LIVE = /^https?:$/.test(location.protocol) && !/claudeusercontent|claude\.ai/.test(location.host);
