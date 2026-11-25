@@ -3,6 +3,7 @@ import { U, save, stats, level, streakAlive, matches, today } from '../store.js'
 import { $, esc, card, row, hydratePosters, empty, toast, sheet, confetti } from '../ui.js';
 import { rerender, install } from '../app.js';
 import { cloud, signOut } from '../cloud.js';
+import { meReviewsCardHTML, fillMeReviews } from './reviews.js';
 
 // Same numbers as rank_for() on the server (for the progress bar only; the server decides the rank).
 export const RANKS = [['Popcorn', 0, '🍿'], ['Ticket Holder', 100, '🎟️'], ['Front Row', 300, '💺'], ['Critic', 700, '📝'], ['Top Critic', 1500, '⭐'], ["Director's Cut", 3000, '🎬'], ['Legend', 6000, '👑']];
@@ -45,6 +46,8 @@ export function renderMe(app) {
 
   ${m ? `<a class="card linkcard" href="#/match"><span style="font-size:34px" aria-hidden="true">💞</span><div style="flex:1"><h2 class="h3">${m.m.pct}% with @${esc(m.p.h)}</h2><div class="sub">Your closest movie twin so far</div></div><span class="btn sm" aria-hidden="true">Match</span></a>` : ''}
 
+  ${meReviewsCardHTML()}
+
   <section class="card installcard"><h2 class="h3">📲 Get the app</h2>${inst}</section>
 
   <section class="card"><h2 class="h3">🔔 Reminders</h2>
@@ -57,6 +60,7 @@ export function renderMe(app) {
   <div style="text-align:center;padding:8px"><a class="see" href="#/about">About Heartbeat & TMDB credits</a></div>
   </div>`;
   hydratePosters(app);
+  fillMeReviews(app);
   const nm = $('#nm'); if (nm) nm.onchange = e => { U.name = e.target.value.trim().slice(0, 30) || 'You'; save(); rerender(); };
   const so = $('#signout');
   if (so) so.onclick = async () => {

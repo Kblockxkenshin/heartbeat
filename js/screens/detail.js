@@ -3,6 +3,8 @@ import { U, save, rate, forYou, toggleSave } from '../store.js';
 import { $, $$, esc, poster, card, backdropUrl, hydratePosters, sheet, closeSheet, hearts, celebrate, toast, empty, fmtRuntime, buzz } from '../ui.js';
 import { journey, heartbeatSVG, beat, argmax } from '../journey.js';
 import { rerender, closeDetail } from '../app.js';
+import { cloud } from '../cloud.js';
+import { reviewsSectionHTML, loadReviews, openEditor, promptReview, setReviewsChanged } from './reviews.js';
 
 const sel = {};
 const TAGE = { 'Boring': '😴', 'Amazing': '🔥', 'Funny': '😂', 'Scary': '😱', 'Sad': '😢', 'Plot twist': '🤯' };
@@ -42,7 +44,8 @@ export function renderDetail(el, id, { modal = false } = {}) {
   </div>
   <div class="dhead">${poster(t, { mine: false })}
     <div><h1 id="dtitle">${esc(t.name)}</h1><div class="meta">${esc(t.year)} · ${t.type === 'tv' ? 'Series' : 'Movie'}${len ? ' · ' + len : ''}</div><div class="meta">${esc(t.genres.join(' · '))}</div>
-    <button class="btn big rate-main" id="rateBtn">${mine ? `★ ${mine.overall} · Edit my rating` : '💖 Rate it'} <kbd class="kbd">R</kbd></button></div>
+    <button class="btn big rate-main" id="rateBtn">${mine ? `★ ${mine.overall} · Edit my rating` : '💖 Rate it'} <kbd class="kbd">R</kbd></button>
+    ${cloud.ready ? `<button class="btn ghost writebtn" id="writeBtn">✍️ Write a review</button>` : ''}</div>
   </div>
   <div class="dgrid"><div class="dmain">
   <p class="overview">${esc(t.overview)}</p>
@@ -95,6 +98,8 @@ export function renderDetail(el, id, { modal = false } = {}) {
       </div>
   </section>
 
+  ${reviewsSectionHTML(t)}
+
   <a class="card linkcard" href="#/feed/${esc(k)}">
     <span style="font-size:34px" aria-hidden="true">🎬</span>
     <div style="flex:1"><h2 class="h3">Video reviews</h2><div class="sub">Short TikToks, Shorts and Reels. Spoilers stay locked.</div></div>
@@ -112,6 +117,9 @@ export function renderDetail(el, id, { modal = false } = {}) {
 function wire(el, t, k, s, modal) {
   $('#back', el).onclick = () => closeDetail();
   $('#rateBtn', el).onclick = () => openRate(t);
+  const wb = $('#writeBtn', el); if (wb) wb.onclick = () => openEditor(t);
+  setReviewsChanged(() => rerender());
+  loadReviews(el, t);
   $('#wl', el).onclick = e => { const r = toggleSave(k); buzz(); if (r.saved) { const b = e.currentTarget.getBoundingClientRect(); hearts(b.x + 23, b.y + 23, 8); toast('Saved to your watchlist'); } celebrate(r); rerender(); };
   $('#share', el).onclick = async () => {
     const url = location.href.split('#')[0] + '#/t/' + k, text = `Is ${t.name} worth watching? See where it gets good 💓`;
@@ -159,6 +167,7 @@ export function openRate(t, onDone) {
     if (!(res.newBadges?.length || res.streakUp)) toast(`Saved! ★ ${U.ratings[t.id].overall} for ${t.name}`);
     celebrate(res);
     if (!onDone) rerender();
+    promptReview(t);
   };
   box.addEventListener('click', e => {
     const b = e.target.closest('[data-k]');

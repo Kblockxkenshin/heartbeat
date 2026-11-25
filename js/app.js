@@ -4,6 +4,7 @@ import { TITLES, BYID } from './data.js';
 import { toggleSave, U, streakAlive, displayName, applyRemote, setSyncErrorHandler } from './store.js';
 import { cloud, startCloud, onCloud, importLocal } from './cloud.js';
 import { renderAuth, renderWelcome, needsSetup } from './screens/auth.js';
+import { renderMyReviews } from './screens/reviews.js';
 import { hydrate, apply, loadTitle, search as tmdbSearch } from './tmdb.js';
 import { $, $$, esc, hearts, celebrate, closeSheet, sheet, toast, wide, buzz, mascot, poster, hydratePosters } from './ui.js';
 import { renderHome } from './screens/home.js';
@@ -83,7 +84,7 @@ function topbar() {
 /* ---------------- router ---------------- */
 const route = () => { const p = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent); return { p: p[0] || '', a: p[1] || '', b: p[2] || '' }; };
 let baseHash = null, baseRendered = null, modalFromBase = false, lastKey = '';
-const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['match', renderMatch], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome] };
+const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['match', renderMatch], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews] };
 
 function renderBase(r, keepScroll) {
   const app = $('#app'), y = scrollY, key = location.hash || '#/';
@@ -259,7 +260,7 @@ export const install = {
 
 /* ---------------- account (Supabase) ---------------- */
 setSyncErrorHandler(msg => toast(msg, 'sad'));
-let lastUser = null, lastRank = null;
+let lastUser = null, lastRank = null, lastReady = false;
 onCloud(async c => {
   const uid = c.user?.id || null;
   if (uid && c.remote && U.syncedUser !== uid && !c.needsBirthdate) {
@@ -272,7 +273,8 @@ onCloud(async c => {
   if (c.stats?.rank) lastRank = c.stats.rank;
   if (c.checkin?.xp_gained) { toast(`+${c.checkin.xp_gained} XP for showing up today!`); c.checkin = null; }
   if (uid && needsSetup() && c.profile !== undefined && !/^#\/(welcome|signin)/.test(location.hash) && (c.profile || c.stats)) location.hash = '#/welcome';
-  if (uid !== lastUser || route().p === 'me' || route().p === 'welcome' || route().p === 'signin') { lastUser = uid; render(true); }
+  const becameReady = c.ready && !lastReady; lastReady = c.ready;
+  if (becameReady || uid !== lastUser || route().p === 'me' || route().p === 'welcome' || route().p === 'signin') { lastUser = uid; render(true); }
   else chrome(PAGES[route().p]?.[0] || 'home');
 });
 function confettiSafe() { import('./ui.js').then(m => m.confetti()); }

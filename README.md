@@ -27,3 +27,9 @@ TMDB: This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 Security model: Row Level Security on every table. XP, rank, streak and Plus status live in `user_stats`
 and `xp_events`, which the app cannot write. Triggers and server functions give XP. Minimum age 13.
+
+## Written reviews
+Run `supabase/002_reviews.sql` after `001_foundation.sql`. The app never writes review tables directly;
+it calls server functions (`post_review`, `edit_review`, `toggle_vote`, `add_comment`, `report_review`).
+Every review is checked on the server (quality score, links/ads, harassment, gibberish, copy-paste, filler,
+rating mismatch, spoilers) before it is saved. `api/img.js` serves TMDB posters for the share-image card.
