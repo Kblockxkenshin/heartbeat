@@ -8,6 +8,7 @@ import { miniGraph, fmt } from '../reviews.js';
 import { S, socialReady, avatar, rankChip, handle, profileHref, uploadAvatar, removeAvatar, titleFor, titlesFor, inviteUrl, qrSvg, ago } from '../social.js';
 import { localSearch } from './search.js';
 import { rerender } from '../app.js';
+import { messageUser } from './chat.js';
 
 const stars = o => `★ ${o != null ? (+o).toFixed(1).replace(/\.0$/, '') : '–'}`;
 const pctColor = p => p >= 80 ? 'var(--pink)' : p >= 60 ? 'var(--purple)' : 'var(--muted)';
@@ -335,7 +336,7 @@ export async function renderProfile(app, username) {
         <div class="pchips">${rankChip(p.rank)}${p.top_critic ? '<span class="crit">✔ Verified Critic</span>' : ''}${p.streak ? `<span class="pill2">🔥 ${p.streak}-day streak</span>` : ''}${p.is_private ? '<span class="pill2">🔒 Friends only</span>' : ''}</div></div>
       ${p.bio ? `<p class="pbio">${esc(p.bio)}</p>` : ''}
       <div class="pcounts"><div><b>${c.ratings}</b><span>ratings</span></div><div><b>${c.reviews}</b><span>reviews</span></div><div><b>${c.friends}</b><span>friends</span></div><div><b>${c.followers}</b><span>followers</span></div></div>
-      <div class="pbtns">${friendBtn}${followBtn}</div>
+      <div class="pbtns">${friendBtn}${followBtn}${!me && signed && !r.blocked ? '<button class="btn ghost" id="pmsg">💬 Message</button>' : ''}</div>
     </section>
 
     ${m && m.pct != null ? `<button class="card matchcard" id="pmatch" type="button"><div class="mring" style="--p:${m.pct}"><b>${m.pct}%</b></div>
@@ -361,6 +362,7 @@ export async function renderProfile(app, username) {
   on('punblock', async () => { try { await S.unblock(p.id); toast('Unblocked.'); again(); } catch (e) { toast(plain(e), 'sad'); } });
   on('pfollow', async e => { const b = e.currentTarget; b.disabled = true; try { if (r.following) await S.unfollow(p.id); else { await S.follow(p.id); toast(`Following ${handle(p)}`); } again(); } catch (er) { toast(plain(er), 'sad'); b.disabled = false; } });
   on('pmatch', () => openMatch(p));
+  on('pmsg', () => messageUser(p));
   on('pshare', async () => { const url = `${location.origin}/${profileHref(p)}`; try { if (navigator.share) await navigator.share({ title: `@${p.username} on Heartbeat`, url }); else { await navigator.clipboard.writeText(url); toast('Link copied!'); } } catch (e) { /* closed */ } });
   on('pmore', () => moreSheet(p, again));
   const pf = $('#pfeed', app);

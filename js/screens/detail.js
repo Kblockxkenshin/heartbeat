@@ -1,3 +1,4 @@
+import { sendTitleToChat } from './chat.js';
 import { BYID, TITLES, TAGS, TAGC, VIBEE, WORTH, BESTE } from '../data.js';
 import { U, save, rate, forYou, toggleSave } from '../store.js';
 import { $, $$, esc, poster, card, backdropUrl, hydratePosters, sheet, closeSheet, hearts, celebrate, toast, empty, fmtRuntime, buzz } from '../ui.js';
@@ -38,6 +39,7 @@ export function renderDetail(el, id, { modal = false } = {}) {
       <button class="icon-btn" id="back" aria-label="${modal ? 'Close' : 'Back'}">${modal ? '✕' : '←'}</button>
       <div style="display:flex;gap:8px">
         <button class="icon-btn" id="share" aria-label="Share ${esc(t.name)}">📤</button>
+        ${cloud.ready ? `<button class="icon-btn" id="sendchat" aria-label="Send ${esc(t.name)} to a friend">💬</button>` : ''}
         <button class="icon-btn" id="wl" aria-label="${U.watchlist[k] ? 'Remove from' : 'Add to'} watchlist">${U.watchlist[k] ? '🔖' : '＋'}</button>
       </div>
     </div>
@@ -118,6 +120,7 @@ function wire(el, t, k, s, modal) {
   $('#back', el).onclick = () => closeDetail();
   $('#rateBtn', el).onclick = () => openRate(t);
   const wb = $('#writeBtn', el); if (wb) wb.onclick = () => openEditor(t);
+  const sc = $('#sendchat', el); if (sc) sc.onclick = () => sendTitleToChat(t);
   setReviewsChanged(() => rerender());
   loadReviews(el, t);
   $('#wl', el).onclick = e => { const r = toggleSave(k); buzz(); if (r.saved) { const b = e.currentTarget.getBoundingClientRect(); hearts(b.x + 23, b.y + 23, 8); toast('Saved to your watchlist'); } celebrate(r); rerender(); };

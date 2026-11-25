@@ -41,3 +41,10 @@ favorite 4, friends-only profiles, friend requests, follows, block, report, Tast
 suggestions, the activity feed with likes and comments, and invite links + QR codes.
 Under-18 accounts: always friends-only, never suggested, not followable by strangers, found only by exact username.
 `js/vendor/qrcode.js` is qrcode-generator by Kazuhiko Arase (MIT).
+
+## Chat (Part 2)
+Upload the app code first, then run `supabase/004_chat.sql`. It adds 1-on-1 and group chats (up to 20),
+title cards, reactions, read receipts (can be turned off), typing indicator, message requests from
+non-friends, mute, block and report. Messages are checked on the server (links, scams, harassment,
+sexual content, hate) and rate limited. Under 18: chat only with friends. Live updates use Supabase
+Realtime; the app falls back to checking every few seconds if live updates can't connect.

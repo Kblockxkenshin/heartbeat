@@ -2,7 +2,8 @@
 // the "Want to tell people why?" prompt, and the My Reviews page.
 import { BYID } from '../data.js';
 import { U, rate as saveRating } from '../store.js';
-import { avatar } from '../social.js';
+import { avatar, titleFor } from '../social.js';
+import { sendTitleToChat } from './chat.js';
 import { cloud, keyOf, idOf } from '../cloud.js';
 import { $, $$, esc, sheet, closeSheet, toast, hearts, confetti, buzz, mascot, wide, poster, hydratePosters } from '../ui.js';
 import {
@@ -358,10 +359,11 @@ function moreMenu(r, t, redraw, reload) {
   sheet(`<h2 class="h3" style="font-size:20px;margin:0 0 10px">${mine ? 'Your review' : 'Review options'}</h2>
     <div class="menu">
       ${mine ? `<button class="mitem" id="mEdit">✏️ Edit review</button><button class="mitem danger" id="mDel">🗑️ Delete review</button>` : ''}
-      <button class="mitem" id="mChat" disabled aria-disabled="true">💬 Recommend in chat <small class="hint">(coming with Chat)</small></button>
+      <button class="mitem" id="mChat">💬 Send to a friend</button>
       <button class="mitem" id="mCopy">🔗 Copy link</button>
       ${mine ? '' : `<button class="mitem danger" id="mRep">🚩 Report review</button>`}
     </div>`);
+  $('#mChat').onclick = () => { closeSheet(); const tt = t || BYID[idOf(r.title_key)]; if (tt) sendTitleToChat(tt); else titleFor(r.title_key).then(x => x && sendTitleToChat(x)); };
   $('#mCopy').onclick = async () => { closeSheet(); const u = location.origin + '/#/t/' + idOf(r.title_key || keyOf(t?.id)); try { await navigator.clipboard.writeText(u); toast('Link copied!'); } catch (e) { toast(u); } };
   if (mine) {
     $('#mEdit').onclick = () => { closeSheet(); openEditor(t || BYID[idOf(r.title_key)] || { id: idOf(r.title_key), name: 'this title' }, r); };

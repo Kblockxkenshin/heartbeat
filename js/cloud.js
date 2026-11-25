@@ -11,6 +11,8 @@ export const cloud = {
   user: null,        // signed-in user (or null)
   profile: null,     // { username, display_name, avatar_url, bio, fav_titles, is_private, invite_code }
   requests: 0,       // friend requests waiting for me
+  unreadChats: 0,    // chats with new messages
+  chatRequests: 0,   // message requests from non-friends
   stats: null,       // { xp, rank, streak_count, streak_best, is_minor, plus_until }
   needsBirthdate: false,
   remote: null,      // { ratings, swipes, watchlist } loaded from the server
@@ -87,6 +89,8 @@ async function loadMe(first) {
   ]);
   cloud.profile = p.data ? { ...p.data, ...(mine.data || {}) } : null;
   cloud.requests = +(mine.data?.requests || 0);
+  cloud.unreadChats = +(mine.data?.unread_chats || 0);
+  cloud.chatRequests = +(mine.data?.chat_requests || 0);
   cloud.stats = s.data || null;
   cloud.needsBirthdate = !priv.data?.birthdate;
   cloud.remote = { ratings: r.data || [], swipes: sw.data || [], watchlist: w.data || [] };
@@ -101,7 +105,11 @@ export const refreshMe = () => loadMe(false);
 export async function refreshRequests() {
   if (!cloud.sb || !cloud.user) return;
   const { data } = await cloud.sb.rpc('my_profile');
-  if (data && +data.requests !== cloud.requests) { cloud.requests = +data.requests; emit(); }
+  if (!data) return;
+  const n = [+data.requests || 0, +data.unread_chats || 0, +data.chat_requests || 0];
+  if (n[0] !== cloud.requests || n[1] !== cloud.unreadChats || n[2] !== cloud.chatRequests) {
+    [cloud.requests, cloud.unreadChats, cloud.chatRequests] = n; emit();
+  }
 }
 
 async function refreshStats() {
