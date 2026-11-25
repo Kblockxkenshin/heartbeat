@@ -50,11 +50,14 @@ export function avatar(p, size = 'sm', extra = '') {
   const letter = esc((name[0] || '?').toUpperCase());
   const img = p?.avatar_url && /^https:\/\//.test(p.avatar_url)
     ? `<img src="${esc(p.avatar_url)}" alt="" loading="lazy" decoding="async">` : '';
-  const fr = p?.frame && /^[a-z]+$/.test(p.frame) ? ` fr-${p.frame}` : '';
+  const rk = RANK_CLASS[p?.rank] || '';
+  const fr = p?.frame && /^[a-z]+$/.test(p.frame) ? ` fr-${p.frame}` : rk ? ` ${rk}` : '';
   return `<span class="ava ${size} ${extra}${fr}" aria-hidden="true" style="background:linear-gradient(135deg,${a},${b})"><i>${letter}</i>${img}</span>`;
 }
 // A photo that fails to load falls back to the letter underneath.
 document.addEventListener('error', e => { if (e.target?.matches?.('.ava img')) e.target.remove(); }, true);
+// Each rank unlocks a profile frame color (free). A Plus frame shows instead when picked.
+const RANK_CLASS = { 'Ticket Holder': 'rk1', 'Front Row': 'rk2', 'Critic': 'rk3', 'Top Critic': 'rk4', "Director's Cut": 'rk5', 'Legend': 'rk6' };
 export const RANK_E = { 'Popcorn': '🍿', 'Ticket Holder': '🎟️', 'Front Row': '💺', 'Critic': '📝', 'Top Critic': '⭐', "Director's Cut": '🎬', 'Legend': '👑' };
 export const rankChip = r => r ? `<span class="rankchip sm">${RANK_E[r] || '🍿'} ${esc(r)}</span>` : '';
 export const handle = p => `@${esc(p?.username || 'someone')}`;

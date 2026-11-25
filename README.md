@@ -74,3 +74,20 @@ Variables (never paste them into chat or code):
 `https://<your site>/api/stripe-webhook` with events `checkout.session.completed` and
 `customer.subscription.created/updated/deleted`, and turn on the Customer Portal.
 Until then the Plus page says "Payments open soon" and the free app works as usual.
+
+## Ranks & game system (Part 5)
+Upload the app code first, then run `supabase/007_game.sql`. Everything is decided on the server.
+- **Leagues:** 7 tiers (Bronze → Diamond), up to 30 people per group, weeks start Monday (UTC).
+  Top 7 move up, bottom 5 move down. The #1 of a Diamond group (10+ players) wins a free month of Plus.
+  Weeks close by themselves the first time someone opens a league after Monday.
+- **Daily challenges** (3 a day, +15 XP) and **weekly quests** (3 a week, +60 XP). A finished quest
+  also gives a free user 1 Streak Shield a month.
+- **Streak tools:** Streak Shield fixes a streak after missing one day (Plus: 2 a month).
+  Take a break (1–14 days, once a month). Mystery box at every 7-day streak.
+- **Badges:** 19 achievements from real activity. Each rank also gives a free profile frame color.
+- **Events:** prediction games. The Oscars 2027 event is "coming soon". When nominees are out, add them
+  in the SQL editor, for example:
+  `update event_categories set nominees = '[{"k":"movie:123","label":"Title"}]' where event = 'oscars-2027' and name = 'Best Picture';`
+  then `update events set status = 'open', locks_at = '2027-03-01 00:00+00' where slug = 'oscars-2027';`
+  After the show: set each `winner` (the nominee's `k`) and run `select finish_event('oscars-2027');`
+- Recommendations a friend loves now give **+15 XP** (was +5).

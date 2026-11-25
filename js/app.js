@@ -22,6 +22,7 @@ import { refreshRequests } from './cloud.js';
 import { renderChats, renderRoom, leaveRoom, watchInbox, unwatchInbox } from './screens/chat.js';
 import { renderPlus, renderMovieNight } from './screens/plus.js';
 import { renderWrapped } from './screens/wrapped.js';
+import { renderPlay } from './screens/play.js';
 
 TITLES.forEach(apply); // use cached TMDB info right away
 
@@ -32,6 +33,7 @@ const NAV = [
   { h: '#/rate', k: 'rate', l: 'Quick Rate', i: '<path d="M12 21C5 16 2 12.5 2 8.6 2 5.5 4.4 3 7.4 3c1.9 0 3.6 1 4.6 2.6C13 4 14.7 3 16.6 3 19.6 3 22 5.5 22 8.6c0 3.9-3 7.4-10 12.4z"/>' },
   { h: '#/friends', k: 'friends', l: 'Friends', i: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.8 3.4-5.5 6.5-5.5s5.7 1.7 6.5 5.5"/><circle cx="17" cy="9" r="2.8"/><path d="M16.5 14.6c2.6.2 4.4 1.8 5 4.9"/>' },
   { h: '#/chat', k: 'chat', l: 'Chat', i: '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.5 9.5 0 0 1-3.6-.7L3 21l1.6-4.6A8 8 0 0 1 3 11.5 8.6 8.6 0 0 1 12 3a8.6 8.6 0 0 1 9 8.5z"/>' },
+  { h: '#/play', k: 'play', l: 'Play', side: true, i: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>' },
   { h: '#/me', k: 'me', l: 'Me', i: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.5-6 8-6s7 1.5 8 6"/>' },
 ];
 const svg = (p, fill) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
@@ -45,7 +47,7 @@ const dot = k => {
 };
 function chrome(active) {
   // Phone: bottom tabs
-  $('#tabs').innerHTML = `<div class="bar">${NAV.map(n => { const on = active === n.k; return `<a href="${n.h}" class="${n.k === 'rate' ? 'rate' : ''} ${on ? 'on' : ''}" ${on ? 'aria-current="page"' : ''} aria-label="${n.l}"><span class="ic">${svg(n.i, on || n.k === 'rate')}${dot(n.k)}</span>${n.k === 'rate' ? '' : `<span class="lb">${n.l}</span>`}</a>`; }).join('')}</div>`;
+  $('#tabs').innerHTML = `<div class="bar">${NAV.filter(n => !n.side).map(n => { const on = active === n.k; return `<a href="${n.h}" class="${n.k === 'rate' ? 'rate' : ''} ${on ? 'on' : ''}" ${on ? 'aria-current="page"' : ''} aria-label="${n.l}"><span class="ic">${svg(n.i, on || n.k === 'rate')}${dot(n.k)}</span>${n.k === 'rate' ? '' : `<span class="lb">${n.l}</span>`}</a>`; }).join('')}</div>`;
   $('#tabs').hidden = active === 'none' || document.body.classList.contains('inroom');
   // Tablet + desktop: sidebar
   const st = streakAlive();
@@ -97,7 +99,7 @@ function topbar() {
 /* ---------------- router ---------------- */
 const route = () => { const p = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent); return { p: p[0] || '', a: p[1] || '', b: p[2] || '' }; };
 let baseHash = null, baseRendered = null, modalFromBase = false, lastKey = '';
-const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight] };
+const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight], play: ['play', null] };
 
 function renderBase(r, keepScroll) {
   const app = $('#app'), y = scrollY, key = location.hash || '#/';
@@ -114,6 +116,7 @@ function renderBase(r, keepScroll) {
   else if (r.p === 'u') renderProfile(app, r.a);
   else if (r.p === 'invite') renderInvite(app, r.a);
   else if (r.p === 'plus') renderPlus(app, r.a);
+  else if (r.p === 'play') renderPlay(app, r.a || 'league', r.b);
   else if (r.p === 'chat') { if (inRoom) renderRoom(app, r.a); else renderChats(app, r.a); }
   else (PAGES[r.p] || PAGES[''])[1](app);
   baseHash = key; baseRendered = key;

@@ -49,6 +49,8 @@ export function renderMe(app) {
 
   ${m ? `<a class="card linkcard" href="#/match"><span style="font-size:34px" aria-hidden="true">💞</span><div style="flex:1"><h2 class="h3">${m.m.pct}% with @${esc(m.p.h)}</h2><div class="sub">Your closest movie twin so far</div></div><span class="btn sm" aria-hidden="true">Match</span></a>` : ''}
 
+  ${cloud.user && cloud.stats ? `<a class="card linkcard" href="#/play"><span style="font-size:30px" aria-hidden="true">🏆</span><div style="flex:1"><h2 class="h3">Leagues, challenges & badges</h2><div class="sub">Your league, today's challenges, Streak Shields and badges.</div></div><span class="btn sm ghost" aria-hidden="true">Play</span></a>` : ''}
+
   ${mePlusCardHTML()}
 
   ${meReviewsCardHTML()}
@@ -105,7 +107,7 @@ function accountCard() {
   const p = cloud.profile || {}, st = cloud.stats, R = rankInfo(st.xp, st.rank);
   const name = p.username || 'you';
   return `<section class="card"><div class="me-head">
-    ${avatar({ ...p, frame: isPlus() ? p.frame : null }, '')}
+    ${avatar({ ...p, rank: st.rank, frame: isPlus() ? p.frame : null }, '')}
     <div style="flex:1;min-width:0"><div style="font-weight:900;font-size:21px;overflow-wrap:anywhere">${esc(p.display_name || name)}</div>
       <div class="sub">@${esc(name)}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-weight:800;font-size:14px;margin-top:8px"><span><span class="rankchip">${R.e} ${esc(st.rank)}</span>${isPlus() ? ' <span class="pluschip">💖 Plus</span>' : ''}</span><span class="sub" style="font-size:13px">${R.next ? `${R.toNext} XP to ${esc(R.next)}` : 'Top rank!'}</span></div>
