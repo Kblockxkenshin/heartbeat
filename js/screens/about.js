@@ -9,6 +9,6 @@ export function renderAbout(app) {
       <p><span class="tmdb-mark">TMDB</span></p>
       <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
       <p class="sub">Posters, backdrops, years, genres, runtimes and overviews come from <a class="see" style="display:inline;padding:0" href="https://www.themoviedb.org" target="_blank" rel="noopener">themoviedb.org</a>.</p></div>
-    <div class="card"><h3>🔒 Your data</h3><p class="sub">This prototype saves your ratings only on this device. Clearing your browser data clears them too.</p></div>
+    <div class="card"><h3>🔒 Your data</h3><p class="sub">Without an account, your ratings stay on this device only. With an account, they are saved on our server so you can use them on any device. Your birthday is private, and only you can see it.</p></div>
   </div>`;
 }

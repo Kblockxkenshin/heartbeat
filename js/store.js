@@ -1,5 +1,8 @@
 // Everything the user does is saved on this device (localStorage), wrapped in try/catch.
+// When signed in, ratings, Quick Rate swipes and the watchlist are ALSO saved to the server
+// (see cloud.js). The server is the boss for XP, rank and streak.
 import { TITLES, BYID, PEOPLE, BADGES, LISTS } from './data.js';
+import { cloud, pushRating, pushSwipe, pushWatch, idOf } from './cloud.js';
 
 const KEY = 'heartbeat_v2';
 const fresh = () => ({
@@ -42,14 +45,36 @@ function activity() {
   return { streakUp, newBadges };
 }
 
+/** Shows a small note if the server refused (for example: rate limit). */
+let onSyncError = () => {};
+export const setSyncErrorHandler = fn => { onSyncError = fn; };
+const sync = p => p.then(r => { if (r && r.error) onSyncError(r.error); }).catch(() => {});
+
 export function rate(id, j) {
   const overall = Math.round(((j.start + j.middle + j.end * 2) / 4) * 2) / 2;
-  U.ratings[id] = { ...j, overall, ts: Date.now() };
+  U.ratings[id] = { start: j.start, middle: j.middle, end: j.end, overall, ts: Date.now() };
   if (U.swipes[id] === 'unseen') delete U.swipes[id];
+  sync(pushRating(id, U.ratings[id]));
   return activity();
 }
-export function swipe(id, kind) { U.swipes[id] = kind; return activity(); }
-export function toggleSave(id) { if (U.watchlist[id]) delete U.watchlist[id]; else U.watchlist[id] = Date.now(); const r = checkBadges(); save(); return { saved: !!U.watchlist[id], newBadges: r }; }
+export function swipe(id, kind) { U.swipes[id] = kind; sync(pushSwipe(id, kind)); return activity(); }
+export function toggleSave(id) {
+  if (U.watchlist[id]) delete U.watchlist[id]; else U.watchlist[id] = Date.now();
+  sync(pushWatch(id, !!U.watchlist[id]));
+  const r = checkBadges(); save(); return { saved: !!U.watchlist[id], newBadges: r };
+}
+
+/** After sign-in: the server copy becomes the truth on this device. */
+export function applyRemote(remote, userId) {
+  U.ratings = {}; U.swipes = {}; U.watchlist = {};
+  remote.ratings.forEach(r => { U.ratings[idOf(r.title_key)] = { start: r.start_h, middle: r.middle_h, end: r.end_h, overall: +r.overall, ts: Date.parse(r.updated_at) }; });
+  remote.swipes.forEach(r => { U.swipes[idOf(r.title_key)] = r.kind; });
+  remote.watchlist.forEach(r => { U.watchlist[idOf(r.title_key)] = Date.parse(r.added_at); });
+  U.syncedUser = userId;
+  checkBadges(); save();
+}
+/** Name to show: the account username when signed in. */
+export const displayName = () => cloud.profile?.username || U.name;
 export function addRecent(q) { q = q.trim(); if (!q) return; U.recent = [q, ...U.recent.filter(x => x.toLowerCase() !== q.toLowerCase())].slice(0, 6); save(); }
 
 /** My 1–5 score for a title, from a full rating or a swipe. */
@@ -113,7 +138,13 @@ function checkBadges() {
   BADGES.forEach(b => { if (!U.badges[b.id] && b.test(s)) { U.badges[b.id] = Date.now(); got.push(b); } });
   return got;
 }
-export function streakAlive() { const t = day(), y = day(new Date(Date.now() - 864e5)); return U.streak.last === t || U.streak.last === y ? U.streak.count : 0; }
+export function streakAlive() {
+  if (cloud.stats) { // server streak (UTC days)
+    const t = new Date().toISOString().slice(0, 10), y = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    return cloud.stats.streak_last === t || cloud.stats.streak_last === y ? cloud.stats.streak_count : 0;
+  }
+  const t = day(), y = day(new Date(Date.now() - 864e5)); return U.streak.last === t || U.streak.last === y ? U.streak.count : 0;
+}
 export function dailyPick() {
   const todo = TITLES.filter(t => myScore(t.id) == null);
   const pool = todo.length ? todo : TITLES;

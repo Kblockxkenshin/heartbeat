@@ -1,7 +1,9 @@
 // App shell: router, responsive navigation (tabs / sidebar), search bar, detail modal,
 // keyboard shortcuts, pull-to-refresh, offline banner and install prompt.
 import { TITLES, BYID } from './data.js';
-import { toggleSave, U, streakAlive } from './store.js';
+import { toggleSave, U, streakAlive, displayName, applyRemote, setSyncErrorHandler } from './store.js';
+import { cloud, startCloud, onCloud, importLocal } from './cloud.js';
+import { renderAuth, renderWelcome, needsSetup } from './screens/auth.js';
 import { hydrate, apply, loadTitle, search as tmdbSearch } from './tmdb.js';
 import { $, $$, esc, hearts, celebrate, closeSheet, sheet, toast, wide, buzz, mascot, poster, hydratePosters } from './ui.js';
 import { renderHome } from './screens/home.js';
@@ -37,7 +39,8 @@ function chrome(active) {
     <nav class="snav">${NAV.map(n => { const on = active === n.k; return `<a href="${n.h}" class="sitem ${n.k === 'rate' ? 'srate' : ''} ${on ? 'on' : ''}" ${on ? 'aria-current="page"' : ''} title="${n.l}" aria-label="${n.l}"><span class="ic">${svg(n.i, on || n.k === 'rate')}</span><span class="lb">${n.l}</span></a>`; }).join('')}</nav>
     <div class="sfoot">
       <button class="sitem" id="helpBtn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><span class="ic">⌨️</span><span class="lb">Shortcuts <kbd class="kbd">?</kbd></span></button>
-      <a class="sme" href="#/me" aria-label="${esc(U.name)}, ${st}-day streak"><span class="ava sm" aria-hidden="true">${esc((U.name[0] || 'Y').toUpperCase())}</span><span class="lb"><b>${esc(U.name)}</b><small>🔥 ${st}-day streak</small></span></a>
+      ${cloud.ready && !cloud.user ? `<a class="sitem ssign" href="#/signin" aria-label="Sign in"><span class="ic">🔑</span><span class="lb">Sign in</span></a>` : ''}
+      <a class="sme" href="#/me" aria-label="${esc(displayName())}, ${st}-day streak"><span class="ava sm" aria-hidden="true">${esc((displayName()[0] || 'Y').toUpperCase())}</span><span class="lb"><b>${esc(displayName())}</b><small>${cloud.stats ? esc(cloud.stats.rank) + ' · ' : ''}🔥 ${st}-day streak</small></span></a>
     </div>`;
   $('#side').hidden = active === 'none';
   $('#topbar').hidden = active === 'none';
@@ -80,13 +83,14 @@ function topbar() {
 /* ---------------- router ---------------- */
 const route = () => { const p = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent); return { p: p[0] || '', a: p[1] || '', b: p[2] || '' }; };
 let baseHash = null, baseRendered = null, modalFromBase = false, lastKey = '';
-const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['match', renderMatch], list: ['home', null], feed: ['none', null], about: ['me', renderAbout] };
+const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['match', renderMatch], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome] };
 
 function renderBase(r, keepScroll) {
   const app = $('#app'), y = scrollY, key = location.hash || '#/';
   const [tab] = PAGES[r.p] || PAGES[''];
   chrome(tab);
-  if (r.p === 'list') renderList(app, r.a);
+  if (r.p === 'signin') renderAuth(app, r.a);
+  else if (r.p === 'list') renderList(app, r.a);
   else if (r.p === 'feed') renderFeed(app, r.a, r.b);
   else if (r.p === 'search') renderSearch(app, r.a);
   else (PAGES[r.p] || PAGES[''])[1](app);
@@ -253,6 +257,26 @@ export const install = {
   async prompt() { if (!bip) return false; bip.prompt(); const c = await bip.userChoice; bip = null; return c.outcome === 'accepted'; },
 };
 
+/* ---------------- account (Supabase) ---------------- */
+setSyncErrorHandler(msg => toast(msg, 'sad'));
+let lastUser = null, lastRank = null;
+onCloud(async c => {
+  const uid = c.user?.id || null;
+  if (uid && c.remote && U.syncedUser !== uid && !c.needsBirthdate) {
+    U.syncedUser = uid; // guard against running twice
+    const n = await importLocal(U);
+    applyRemote(c.remote, uid);
+    if (n) toast(`Moved ${n} ratings from this device into your account.`);
+  }
+  if (c.stats?.rank && lastRank && c.stats.rank !== lastRank) { confettiSafe(); toast(`New rank: ${c.stats.rank}! 🎉`, 'wow'); }
+  if (c.stats?.rank) lastRank = c.stats.rank;
+  if (c.checkin?.xp_gained) { toast(`+${c.checkin.xp_gained} XP for showing up today!`); c.checkin = null; }
+  if (uid && needsSetup() && c.profile !== undefined && !/^#\/(welcome|signin)/.test(location.hash) && (c.profile || c.stats)) location.hash = '#/welcome';
+  if (uid !== lastUser || route().p === 'me' || route().p === 'welcome' || route().p === 'signin') { lastUser = uid; render(true); }
+  else chrome(PAGES[route().p]?.[0] || 'home');
+});
+function confettiSafe() { import('./ui.js').then(m => m.confetti()); }
+
 /* ---------------- start ---------------- */
 addEventListener('hashchange', () => render());
 let wasWide = wide();
@@ -260,6 +284,7 @@ addEventListener('resize', () => { if (wide() !== wasWide) { wasWide = wide(); b
 topbar();
 netBanner();
 render();
+startCloud();
 
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude/.test(location.host)) {
   addEventListener('load', () => { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) { /* ignore */ } });

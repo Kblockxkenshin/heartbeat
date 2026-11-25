@@ -1,5 +1,5 @@
 import { TITLES, BYID, LISTS } from '../data.js';
-import { U, dailyPick, forYou, streakAlive } from '../store.js';
+import { U, dailyPick, forYou, streakAlive, displayName } from '../store.js';
 import { card, row, poster, esc, hydratePosters } from '../ui.js';
 
 export function listTitles(key) {
@@ -27,7 +27,7 @@ export function renderHome(app) {
     <div class="logo"><span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="24" height="24"><path d="M3 17h6l2.5-6 4 12 3-9 2 3H29" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>heartbeat</div>
     <a class="icon-btn" href="#/me" aria-label="Your streak: ${streak} days">🔥${streak ? `<span class="dot">${streak}</span>` : ''}</a>
   </header>
-  <h1 class="hello">${hi}${U.name !== 'You' ? ', ' + esc(U.name) : ''}! <b>Rate the journey,</b> not just the ending.</h1>
+  <h1 class="hello">${hi}${displayName() !== 'You' ? ', ' + esc(displayName()) : ''}! <b>Rate the journey,</b> not just the ending.</h1>
   <a class="searchbar phone-only" href="#/search" aria-label="Search movies and series"><span aria-hidden="true">🔎</span> Search movies & series…</a>
 
   <div class="hero-grid">

@@ -1,4 +1,4 @@
-import { matches, U, stats } from '../store.js';
+import { matches, U, stats, displayName } from '../store.js';
 import { $, esc, empty, toast, confetti, mascot } from '../ui.js';
 
 export function renderMatch(app) {
@@ -43,7 +43,7 @@ function storyCard({ p, m }) {
   x.strokeStyle = '#fff'; x.lineCap = 'round'; x.beginPath(); x.arc(540, 900, 260, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * m.pct / 100); x.stroke();
   x.font = '900 200px Nunito, system-ui'; x.fillText(m.pct + '%', 540, 970);
   x.font = '900 84px Nunito, system-ui'; x.fillText(m.pct >= 80 ? 'movie twins!' : 'taste match', 540, 1300);
-  x.font = '800 52px Nunito, system-ui'; x.fillText(`${U.name} + @${p.h}`, 540, 1420);
+  x.font = '800 52px Nunito, system-ui'; x.fillText(`${displayName()} + @${p.h}`, 540, 1420);
   x.font = '700 40px Nunito, system-ui'; x.fillText('Rate the journey, not just the ending', 540, 1760);
   c.toBlob(async b => {
     const file = new File([b], 'heartbeat-taste-match.png', { type: 'image/png' });

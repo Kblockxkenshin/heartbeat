@@ -2,6 +2,15 @@ import { BYID, BADGES } from '../data.js';
 import { U, save, stats, level, streakAlive, matches, today } from '../store.js';
 import { $, esc, card, row, hydratePosters, empty, toast, sheet, confetti } from '../ui.js';
 import { rerender, install } from '../app.js';
+import { cloud, signOut } from '../cloud.js';
+
+// Same numbers as rank_for() on the server (for the progress bar only; the server decides the rank).
+export const RANKS = [['Popcorn', 0, '🍿'], ['Ticket Holder', 100, '🎟️'], ['Front Row', 300, '💺'], ['Critic', 700, '📝'], ['Top Critic', 1500, '⭐'], ["Director's Cut", 3000, '🎬'], ['Legend', 6000, '👑']];
+export function rankInfo(xp, name) {
+  const i = Math.max(0, RANKS.findIndex(r => r[0] === name));
+  const [, lo, e] = RANKS[i], next = RANKS[i + 1];
+  return { e, next: next?.[0], pct: next ? Math.round((xp - lo) / (next[1] - lo) * 100) : 100, toNext: next ? next[1] - xp : 0 };
+}
 
 export function renderMe(app) {
   document.title = 'Me — Heartbeat';
@@ -17,13 +26,7 @@ export function renderMe(app) {
   <header class="top"><h1 class="logo" style="font-size:26px;margin:0">Me</h1><a class="icon-btn" href="#/about" aria-label="Settings and about">⚙️</a></header>
 
   <div class="me-grid">
-  <section class="card"><div class="me-head">
-    <div class="ava" aria-hidden="true">${esc((U.name[0] || 'Y').toUpperCase())}</div>
-    <div style="flex:1"><input id="nm" value="${esc(U.name)}" aria-label="Your name" style="font-weight:900;font-size:20px;padding:6px 10px;border-radius:12px">
-      <div style="display:flex;justify-content:space-between;font-weight:800;font-size:14px;margin-top:8px"><span>Level ${L.lv}</span><span class="sub" style="font-size:13px">${L.toNext} XP to next</span></div>
-      <div class="lvl" role="progressbar" aria-label="Level progress" aria-valuenow="${L.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${L.pct}%"></i></div></div>
-  </div>
-  <div style="margin-top:12px"><span class="chip founding">🏅 Founding Reviewer</span></div></section>
+  ${cloud.user && cloud.stats ? accountCard() : guestCard(L)}
 
   <section class="card"><div class="flame"><span class="f" aria-hidden="true">🔥</span><div><b>${streak}</b> <span style="font-weight:900">day streak</span><div class="sub">${streak ? 'Rate one thing today to keep it alive.' : 'Rate one title to start a streak.'}</div></div></div>
     <div class="week" aria-label="This week">${days.map(d => `<span class="${d.on ? 'on' : ''}"><i>${d.on ? '🔥' : ''}</i>${d.l}</span>`).join('')}</div></section>
@@ -54,7 +57,14 @@ export function renderMe(app) {
   <div style="text-align:center;padding:8px"><a class="see" href="#/about">About Heartbeat & TMDB credits</a></div>
   </div>`;
   hydratePosters(app);
-  $('#nm').onchange = e => { U.name = e.target.value.trim().slice(0, 30) || 'You'; save(); rerender(); };
+  const nm = $('#nm'); if (nm) nm.onchange = e => { U.name = e.target.value.trim().slice(0, 30) || 'You'; save(); rerender(); };
+  const so = $('#signout');
+  if (so) so.onclick = async () => {
+    await signOut();
+    // Shared computer? Don't leave this account's ratings behind on this device.
+    U.ratings = {}; U.swipes = {}; U.watchlist = {}; delete U.syncedUser; save();
+    toast('Signed out. See you soon!'); rerender();
+  };
   $('#rem').onclick = () => { U.settings.reminders = !U.settings.reminders; save(); toast(U.settings.reminders ? 'Reminders on. One gentle nudge a day.' : 'Reminders off. We won\'t bug you.'); rerender(); };
   const ib = $('#install');
   if (ib) ib.onclick = async () => {
@@ -68,4 +78,31 @@ export function renderMe(app) {
         <div class="sub">If you don't see the option, refresh the page once and try again.</div>`);
     }
   };
+}
+
+function guestCard(L) {
+  return `<section class="card"><div class="me-head">
+    <div class="ava" aria-hidden="true">${esc((U.name[0] || 'Y').toUpperCase())}</div>
+    <div style="flex:1"><input id="nm" value="${esc(U.name)}" aria-label="Your name" style="font-weight:900;font-size:20px;padding:6px 10px;border-radius:12px">
+      <div style="display:flex;justify-content:space-between;font-weight:800;font-size:14px;margin-top:8px"><span>Level ${L.lv}</span><span class="sub" style="font-size:13px">${L.toNext} XP to next</span></div>
+      <div class="lvl" role="progressbar" aria-label="Level progress" aria-valuenow="${L.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${L.pct}%"></i></div></div>
+  </div>
+  ${cloud.ready ? `<div class="signcta"><div class="sub">Saved on this device only. Make a free account to keep your ratings everywhere, earn ranks and add friends.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><a class="btn sm" href="#/signin/up">Make an account</a><a class="btn sm ghost" href="#/signin">Sign in</a></div></div>`
+    : `<div style="margin-top:12px"><span class="chip founding">🏅 Founding Reviewer</span></div>`}</section>`;
+}
+function accountCard() {
+  const p = cloud.profile || {}, st = cloud.stats, R = rankInfo(st.xp, st.rank);
+  const name = p.username || 'you';
+  return `<section class="card"><div class="me-head">
+    <div class="ava" aria-hidden="true">${esc((p.display_name || name)[0].toUpperCase())}</div>
+    <div style="flex:1;min-width:0"><div style="font-weight:900;font-size:21px;overflow-wrap:anywhere">${esc(p.display_name || name)}</div>
+      <div class="sub">@${esc(name)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-weight:800;font-size:14px;margin-top:8px"><span class="rankchip">${R.e} ${esc(st.rank)}</span><span class="sub" style="font-size:13px">${R.next ? `${R.toNext} XP to ${esc(R.next)}` : 'Top rank!'}</span></div>
+      <div class="lvl" role="progressbar" aria-label="Rank progress" aria-valuenow="${R.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${R.pct}%"></i></div>
+      <div class="sub" style="font-size:13px;margin-top:4px">${st.xp} XP · checked by the server 🔒</div></div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:12px"><span class="chip founding">🏅 Founding Reviewer</span>
+    <button class="btn sm ghost" id="signout">Sign out</button></div>
+  <div class="sub" style="font-size:13px;margin-top:8px;overflow-wrap:anywhere">Signed in as ${esc(cloud.user.email || '')}</div></section>`;
 }

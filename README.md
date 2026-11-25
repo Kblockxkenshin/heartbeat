@@ -1,6 +1,6 @@
 # Heartbeat 💓 — rate the journey, not just the ending
 
-Playful, phone-first movie & series rating app. Prototype: ratings are saved on your device only.
+Playful, phone-first movie & series rating app. Works without an account (saved on the device). With an account, data is saved in Supabase.
 
 ## Files (one job each)
 - `index.html` — page shell
@@ -19,3 +19,11 @@ Playful, phone-first movie & series rating app. Prototype: ratings are saved on 
 Vercel → your project → Settings → Environment Variables → add `TMDB_API_KEY` with your TMDB token → Redeploy.
 
 TMDB: This product uses the TMDB API but is not endorsed or certified by TMDB.
+
+## Backend (Supabase) — Part 0
+1. Supabase → SQL Editor → paste `supabase/001_foundation.sql` → Run.
+2. Vercel → Environment Variables: `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the **anon public** key, never the service_role key) → Redeploy.
+3. Supabase → Authentication → URL Configuration: Site URL = your Vercel URL.
+
+Security model: Row Level Security on every table. XP, rank, streak and Plus status live in `user_stats`
+and `xp_events`, which the app cannot write. Triggers and server functions give XP. Minimum age 13.
