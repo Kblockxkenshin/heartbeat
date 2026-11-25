@@ -2,14 +2,14 @@
 //  - App shell: cached on install, updated in the background.
 //  - TMDB data (/api/tmdb): network first, saved copy when offline.
 //  - Posters & backdrops: cache first, keeps the most recent 200.
-const VERSION = 'v8';
+const VERSION = 'v9';
 const SHELL = `hb-shell-${VERSION}`, API = 'hb-api', IMG = 'hb-img', IMG_MAX = 200;
 const FILES = ['/', '/index.html', '/manifest.json', '/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png',
   '/css/app.css', '/js/app.js', '/js/config.js', '/js/data.js', '/js/store.js', '/js/tmdb.js', '/js/ui.js', '/js/journey.js',
   '/js/screens/home.js', '/js/screens/detail.js', '/js/screens/quickrate.js', '/js/screens/me.js', '/js/screens/search.js',
   '/js/screens/match.js', '/js/screens/list.js', '/js/screens/feed.js', '/js/screens/about.js',
   '/js/cloud.js', '/js/screens/auth.js', '/js/reviews.js', '/js/screens/reviews.js',
-  '/js/social.js', '/js/screens/people.js', '/js/vendor/qrcode.js', '/js/screens/chat.js', '/js/screens/recs.js'];
+  '/js/social.js', '/js/screens/people.js', '/js/vendor/qrcode.js', '/js/screens/chat.js', '/js/screens/recs.js', '/js/screens/plus.js', '/js/screens/wrapped.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
@@ -40,7 +40,7 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return;
 
   // Backend settings: always ask the network (never cache).
-  if (url.pathname === '/api/config' || url.pathname === '/api/img') return;
+  if (url.pathname === '/api/config' || url.pathname === '/api/img' || url.pathname === '/api/billing' || url.pathname === '/api/stripe-webhook') return;
   // TMDB data: network first, cached copy when offline.
   if (url.pathname.startsWith('/api/')) {
     e.respondWith(fetch(req).then(r => { if (r.ok) { const cp = r.clone(); caches.open(API).then(c => c.put(req, cp)); } return r; })

@@ -20,6 +20,8 @@ import { renderFriends, renderProfile, renderInvite, pendingInvite } from './scr
 import { avatar, socialReady } from './social.js';
 import { refreshRequests } from './cloud.js';
 import { renderChats, renderRoom, leaveRoom, watchInbox, unwatchInbox } from './screens/chat.js';
+import { renderPlus, renderMovieNight } from './screens/plus.js';
+import { renderWrapped } from './screens/wrapped.js';
 
 TITLES.forEach(apply); // use cached TMDB info right away
 
@@ -95,7 +97,7 @@ function topbar() {
 /* ---------------- router ---------------- */
 const route = () => { const p = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent); return { p: p[0] || '', a: p[1] || '', b: p[2] || '' }; };
 let baseHash = null, baseRendered = null, modalFromBase = false, lastKey = '';
-const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews] };
+const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight] };
 
 function renderBase(r, keepScroll) {
   const app = $('#app'), y = scrollY, key = location.hash || '#/';
@@ -111,6 +113,7 @@ function renderBase(r, keepScroll) {
   else if (r.p === 'friends') renderFriends(app, r.a || 'feed');
   else if (r.p === 'u') renderProfile(app, r.a);
   else if (r.p === 'invite') renderInvite(app, r.a);
+  else if (r.p === 'plus') renderPlus(app, r.a);
   else if (r.p === 'chat') { if (inRoom) renderRoom(app, r.a); else renderChats(app, r.a); }
   else (PAGES[r.p] || PAGES[''])[1](app);
   baseHash = key; baseRendered = key;

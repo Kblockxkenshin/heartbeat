@@ -56,3 +56,21 @@ can tap Watched it, Watchlist or Not for me. When they rate it, you get a notifi
 it (4★ or more) you earn 10 Good Taste points (+5 XP). "Best Recommender" ranks you and your friends.
 Friends only, one per friend per title, no titles they already rated, 50 an hour. Notes are checked
 on the server.
+
+## Heartbeat Plus (Part 4)
+Upload the app code first, then run `supabase/006_plus.sql`. Plus is $3.99/month or $29.99/year with a
+7-day free trial (one per person), and $1.99/month for students with a confirmed .edu email.
+Everything core stays free. Plus gives no XP, rank or leaderboard advantage.
+
+Plus today: Heartbeat Wrapped (story slides), Taste Match Pro, Movie Night picker, profile themes /
+banners / avatar frames, and a Plus badge. Coming later: custom lists with friends, watch parties,
+Streak Shield.
+
+Payments use Stripe Checkout. Plus status is only changed on the server (`/api/stripe-webhook` and
+`/api/billing`), never by the app. To turn payments on, add these in Vercel → Settings → Environment
+Variables (never paste them into chat or code):
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`,
+`STRIPE_PRICE_STUDENT`, `SUPABASE_SERVICE_ROLE_KEY`. Then in Stripe add the webhook
+`https://<your site>/api/stripe-webhook` with events `checkout.session.completed` and
+`customer.subscription.created/updated/deleted`, and turn on the Customer Portal.
+Until then the Plus page says "Payments open soon" and the free app works as usual.

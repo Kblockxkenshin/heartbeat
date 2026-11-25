@@ -6,6 +6,7 @@ import { cloud, signOut } from '../cloud.js';
 import { meReviewsCardHTML, fillMeReviews } from './reviews.js';
 import { avatar } from '../social.js';
 import { editProfile } from './people.js';
+import { mePlusCardHTML, isPlus } from './plus.js';
 
 // Same numbers as rank_for() on the server (for the progress bar only; the server decides the rank).
 export const RANKS = [['Popcorn', 0, '🍿'], ['Ticket Holder', 100, '🎟️'], ['Front Row', 300, '💺'], ['Critic', 700, '📝'], ['Top Critic', 1500, '⭐'], ["Director's Cut", 3000, '🎬'], ['Legend', 6000, '👑']];
@@ -47,6 +48,8 @@ export function renderMe(app) {
     <ul class="badges">${BADGES.map(b => `<li class="bdg ${U.badges[b.id] ? 'got' : ''}"><span class="e" aria-hidden="true">${b.e}</span>${b.name}<span class="sr-only">${U.badges[b.id] ? ' (unlocked)' : ' (locked)'}</span></li>`).join('')}</ul></section>
 
   ${m ? `<a class="card linkcard" href="#/match"><span style="font-size:34px" aria-hidden="true">💞</span><div style="flex:1"><h2 class="h3">${m.m.pct}% with @${esc(m.p.h)}</h2><div class="sub">Your closest movie twin so far</div></div><span class="btn sm" aria-hidden="true">Match</span></a>` : ''}
+
+  ${mePlusCardHTML()}
 
   ${meReviewsCardHTML()}
 
@@ -102,10 +105,10 @@ function accountCard() {
   const p = cloud.profile || {}, st = cloud.stats, R = rankInfo(st.xp, st.rank);
   const name = p.username || 'you';
   return `<section class="card"><div class="me-head">
-    ${avatar(p, '')}
+    ${avatar({ ...p, frame: isPlus() ? p.frame : null }, '')}
     <div style="flex:1;min-width:0"><div style="font-weight:900;font-size:21px;overflow-wrap:anywhere">${esc(p.display_name || name)}</div>
       <div class="sub">@${esc(name)}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-weight:800;font-size:14px;margin-top:8px"><span class="rankchip">${R.e} ${esc(st.rank)}</span><span class="sub" style="font-size:13px">${R.next ? `${R.toNext} XP to ${esc(R.next)}` : 'Top rank!'}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-weight:800;font-size:14px;margin-top:8px"><span><span class="rankchip">${R.e} ${esc(st.rank)}</span>${isPlus() ? ' <span class="pluschip">💖 Plus</span>' : ''}</span><span class="sub" style="font-size:13px">${R.next ? `${R.toNext} XP to ${esc(R.next)}` : 'Top rank!'}</span></div>
       <div class="lvl" role="progressbar" aria-label="Rank progress" aria-valuenow="${R.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${R.pct}%"></i></div>
       <div class="sub" style="font-size:13px;margin-top:4px">${st.xp} XP · checked by the server 🔒</div></div>
   </div>

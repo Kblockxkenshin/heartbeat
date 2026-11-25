@@ -10,6 +10,7 @@ import { localSearch } from './search.js';
 import { rerender } from '../app.js';
 import { messageUser } from './chat.js';
 import { fillRecs } from './recs.js';
+import { openMatchPro, styleClass, bannerHTML } from './plus.js';
 
 const stars = o => `★ ${o != null ? (+o).toFixed(1).replace(/\.0$/, '') : '–'}`;
 const pctColor = p => p >= 80 ? 'var(--pink)' : p >= 60 ? 'var(--purple)' : 'var(--muted)';
@@ -189,7 +190,8 @@ async function fillFriends(body) {
       ${o.friends.length ? o.friends.map(p => personRow(p)).join('') : `<div class="sub" style="padding:8px 0">No friends yet. <a class="see" href="#/friends/find">Find people</a> or <a class="see" href="#/friends/invite">send an invite</a>.</div>`}</section>
     <section class="card"><h2 class="h3">⭐ Following <span class="sub">(${o.following.length})</span></h2>
       ${o.following.length ? o.following.map(p => personRow(p)).join('') : `<div class="sub" style="padding:8px 0">Follow public profiles to see their activity without being friends.</div>`}
-      <div class="sub" style="margin-top:8px">${o.followers} ${o.followers === 1 ? 'person follows' : 'people follow'} you.</div></section>`;
+      <div class="sub" style="margin-top:8px">${o.followers} ${o.followers === 1 ? 'person follows' : 'people follow'} you.</div></section>
+    ${o.friends.length ? `<a class="card linkcard" href="#/movienight"><span style="font-size:30px" aria-hidden="true">🍿</span><div style="flex:1"><h2 class="h3">Movie Night</h2><div class="sub">Pick friends and find the perfect title for everyone.</div></div><span class="btn sm ghost" aria-hidden="true">💖 Plus</span></a>` : ''}`;
 }
 
 /* ---------- Requests ---------- */
@@ -330,18 +332,19 @@ export async function renderProfile(app, username) {
   app.innerHTML = `<div class="screen profile">
     <header class="top"><button class="icon-btn" id="pback" aria-label="Back">←</button>
       <div style="display:flex;gap:8px">${!me ? `<button class="icon-btn" id="pshare" aria-label="Share profile">📤</button>` : ''}${!me && signed ? `<button class="icon-btn" id="pmore" aria-label="More options">⋯</button>` : ''}</div></header>
-    <section class="card phead">
-      ${avatar(p, 'lg')}
+    <section class="card phead ${styleClass(p)}">
+      ${bannerHTML(p)}${avatar(p, 'lg')}
       <div class="pinfo"><h1>${esc(p.display_name || p.username)}</h1>
         <div class="sub">${handle(p)}${r.follows_me ? ' · <span class="pill2">Follows you</span>' : ''}</div>
-        <div class="pchips">${rankChip(p.rank)}${p.top_critic ? '<span class="crit">✔ Verified Critic</span>' : ''}${p.streak ? `<span class="pill2">🔥 ${p.streak}-day streak</span>` : ''}${p.is_private ? '<span class="pill2">🔒 Friends only</span>' : ''}</div></div>
+        <div class="pchips">${rankChip(p.rank)}${p.top_critic ? '<span class="crit">✔ Verified Critic</span>' : ''}${p.plus ? '<span class="pluschip">💖 Plus</span>' : ''}${p.streak ? `<span class="pill2">🔥 ${p.streak}-day streak</span>` : ''}${p.is_private ? '<span class="pill2">🔒 Friends only</span>' : ''}</div></div>
       ${p.bio ? `<p class="pbio">${esc(p.bio)}</p>` : ''}
       <div class="pcounts"><div><b>${c.ratings}</b><span>ratings</span></div><div><b>${c.reviews}</b><span>reviews</span></div><div><b>${c.friends}</b><span>friends</span></div><div><b>${c.followers}</b><span>followers</span></div></div>
       <div class="pbtns">${friendBtn}${followBtn}${!me && signed && !r.blocked ? '<button class="btn ghost" id="pmsg">💬 Message</button>' : ''}</div>
     </section>
 
     ${m && m.pct != null ? `<button class="card matchcard" id="pmatch" type="button"><div class="mring" style="--p:${m.pct}"><b>${m.pct}%</b></div>
-      <div style="flex:1;text-align:left"><h2 class="h3">Taste Match</h2><div class="sub">${m.pct >= 80 ? 'Movie twins! ' : ''}You both rated ${m.n} of the same titles. Tap to see where you agree.</div></div></button>`
+      <div style="flex:1;text-align:left"><h2 class="h3">Taste Match</h2><div class="sub">${m.pct >= 80 ? 'Movie twins! ' : ''}You both rated ${m.n} of the same titles. Tap to see where you agree.</div></div></button>
+      ${!me && signed ? '<button class="btn sm ghost propro" id="ppro" type="button">🔬 Pro compare: start, middle, ending</button>' : ''}`
       : m && !me ? `<div class="card"><h2 class="h3">💞 Taste Match</h2><div class="sub">Rate ${Math.max(1, 2 - (m.n || 0))} more title${2 - (m.n || 0) === 1 ? '' : 's'} you both watched to see your match.</div></div>` : ''}
 
     ${p.limited ? `<div class="card">${empty(p.is_private ? '🔒 This profile is friends-only. Become friends to see their ratings and activity.' : 'Sign in to see more.', 'happy')}</div>` : `
@@ -363,6 +366,7 @@ export async function renderProfile(app, username) {
   on('punblock', async () => { try { await S.unblock(p.id); toast('Unblocked.'); again(); } catch (e) { toast(plain(e), 'sad'); } });
   on('pfollow', async e => { const b = e.currentTarget; b.disabled = true; try { if (r.following) await S.unfollow(p.id); else { await S.follow(p.id); toast(`Following ${handle(p)}`); } again(); } catch (er) { toast(plain(er), 'sad'); b.disabled = false; } });
   on('pmatch', () => openMatch(p));
+  on('ppro', () => openMatchPro(p));
   on('pmsg', () => messageUser(p));
   on('pshare', async () => { const url = `${location.origin}/${profileHref(p)}`; try { if (navigator.share) await navigator.share({ title: `@${p.username} on Heartbeat`, url }); else { await navigator.clipboard.writeText(url); toast('Link copied!'); } } catch (e) { /* closed */ } });
   on('pmore', () => moreSheet(p, again));

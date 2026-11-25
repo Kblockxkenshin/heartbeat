@@ -50,7 +50,8 @@ export function avatar(p, size = 'sm', extra = '') {
   const letter = esc((name[0] || '?').toUpperCase());
   const img = p?.avatar_url && /^https:\/\//.test(p.avatar_url)
     ? `<img src="${esc(p.avatar_url)}" alt="" loading="lazy" decoding="async">` : '';
-  return `<span class="ava ${size} ${extra}" aria-hidden="true" style="background:linear-gradient(135deg,${a},${b})"><i>${letter}</i>${img}</span>`;
+  const fr = p?.frame && /^[a-z]+$/.test(p.frame) ? ` fr-${p.frame}` : '';
+  return `<span class="ava ${size} ${extra}${fr}" aria-hidden="true" style="background:linear-gradient(135deg,${a},${b})"><i>${letter}</i>${img}</span>`;
 }
 // A photo that fails to load falls back to the letter underneath.
 document.addEventListener('error', e => { if (e.target?.matches?.('.ava img')) e.target.remove(); }, true);
