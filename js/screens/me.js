@@ -4,6 +4,8 @@ import { $, esc, card, row, hydratePosters, empty, toast, sheet, confetti } from
 import { rerender, install } from '../app.js';
 import { cloud, signOut } from '../cloud.js';
 import { meReviewsCardHTML, fillMeReviews } from './reviews.js';
+import { avatar } from '../social.js';
+import { editProfile } from './people.js';
 
 // Same numbers as rank_for() on the server (for the progress bar only; the server decides the rank).
 export const RANKS = [['Popcorn', 0, '🍿'], ['Ticket Holder', 100, '🎟️'], ['Front Row', 300, '💺'], ['Critic', 700, '📝'], ['Top Critic', 1500, '⭐'], ["Director's Cut", 3000, '🎬'], ['Legend', 6000, '👑']];
@@ -62,6 +64,7 @@ export function renderMe(app) {
   hydratePosters(app);
   fillMeReviews(app);
   const nm = $('#nm'); if (nm) nm.onchange = e => { U.name = e.target.value.trim().slice(0, 30) || 'You'; save(); rerender(); };
+  const ed = $('#meedit'); if (ed) ed.onclick = () => editProfile();
   const so = $('#signout');
   if (so) so.onclick = async () => {
     await signOut();
@@ -99,13 +102,15 @@ function accountCard() {
   const p = cloud.profile || {}, st = cloud.stats, R = rankInfo(st.xp, st.rank);
   const name = p.username || 'you';
   return `<section class="card"><div class="me-head">
-    <div class="ava" aria-hidden="true">${esc((p.display_name || name)[0].toUpperCase())}</div>
+    ${avatar(p, '')}
     <div style="flex:1;min-width:0"><div style="font-weight:900;font-size:21px;overflow-wrap:anywhere">${esc(p.display_name || name)}</div>
       <div class="sub">@${esc(name)}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-weight:800;font-size:14px;margin-top:8px"><span class="rankchip">${R.e} ${esc(st.rank)}</span><span class="sub" style="font-size:13px">${R.next ? `${R.toNext} XP to ${esc(R.next)}` : 'Top rank!'}</span></div>
       <div class="lvl" role="progressbar" aria-label="Rank progress" aria-valuenow="${R.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${R.pct}%"></i></div>
       <div class="sub" style="font-size:13px;margin-top:4px">${st.xp} XP · checked by the server 🔒</div></div>
   </div>
+  ${p.bio ? `<p class="sub" style="margin:12px 0 0;overflow-wrap:anywhere">${esc(p.bio)}</p>` : ''}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><a class="btn sm" href="#/u/${encodeURIComponent(name)}">👤 My profile</a><button class="btn sm ghost" id="meedit">✏️ Edit profile</button><a class="btn sm ghost" href="#/friends">👥 Friends${cloud.requests ? ` (${cloud.requests})` : ''}</a></div>
   <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:12px"><span class="chip founding">🏅 Founding Reviewer</span>
     <button class="btn sm ghost" id="signout">Sign out</button></div>
   <div class="sub" style="font-size:13px;margin-top:8px;overflow-wrap:anywhere">Signed in as ${esc(cloud.user.email || '')}</div></section>`;

@@ -1,6 +1,7 @@
 import { TITLES, BYID, LISTS } from '../data.js';
 import { U, dailyPick, forYou, streakAlive, displayName } from '../store.js';
 import { card, row, poster, esc, hydratePosters } from '../ui.js';
+import { homeFriendsHTML, fillHomeFriends } from './people.js';
 
 export function listTitles(key) {
   const L = LISTS[key];
@@ -53,6 +54,8 @@ export function renderHome(app) {
     </section>
   </div>
 
+  ${homeFriendsHTML()}
+
   ${saved.length ? `<div class="sec"><h2>🔖 Your watchlist</h2><a class="see" href="#/me">See all</a></div>${row(saved.map(t => card(t)).join(''), 'Your watchlist')}` : ''}
 
   ${rows.map(k => `<div class="sec"><h2>${LISTS[k].emoji} ${LISTS[k].name}</h2><a class="see" href="#/list/${k}" aria-label="See all ${LISTS[k].name}">See all</a></div>
@@ -62,4 +65,5 @@ export function renderHome(app) {
   <div class="grid">${TITLES.map(t => card(t)).join('')}</div>
   </div>`;
   hydratePosters(app);
+  fillHomeFriends(app);
 }

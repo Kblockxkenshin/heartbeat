@@ -9,7 +9,8 @@ export const cloud = {
   ready: false,      // backend configured and library loaded
   sb: null,          // Supabase client
   user: null,        // signed-in user (or null)
-  profile: null,     // { username, display_name, bio, avatar_url }
+  profile: null,     // { username, display_name, avatar_url, bio, fav_titles, is_private, invite_code }
+  requests: 0,       // friend requests waiting for me
   stats: null,       // { xp, rank, streak_count, streak_best, is_minor, plus_until }
   needsBirthdate: false,
   remote: null,      // { ratings, swipes, watchlist } loaded from the server
@@ -75,15 +76,17 @@ export function startCloud() {
 /* ---------- my account data ---------- */
 async function loadMe(first) {
   const sb = cloud.sb, uid = cloud.user?.id; if (!sb || !uid) return;
-  const [p, s, priv, r, sw, w] = await Promise.all([
-    sb.from('profiles').select('username,display_name,bio,avatar_url').eq('id', uid).maybeSingle(),
+  const [p, s, priv, r, sw, w, mine] = await Promise.all([
+    sb.from('profiles').select('username,display_name,avatar_url').eq('id', uid).maybeSingle(),
     sb.from('user_stats').select('xp,rank,streak_count,streak_best,streak_last,is_minor,plus_until').eq('user_id', uid).maybeSingle(),
     sb.from('private_profiles').select('birthdate').eq('id', uid).maybeSingle(),
     sb.from('ratings').select('title_key,start_h,middle_h,end_h,overall,updated_at'),
     sb.from('swipes').select('title_key,kind'),
     sb.from('watchlist').select('title_key,added_at'),
+    sb.rpc('my_profile').then(x => x, () => ({ data: null })),
   ]);
-  cloud.profile = p.data || null;
+  cloud.profile = p.data ? { ...p.data, ...(mine.data || {}) } : null;
+  cloud.requests = +(mine.data?.requests || 0);
   cloud.stats = s.data || null;
   cloud.needsBirthdate = !priv.data?.birthdate;
   cloud.remote = { ratings: r.data || [], swipes: sw.data || [], watchlist: w.data || [] };
@@ -94,6 +97,12 @@ async function loadMe(first) {
   emit();
 }
 export const refreshMe = () => loadMe(false);
+/** Just the friend-request count (for the red dot). */
+export async function refreshRequests() {
+  if (!cloud.sb || !cloud.user) return;
+  const { data } = await cloud.sb.rpc('my_profile');
+  if (data && +data.requests !== cloud.requests) { cloud.requests = +data.requests; emit(); }
+}
 
 async function refreshStats() {
   const uid = cloud.user?.id; if (!uid) return;

@@ -2,6 +2,7 @@
 // the "Want to tell people why?" prompt, and the My Reviews page.
 import { BYID } from '../data.js';
 import { U, rate as saveRating } from '../store.js';
+import { avatar } from '../social.js';
 import { cloud, keyOf, idOf } from '../cloud.js';
 import { $, $$, esc, sheet, closeSheet, toast, hearts, confetti, buzz, mascot, wide, poster, hydratePosters } from '../ui.js';
 import {
@@ -121,7 +122,7 @@ export async function openEditor(t, existing = null) {
   });
   const card = () => {
     const d = read();
-    return reviewCardHTML({ ...d, id: 0, username: cloud.profile?.username || 'you', rank: cloud.stats?.rank || 'Popcorn', overall: Math.round(((d.start_h + d.middle_h + d.end_h * 2) / 4) * 2) / 2 || 0, created_at: new Date().toISOString(), mine: true, helpful: 0, likes: 0, comments: 0, watch_no: d.is_rewatch ? 2 : 1 }, { preview: true });
+    return reviewCardHTML({ ...d, id: 0, username: cloud.profile?.username || 'you', avatar_url: cloud.profile?.avatar_url, rank: cloud.stats?.rank || 'Popcorn', overall: Math.round(((d.start_h + d.middle_h + d.end_h * 2) / 4) * 2) / 2 || 0, created_at: new Date().toISOString(), mine: true, helpful: 0, likes: 0, comments: 0, watch_no: d.is_rewatch ? 2 : 1 }, { preview: true });
   };
   const refresh = () => {
     const n = countChars(body.value);
@@ -245,8 +246,8 @@ export function reviewCardHTML(r, { preview = false, showTitle = false } = {}) {
   const notes = [['Start', r.start_note], ['Middle', r.middle_note], ['Ending', r.ending_note]].filter(x => x[1]);
   return `<article class="rcard ${r.top_critic ? 'critic' : ''} ${r.friend ? 'friend' : ''}" data-rid="${r.id}">
     <header class="rch">
-      <span class="ava sm rav" aria-hidden="true">${esc(((r.display_name || r.username || '?')[0] || '?').toUpperCase())}</span>
-      <div class="rwho"><b>@${esc(r.username || 'someone')}</b>${r.top_critic ? ' <span class="crit" title="Top Critic">⭐ Top Critic</span>' : ''}${r.friend ? ' <span class="frd">Friend</span>' : ''}
+      ${r.username && !preview ? `<a href="#/u/${encodeURIComponent(r.username)}" class="ravl" tabindex="-1" aria-hidden="true">${avatar(r, 'sm', 'rav')}</a>` : avatar(r, 'sm', 'rav')}
+      <div class="rwho">${r.username && !preview ? `<a href="#/u/${encodeURIComponent(r.username)}"><b>@${esc(r.username)}</b></a>` : `<b>@${esc(r.username || 'someone')}</b>`}${r.top_critic ? ' <span class="crit" title="Top Critic">⭐ Top Critic</span>' : ''}${r.friend ? ' <span class="frd">Friend</span>' : ''}
         <div class="meta">${esc(r.rank || 'Popcorn')} · ${r.created_at ? ago(r.created_at) : ''}${r.edited ? ' · Edited' : ''}${r.mine && r.privacy && r.privacy !== 'public' ? ` · ${PRIVACY[r.privacy][0]} ${PRIVACY[r.privacy][1]}` : ''}</div></div>
       <div class="rscore">${r.start_h ? miniGraph(r.start_h, r.middle_h, r.end_h) : ''}<b>★ ${r.overall || '–'}</b></div>
     </header>
@@ -395,8 +396,8 @@ async function openComments(r, redraw) {
   const draw = async () => {
     const list = await listComments(r.id).catch(e => { toast(e.message, 'sad'); return []; });
     const top = list.filter(c => !c.parent_id), kids = id => list.filter(c => c.parent_id === id);
-    const one = (c, child) => `<div class="cmt ${child ? 'child' : ''}" data-cid="${c.id}"><span class="ava sm" aria-hidden="true">${esc((c.username || '?')[0].toUpperCase())}</span>
-      <div style="flex:1;min-width:0"><b>@${esc(c.username)}</b> <span class="meta">${esc(c.rank || '')} · ${ago(c.created_at)}</span><div class="cbody">${fmt(c.body)}</div>
+    const one = (c, child) => `<div class="cmt ${child ? 'child' : ''}" data-cid="${c.id}">${avatar(c, 'xs')}
+      <div style="flex:1;min-width:0"><a href="#/u/${encodeURIComponent(c.username || '')}"><b>@${esc(c.username)}</b></a> <span class="meta">${esc(c.rank || '')} · ${ago(c.created_at)}</span><div class="cbody">${fmt(c.body)}</div>
       <div class="cact">${child ? '' : `<button type="button" class="see" data-reply="${c.id}" data-who="${esc(c.username)}">Reply</button>`}${c.mine ? `<button type="button" class="see" data-cdel="${c.id}">Delete</button>` : `<button type="button" class="see" data-crep="${c.id}">Report</button>`}</div></div></div>`;
     $('#cList', sh).innerHTML = top.length ? top.map(c => one(c) + kids(c.id).map(k => one(k, true)).join('')).join('') : `<div class="sub" style="padding:8px 0">No comments yet. Say something nice!</div>`;
     r.comments = list.length; redraw();
@@ -464,7 +465,7 @@ export async function renderMyReviews(app) {
       const t = BYID[idOf(k)];
       return `<div class="mrgroup"><div class="mrhead">${t ? `<a href="#/t/${esc(t.id)}"><b>${esc(t.name)}</b></a>` : `<a href="#/t/${esc(idOf(k))}"><b>Open title</b></a>`}
         ${rs.length > 1 ? `<span class="timeline">${rs.map(r => `${ordinal(r.watch_no)} watch`).join(' → ')}</span>` : ''}</div>
-        ${rs.map(r => reviewCardHTML({ ...r, mine: true, username: cloud.profile?.username, rank: cloud.stats?.rank, helpful: r.helpful_count, likes: r.like_count, comments: r.comment_count })).join('')}</div>`;
+        ${rs.map(r => reviewCardHTML({ ...r, mine: true, username: cloud.profile?.username, avatar_url: cloud.profile?.avatar_url, rank: cloud.stats?.rank, helpful: r.helpful_count, likes: r.like_count, comments: r.comment_count })).join('')}</div>`;
     }).join('') : `<div class="mascot">${mascot('happy')}<div>${items.length ? 'Nothing matches.' : 'No reviews yet. Rate a title, then tell people why!'}</div></div>`;
   };
   const load = async () => { try { items = await myReviews(st.q, st.sort); } catch (e) { items = []; toast(e.message, 'sad'); } draw(); };
@@ -477,7 +478,7 @@ export async function renderMyReviews(app) {
     const spo = e.target.closest('.spo'); if (spo) { spo.classList.add('shown'); return; }
     const a = e.target.closest('[data-act]'); if (!a) return;
     const id = +a.closest('[data-rid]').dataset.rid, r = items.find(x => x.id === id); if (!r) return;
-    r.username = cloud.profile?.username; r.mine = true;
+    r.username = cloud.profile?.username; r.avatar_url = cloud.profile?.avatar_url; r.mine = true;
     const t = BYID[idOf(r.title_key)];
     await cardAction(a.dataset.act, r, t, a, draw, load);
   });

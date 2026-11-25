@@ -33,3 +33,11 @@ Run `supabase/002_reviews.sql` after `001_foundation.sql`. The app never writes 
 it calls server functions (`post_review`, `edit_review`, `toggle_vote`, `add_comment`, `report_review`).
 Every review is checked on the server (quality score, links/ads, harassment, gibberish, copy-paste, filler,
 rating mismatch, spoilers) before it is saved. `api/img.js` serves TMDB posters for the share-image card.
+
+## Friends & social (Part 1)
+Upload the app code first, then run `supabase/003_friends.sql` (it hides `bio` from direct reads, which
+older app code used). It adds profile photos (Storage bucket `avatars`, one folder per person), bio,
+favorite 4, friends-only profiles, friend requests, follows, block, report, Taste Match %, similar-taste
+suggestions, the activity feed with likes and comments, and invite links + QR codes.
+Under-18 accounts: always friends-only, never suggested, not followable by strangers, found only by exact username.
+`js/vendor/qrcode.js` is qrcode-generator by Kazuhiko Arase (MIT).
