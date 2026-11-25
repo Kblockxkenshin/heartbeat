@@ -107,8 +107,11 @@ export async function refreshRequests() {
   const { data } = await cloud.sb.rpc('my_profile');
   if (!data) return;
   const n = [+data.requests || 0, +data.unread_chats || 0, +data.chat_requests || 0];
-  if (n[0] !== cloud.requests || n[1] !== cloud.unreadChats || n[2] !== cloud.chatRequests) {
-    [cloud.requests, cloud.unreadChats, cloud.chatRequests] = n; emit();
+  const recs = [+data.new_recs || 0, +data.unread_notes || 0], p = cloud.profile || {};
+  if (n[0] !== cloud.requests || n[1] !== cloud.unreadChats || n[2] !== cloud.chatRequests || recs[0] !== (p.new_recs || 0) || recs[1] !== (p.unread_notes || 0)) {
+    [cloud.requests, cloud.unreadChats, cloud.chatRequests] = n;
+    if (cloud.profile) cloud.profile = { ...cloud.profile, new_recs: recs[0], unread_notes: recs[1] };
+    emit();
   }
 }
 

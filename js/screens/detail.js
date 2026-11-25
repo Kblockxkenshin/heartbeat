@@ -1,4 +1,5 @@
 import { sendTitleToChat } from './chat.js';
+import { recommendSheet } from './recs.js';
 import { BYID, TITLES, TAGS, TAGC, VIBEE, WORTH, BESTE } from '../data.js';
 import { U, save, rate, forYou, toggleSave } from '../store.js';
 import { $, $$, esc, poster, card, backdropUrl, hydratePosters, sheet, closeSheet, hearts, celebrate, toast, empty, fmtRuntime, buzz } from '../ui.js';
@@ -47,7 +48,7 @@ export function renderDetail(el, id, { modal = false } = {}) {
   <div class="dhead">${poster(t, { mine: false })}
     <div><h1 id="dtitle">${esc(t.name)}</h1><div class="meta">${esc(t.year)} · ${t.type === 'tv' ? 'Series' : 'Movie'}${len ? ' · ' + len : ''}</div><div class="meta">${esc(t.genres.join(' · '))}</div>
     <button class="btn big rate-main" id="rateBtn">${mine ? `★ ${mine.overall} · Edit my rating` : '💖 Rate it'} <kbd class="kbd">R</kbd></button>
-    ${cloud.ready ? `<button class="btn ghost writebtn" id="writeBtn">✍️ Write a review</button>` : ''}</div>
+    ${cloud.ready ? `<div class="dbtns"><button class="btn ghost writebtn" id="writeBtn">✍️ Write a review</button><button class="btn ghost writebtn" id="recBtn" aria-label="Recommend to friends">🎁 Recommend</button></div>` : ''}</div>
   </div>
   <div class="dgrid"><div class="dmain">
   <p class="overview">${esc(t.overview)}</p>
@@ -121,6 +122,7 @@ function wire(el, t, k, s, modal) {
   $('#rateBtn', el).onclick = () => openRate(t);
   const wb = $('#writeBtn', el); if (wb) wb.onclick = () => openEditor(t);
   const sc = $('#sendchat', el); if (sc) sc.onclick = () => sendTitleToChat(t);
+  const rb = $('#recBtn', el); if (rb) rb.onclick = () => recommendSheet(t);
   setReviewsChanged(() => rerender());
   loadReviews(el, t);
   $('#wl', el).onclick = e => { const r = toggleSave(k); buzz(); if (r.saved) { const b = e.currentTarget.getBoundingClientRect(); hearts(b.x + 23, b.y + 23, 8); toast('Saved to your watchlist'); } celebrate(r); rerender(); };

@@ -9,6 +9,7 @@ import { S, socialReady, avatar, rankChip, handle, profileHref, uploadAvatar, re
 import { localSearch } from './search.js';
 import { rerender } from '../app.js';
 import { messageUser } from './chat.js';
+import { fillRecs } from './recs.js';
 
 const stars = o => `★ ${o != null ? (+o).toFixed(1).replace(/\.0$/, '') : '–'}`;
 const pctColor = p => p >= 80 ? 'var(--pink)' : p >= 60 ? 'var(--purple)' : 'var(--muted)';
@@ -17,21 +18,21 @@ const INVITE_KEY = 'heartbeat_invite';
 /* =====================================================================
    Friends hub: #/friends/<tab>
    ===================================================================== */
-const TABS = [['feed', '💬 Activity'], ['friends', '👥 Friends'], ['requests', '📨 Requests'], ['find', '🔎 Find'], ['invite', '🔗 Invite']];
+const TABS = [['feed', '💬 Activity'], ['friends', '👥 Friends'], ['requests', '📨 Requests'], ['recs', '🎁 Recs'], ['find', '🔎 Find'], ['invite', '🔗 Invite']];
 
 export function renderFriends(app, tab = 'feed') {
   document.title = 'Friends — Heartbeat';
   if (!TABS.some(t => t[0] === tab)) tab = 'feed';
   if (!socialReady()) { app.innerHTML = guestFriends(); return; }
-  const n = cloud.requests || 0;
+  const n = cloud.requests || 0, nr = (cloud.profile?.new_recs || 0) + (cloud.profile?.unread_notes || 0);
   app.innerHTML = `<div class="screen friends">
     <header class="top"><h1 class="logo" style="font-size:26px;margin:0">👥 Friends</h1>
       <a class="btn sm" href="#/friends/invite">🔗 Invite</a></header>
-    <nav class="ftabs" aria-label="Friends sections">${TABS.map(([k, l]) => `<a href="#/friends/${k}" class="chip ${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${l}${k === 'requests' && n ? ` <span class="cnt">${n}</span>` : ''}</a>`).join('')}</nav>
+    <nav class="ftabs" aria-label="Friends sections">${TABS.map(([k, l]) => `<a href="#/friends/${k}" class="chip ${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${l}${k === 'requests' && n ? ` <span class="cnt">${n}</span>` : k === 'recs' && nr ? ` <span class="cnt">${nr}</span>` : ''}</a>`).join('')}</nav>
     <div id="fbody" class="fbody"><div class="card"><div class="rskel"></div><div class="rskel"></div></div></div>
   </div>`;
   const body = $('#fbody', app);
-  ({ feed: fillFeed, friends: fillFriends, requests: fillRequests, find: fillFind, invite: fillInvite })[tab](body).catch(e => {
+  ({ feed: fillFeed, friends: fillFriends, requests: fillRequests, find: fillFind, invite: fillInvite, recs: fillRecs })[tab](body).catch(e => {
     body.innerHTML = `<div class="card">${empty(esc(plain(e)), 'sad', '<button class="btn sm" id="retry">Try again</button>')}</div>`;
     $('#retry', body).onclick = () => rerender();
   });

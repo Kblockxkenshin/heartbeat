@@ -48,3 +48,11 @@ title cards, reactions, read receipts (can be turned off), typing indicator, mes
 non-friends, mute, block and report. Messages are checked on the server (links, scams, harassment,
 sexual content, hate) and rate limited. Under 18: chat only with friends. Live updates use Supabase
 Realtime; the app falls back to checking every few seconds if live updates can't connect.
+
+## Recommendations (Part 3)
+Upload the app code first, then run `supabase/005_recs.sql`. Every title has a "🎁 Recommend to..."
+button: pick friends and add a short note. Friends get it in Friends → 🎁 Recs → "For me", where they
+can tap Watched it, Watchlist or Not for me. When they rate it, you get a notification. If they loved
+it (4★ or more) you earn 10 Good Taste points (+5 XP). "Best Recommender" ranks you and your friends.
+Friends only, one per friend per title, no titles they already rated, 50 an hour. Notes are checked
+on the server.

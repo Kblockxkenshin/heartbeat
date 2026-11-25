@@ -36,9 +36,9 @@ const svg = (p, fill) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="${fi
 const LOGO = `<span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="24" height="24"><path d="M3 17h6l2.5-6 4 12 3-9 2 3H29" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
 
 const dot = k => {
-  const n = k === 'friends' ? cloud.requests : k === 'chat' ? (cloud.unreadChats || 0) + (cloud.chatRequests || 0) : 0;
+  const n = k === 'friends' ? (cloud.requests || 0) + (cloud.profile?.new_recs || 0) + (cloud.profile?.unread_notes || 0) : k === 'chat' ? (cloud.unreadChats || 0) + (cloud.chatRequests || 0) : 0;
   if (!n) return '';
-  const what = k === 'friends' ? `friend request${n === 1 ? '' : 's'}` : `new chat${n === 1 ? '' : 's'}`;
+  const what = k === 'friends' ? `new friend update${n === 1 ? '' : 's'}` : `new chat${n === 1 ? '' : 's'}`;
   return `<span class="ndot" aria-label="${n} ${what}">${n > 9 ? '9+' : n}</span>`;
 };
 function chrome(active) {
