@@ -17,8 +17,10 @@ export async function reveal(items) {
   els.forEach(e => { e.style.opacity = '0'; });
   const A = await anime();
   if (!A) { els.forEach(e => { e.style.opacity = ''; }); return; }
-  A.animate(els, { opacity: [0, 1], translateY: [10, 0], duration: 620, delay: A.stagger(45, { start: 40 }), ease: 'outQuad',
-    onComplete: () => els.forEach(e => { e.style.opacity = ''; e.style.transform = ''; }) });
+  const done = () => els.forEach(e => { e.style.opacity = ''; e.style.transform = ''; });
+  A.animate(els, { opacity: [0, 1], translateY: [10, 0], duration: 620, delay: A.stagger(45, { start: 40 }), ease: 'outQuad', onComplete: done });
+  // Safety: background tabs pause animations, so never leave content hidden.
+  setTimeout(done, 700 + els.length * 45 + 400);
 }
 
 /** Count a number up from zero. fmt turns the number into text. */
