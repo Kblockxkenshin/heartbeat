@@ -29,6 +29,10 @@ export function renderHome(app) {
     <p class="eyebrow">${hi}${displayName() !== 'You' ? ', ' + esc(displayName()) : ''}</p>
     <h1 class="display">Rate the journey, <em>not just the ending.</em></h1>
   </header>
+  <nav class="incine" aria-label="Indian cinema">
+    <a class="card linkcard" href="#/boxoffice"><i class="i i-chart-line" aria-hidden="true"></i><span><b>Box office</b><span class="meta">Hits, flops, ₹ crore</span></span></a>
+    <a class="card linkcard" href="#/upcoming"><i class="i i-calendar-days" aria-hidden="true"></i><span><b>Upcoming</b><span class="meta">Indian releases</span></span></a>
+  </nav>
 
   <div class="hero-grid">
     <section aria-labelledby="pickh">
@@ -52,10 +56,6 @@ export function renderHome(app) {
       ${streak ? `<a class="card streakcard wide-only" href="#/me"><span style="font-size:34px" aria-hidden="true"><i class="i i-flame" aria-hidden="true"></i></span><div><h3>${streak}-day streak</h3><div class="sub">Rate one thing today to keep it alive.</div></div></a>` : ''}
     </section>
   </div>
-
-  <div class="sec"><h2>Indian cinema</h2></div>
-  <a class="card linkcard upcard" href="#/upcoming"><span aria-hidden="true"><i class="i i-calendar-days" aria-hidden="true"></i></span><div style="flex:1"><h2 class="h3">Upcoming releases</h2><div class="sub">Hindi, Telugu, Tamil, Malayalam and more. Countdowns and reminders.</div></div><span class="btn sm ghost" aria-hidden="true">Open</span></a>
-  <a class="card linkcard upcard" href="#/boxoffice"><span aria-hidden="true"><i class="i i-chart-line" aria-hidden="true"></i></span><div style="flex:1"><h2 class="h3">Box office</h2><div class="sub">Daily collections, hits and flops, in ₹ crore.</div></div><span class="btn sm ghost" aria-hidden="true">Open</span></a>
 
   ${homePlayHTML()}
 

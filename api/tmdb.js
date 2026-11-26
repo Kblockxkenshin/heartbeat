@@ -5,6 +5,7 @@
 //   /api/tmdb?type=movie&id=27205     -> one movie
 //   /api/tmdb?type=tv&id=1396         -> one series
 //   /api/tmdb?upcoming=1&page=1[&lang=hi] -> upcoming Indian movies (next 6 months) with director + main cast
+//   /api/tmdb?released=2026&page=1[&lang=hi][&sort=pop] -> Indian movies already released that year (newest first, or most popular)
 // Images are built in the browser from poster_path/backdrop_path:
 //   https://image.tmdb.org/t/p/w500{poster_path}
 
@@ -52,9 +53,29 @@ async function upcoming(query) {
   };
 }
 
+async function released(query) {
+  const year = Math.min(Math.max(parseInt(query.released, 10) || new Date().getFullYear(), 1950), new Date().getFullYear());
+  const lang = IN_LANGS.includes(String(query.lang)) ? String(query.lang) : IN_LANGS.join('|');
+  const page = Math.min(Math.max(parseInt(query.page, 10) || 1, 1), 100);
+  const end = new Date(Math.min(Date.now(), Date.UTC(year, 11, 31)));
+  const d = await tmdb('discover/movie', {
+    region: 'IN', with_original_language: lang, 'primary_release_date.gte': `${year}-01-01`, 'primary_release_date.lte': iso(end),
+    sort_by: query.sort === 'pop' ? 'popularity.desc' : 'primary_release_date.desc', include_adult: 'false', include_video: 'false', language: 'en-US', page: String(page),
+  });
+  return {
+    page, total_pages: Math.min(d.total_pages || 1, 100), total: d.total_results || 0,
+    results: (d.results || []).map(m => ({ id: m.id, name: m.title, original_name: m.original_title, lang: m.original_language, date: m.release_date || null, poster_path: m.poster_path || null })),
+  };
+}
+
 export default async function handler(req, res) {
   try {
     const { q, type, id } = req.query;
+    if (req.query.released) {
+      const out = await released(req.query);
+      res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
+      return res.status(200).json(out);
+    }
     if (req.query.upcoming) {
       const out = await upcoming(req.query);
       res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');

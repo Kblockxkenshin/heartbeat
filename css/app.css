@@ -1563,3 +1563,17 @@ a.trow:hover{background:#0F0F0F}
 /* very large monitors: use a bit more of the screen, and slightly larger text */
 @media (min-width:1800px){.tb,#app{max-width:1440px}html{font-size:17px}}
 @media (min-width:2400px){.tb,#app{max-width:1640px}html{font-size:18px}}
+
+/* Box Office: every other release (no numbers) */
+.ticker.others{margin-top:0}
+.ticker.others .trow{grid-template-columns:1fr auto}
+.nonum{font-size:12px;white-space:nowrap}
+.bomore{display:flex;justify-content:center;padding:16px 20px 0}
+div.trow{cursor:default}
+/* Home: Indian cinema shortcuts right under the headline */
+.incine{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 20px;margin-top:20px}
+.incine .card{margin:0;display:flex;align-items:center;gap:12px;padding:16px}
+.incine .card .i{font-size:20px;color:var(--accent);flex:none}
+.incine b{display:block;font-weight:500}
+.incine .meta{font-size:12px}
+@media (min-width:768px){.show-s{display:none}}
