@@ -1,4 +1,5 @@
 // Sign up / sign in / check your email / forgot password / first-time setup.
+import { LEGAL } from '../legal.js';
 import { cloud, signUp, signIn, signInGoogle, resendEmail, sendReset, setNewPassword, setBirthdate, saveProfile, usernameFree, plain, mfaList, mfaVerify, signOut } from '../cloud.js';
 import { $, esc, mascot, toast, confetti } from '../ui.js';
 
@@ -74,6 +75,7 @@ export function renderAuth(app, mode = '') {
       ${up ? `<label class="fld"><span>Username</span><input id="un" autocomplete="username" required minlength="3" maxlength="20" pattern="[a-z0-9_.]{3,20}" placeholder="like movie.maya" autocapitalize="none" spellcheck="false"><small class="hint">3–20 letters, numbers, _ or .</small></label>
       <label class="fld"><span>Birthday</span><input id="bd" type="date" required max="${today()}" min="1900-01-01"><small class="hint">You must be 13 or older. Only you can see this.</small></label>` : ''}
       <label class="fld"><span>Password</span><input id="pw" type="password" autocomplete="${up ? 'new-password' : 'current-password'}" required minlength="8"><small class="hint">${up ? 'At least 8 characters.' : ''}</small></label>
+      ${up ? `<label class="tog agree"><input type="checkbox" id="agree" required><span>I agree to the <a class="see" href="#/terms" target="_blank">Terms of Service</a> and <a class="see" href="#/privacy" target="_blank">Privacy Policy</a>, and I'll follow the <a class="see" href="#/guidelines" target="_blank">Community Guidelines</a>.</span></label>` : ''}
       ${cloud.turnstile ? '<div class="botcheck" id="ts"></div>' : ''}
       <p class="errmsg" id="err" role="alert" tabindex="-1" hidden></p>
       <button class="btn big" id="go" type="submit">${up ? 'Create account' : 'Sign in'}</button>
@@ -98,6 +100,8 @@ export function renderAuth(app, mode = '') {
         if (!/^[a-z0-9_.]{3,20}$/.test(username)) throw new Error('Usernames are 3–20 letters, numbers, _ or .');
         if (!birthdate) throw new Error('Please add your birthday.');
         if (ageOf(birthdate) < 13) throw new Error('You must be 13 or older to use Heartbeat.');
+        if (!$('#agree').checked) throw new Error('Please agree to the Terms of Service and Privacy Policy.');
+        try { localStorage.setItem('hb_terms_ok', LEGAL.version); } catch (e) { }
         if (!(await usernameFree(username))) throw new Error('That username is taken. Try another one.');
         const d = await signUp({ email, password, username, birthdate, captchaToken: bot.token() || undefined });
         if (d.session) { confetti(); location.hash = '#/welcome'; } else location.hash = '#/signin/check';

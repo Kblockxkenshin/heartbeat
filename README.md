@@ -92,6 +92,21 @@ Upload the app code first, then run `supabase/007_game.sql`. Everything is decid
   After the show: set each `winner` (the nominee's `k`) and run `select finish_event('oscars-2027');`
 - Recommendations a friend loves now give **+15 XP** (was +5).
 
+## Legal & trust (Part 9)
+Upload the app code first, then run `supabase/011_legal.sql`.
+- **Pages:** `#/terms`, `#/privacy`, `#/guidelines`, `#/contact`, and a hub at `#/legal` (Me → Help & legal). The text
+  lives in `js/legal.js`. Fill in `operator` (your name or company) and `law` (for example "the State of Texas, USA")
+  at the top, and **have a lawyer review it**. Change `version` when you change the Terms; people are asked to agree again.
+- **Sign-up** needs the "I agree" box. Existing members are asked once in the app.
+- **Age:** 13+ to join (checked in the app and on the server). Under-18s: friends-only profile and messages, not
+  findable in search, never in studio numbers or panels, no Plus purchases.
+- **Your data** (Me → Security): download everything as JSON, or delete the account right away (chat messages are
+  wiped; active Plus must be canceled first).
+- **Contact us** goes to Admin → 📬 Inbox. Optional: set `CONTACT_EMAIL` in Vercel to also show an email address.
+- **TMDB:** the About page shows TMDB's official logo and notice. A commercial app needs a **commercial TMDB license**:
+  email sales@themoviedb.org. The AI review check no longer sends TMDB data to the AI (set `AI_TITLE_INFO=on` only
+  if your TMDB license allows it).
+
 ## Heartbeat for Studios (Part 8)
 Upload the app code first, then run `supabase/010_studios.sql`.
 - **#/studios** explains the product and has a "Talk to sales" form. An admin approves requests in

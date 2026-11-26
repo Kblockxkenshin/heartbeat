@@ -16,5 +16,5 @@ export default function handler(req, res) {
   if (anonKey.startsWith('sb_secret_')) return res.status(200).json({ ready: false, error: 'wrong-key' });
   // Optional bot check on sign-up / sign-in: Cloudflare Turnstile SITE key (public). The secret key goes in
   // Supabase → Authentication → Attack Protection (never here).
-  res.status(200).json({ ready: true, url, anonKey, turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || '' });
+  res.status(200).json({ ready: true, url, anonKey, turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || '', contactEmail: process.env.CONTACT_EMAIL || '' });
 }

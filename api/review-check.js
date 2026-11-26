@@ -6,6 +6,7 @@
 //   ANTHROPIC_API_KEY            console.anthropic.com → API keys
 //   SUPABASE_SERVICE_ROLE_KEY    (already used for payments) Supabase → Project Settings → API keys → secret key
 //   AI_MODEL                     optional, default claude-haiku-5-5
+//   AI_TITLE_INFO                optional, "on" = also send the TMDB title name/overview (only if your TMDB license allows it)
 // Without ANTHROPIC_API_KEY, reviews are checked by the rule check only (like before).
 import { env, db, userFrom, HttpError, send } from './_stripe.js';
 
@@ -65,7 +66,10 @@ tip: one friendly sentence in very simple English to help them earn full XP, lik
 
 why: one short sentence for moderators.`;
 
+// TMDB's API terms limit using TMDB data with AI, so by default the AI only sees the review itself.
+// Set AI_TITLE_INFO=on only if TMDB allows it in your license.
 async function titleInfo(key) {
+  if (env('AI_TITLE_INFO') !== 'on') return null;
   const [type, id] = String(key).split(':');
   const k = env('TMDB_API_KEY');
   if (!k || !/^(movie|tv)$/.test(type) || !/^\d+$/.test(id)) return null;

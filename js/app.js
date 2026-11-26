@@ -26,6 +26,7 @@ import { renderPlay } from './screens/play.js';
 import { renderSecurity } from './screens/security.js';
 import { renderAdmin } from './screens/admin.js';
 import { renderStudios, renderStudio, renderScreeners } from './screens/studio.js';
+import { renderLegalDoc, renderLegalHub, renderContact, checkTerms } from './screens/legal.js';
 
 TITLES.forEach(apply); // use cached TMDB info right away
 
@@ -102,7 +103,7 @@ function topbar() {
 /* ---------------- router ---------------- */
 const route = () => { const p = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent); return { p: p[0] || '', a: p[1] || '', b: p[2] || '' }; };
 let baseHash = null, baseRendered = null, modalFromBase = false, lastKey = '';
-const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight], play: ['play', null], security: ['me', renderSecurity], admin: ['me', null], studios: ['me', renderStudios], studio: ['me', null], screeners: ['me', renderScreeners] };
+const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight], play: ['play', null], security: ['me', renderSecurity], admin: ['me', null], studios: ['me', renderStudios], studio: ['me', null], screeners: ['me', renderScreeners], legal: ['me', renderLegalHub], terms: ['me', a => renderLegalDoc($('#app'), 'terms')], privacy: ['me', a => renderLegalDoc($('#app'), 'privacy')], guidelines: ['me', a => renderLegalDoc($('#app'), 'guidelines')], contact: ['me', renderContact] };
 
 function renderBase(r, keepScroll) {
   const app = $('#app'), y = scrollY, key = location.hash || '#/';
@@ -311,7 +312,7 @@ onCloud(async c => {
   if (uid && c.needsCode && route().a !== '2fa') { location.hash = '#/signin/2fa'; return; }
   if (uid && needsSetup() && c.profile !== undefined && !/^#\/(welcome|signin)/.test(location.hash) && (c.profile || c.stats)) location.hash = '#/welcome';
   const becameReady = c.ready && !lastReady; lastReady = c.ready;
-  if (c.user && c.profile?.username) watchInbox(); else unwatchInbox();
+  if (c.user && c.profile?.username) { watchInbox(); checkTerms(); } else unwatchInbox();
   // Opened an invite link before signing in? Finish it now.
   const inv = socialReady() && pendingInvite();
   if (inv && route().p !== 'invite') { location.hash = '#/invite/' + encodeURIComponent(inv); return; }

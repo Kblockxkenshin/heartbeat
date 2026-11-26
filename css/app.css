@@ -1220,3 +1220,22 @@ body.inroom #app{padding-bottom:0}
   body.printing .stbt i{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body.printing main,body.printing #app{margin:0!important;padding:0!important}
 }
+/* ===== Part 9: Legal & trust ===== */
+.legal .card{margin-bottom:12px}
+.lgdate{margin:0 4px 10px}
+.lgsum{border-color:rgba(255,79,154,.45)!important;background:rgba(255,79,154,.07)!important}
+.lgsum ul,.lgtoc ol{margin:8px 0 0;padding-left:20px;line-height:1.6}
+.lgtoc ol{columns:2;column-gap:24px}
+@media (max-width:560px){.lgtoc ol{columns:1}}
+.lgsec p{line-height:1.6;margin:8px 0}
+.lgsec:focus{outline:2px solid var(--pink);outline-offset:2px}
+.lgfoot{text-align:center;margin:14px 4px}
+.lglinks{margin:10px 0 14px;padding-left:20px;line-height:1.8}
+.tog.agree{font-weight:600;align-items:flex-start;margin:4px 0 10px;font-size:14px;line-height:1.45}
+.tog.agree a{display:inline;padding:0}
+.dangerbtn{color:#ff7a8a!important;border-color:rgba(255,122,138,.6)!important}
+.btn.big.dangerbtn:not(.ghost){background:#d9364f!important;color:#fff!important}
+.btn.big.dangerbtn:disabled{opacity:.5}
+.teensafe{border-color:rgba(94,224,160,.5)!important;background:rgba(94,224,160,.07)!important}
+.tmdblogo{height:21px;width:auto;display:block}
+@media print{body.printing .lgtoc{display:none}}

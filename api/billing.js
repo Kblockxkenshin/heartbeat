@@ -25,6 +25,9 @@ export default async function handler(req, res) {
       const price = PRICES()[plan];
       if (!price) throw new HttpError(400, 'Pick a plan.');
       if (!user.email_confirmed_at) throw new HttpError(403, 'Please confirm your email first.');
+      // Under-18 safety: no purchases (unknown age counts as under 18).
+      const st = (await db(`user_stats?user_id=eq.${encodeURIComponent(user.id)}&select=is_minor`))?.[0];
+      if (!st || st.is_minor !== false) throw new HttpError(403, 'Heartbeat Plus is for people 18 and older. Everything free still works!');
       if (plan === 'student' && !/\.edu$/i.test(user.email || '')) throw new HttpError(403, 'The student price needs a school email that ends in .edu.');
       if (row && ACTIVE.includes(row.status) && row.period_end && Date.parse(row.period_end) > Date.now())
         throw new HttpError(409, 'You already have Heartbeat Plus. 💖');

@@ -9,7 +9,7 @@ async function rpc(fn, args = {}) {
   if (error) throw new Error(error.message || 'Something went wrong.');
   return data;
 }
-const TABS = [['overview', '📊 Overview'], ['ai', '🤖 AI queue'], ['reports', '🚩 Reports'], ['flags', '🤖 Flags'], ['held', '⏸️ Held ratings'], ['users', '👤 Users'], ['studios', '🎬 Studios'], ['log', '📜 Log']];
+const TABS = [['overview', '📊 Overview'], ['ai', '🤖 AI queue'], ['reports', '🚩 Reports'], ['flags', '🤖 Flags'], ['held', '⏸️ Held ratings'], ['users', '👤 Users'], ['studios', '🎬 Studios'], ['inbox', '📬 Inbox'], ['log', '📜 Log']];
 const who = p => p ? (p.hidden ? esc(p.display_name) : `<a href="${profileHref(p)}">${avatar(p, 'xs')} <b>${esc(p.display_name || p.username)}</b> <span class="meta">@${esc(p.username || '')}</span></a>`) : '<span class="meta">—</span>';
 const day = s => s ? new Date(s).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
 
@@ -29,7 +29,7 @@ export async function renderAdmin(app, tab = 'overview') {
     <nav class="ftabs" aria-label="Admin sections">${TABS.map(([k, l]) => `<a href="#/admin/${k}" class="chip ${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
     <div id="ab" class="fbody"><div class="card"><div class="rskel"></div><div class="rskel"></div></div></div></div>`;
   const box = $('#ab', app);
-  try { await ({ overview, ai, reports, flags, held, users, studios, log })[tab](box, app); }
+  try { await ({ overview, ai, reports, flags, held, users, studios, inbox, log })[tab](box, app); }
   catch (e) { box.innerHTML = `<div class="card">${empty(esc(plain(e)), 'sad')}</div>`; }
 }
 
@@ -187,6 +187,22 @@ async function studios(box) {
     box.querySelectorAll('[data-st]').forEach(b => b.onclick = async () => {
       try { await rpc('admin_studio_set', { p_studio: +b.closest('[data-s]').dataset.s, p_status: b.dataset.st, p_plan: null, p_limit: null }); toast('Done.'); draw(); }
       catch (e) { toast(plain(e), 'sad'); }
+    });
+  };
+  await draw();
+}
+
+const TOPIC = { help: '🙋 Help', privacy: '🔒 Privacy / data', safety: '🚨 Safety', bug: '🐞 Bug', studio: '🎬 Studios', legal: '⚖️ Legal / copyright', other: '💬 Other' };
+async function inbox(box) {
+  const draw = async () => {
+    const L = await rpc('admin_inbox');
+    box.innerHTML = `<div class="sub" style="margin:0 2px 10px">Answer by email. Privacy requests (GDPR / CCPA) must be answered within 30 days. People can download or delete their own data in Me → Security.</div>` +
+      (L.length ? L.map(m => `<article class="card arep" data-id="${m.id}"><div><b>${TOPIC[m.topic] || esc(m.topic)}</b> <span class="meta">· ${day(m.at)}</span></div>
+        <div class="meta">${m.who ? who(m.who) : 'deleted account'} · reply to ${m.reply_to ? `<a class="see" href="mailto:${esc(m.reply_to)}">${esc(m.reply_to)}</a>` : '—'}</div>
+        <blockquote class="rnote">${esc(m.message)}</blockquote><div class="rbtns"><button class="btn sm" data-done>✅ Done</button></div></article>`).join('')
+      : `<div class="card">${empty('No messages. 🎉', 'happy')}</div>`);
+    box.querySelectorAll('[data-done]').forEach(b => b.onclick = async () => {
+      try { await rpc('admin_inbox_done', { p_id: +b.closest('[data-id]').dataset.id }); toast('Done.'); draw(); } catch (e) { toast(plain(e), 'sad'); }
     });
   };
   await draw();

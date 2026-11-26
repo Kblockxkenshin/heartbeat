@@ -1,6 +1,7 @@
 // #/security: 2-step sign-in (authenticator app), account status, and how Heartbeat keeps you safe.
 import { cloud, mfaList, mfaStart, mfaVerify, mfaOff, plain } from '../cloud.js';
 import { $, esc, toast, sheet, closeSheet, empty, confetti } from '../ui.js';
+import { yourDataHTML, wireYourData } from './legal.js';
 
 // Supabase sends the QR as a plain SVG data address; encode it so every browser shows it.
 const qrSrc = q => {
@@ -30,6 +31,7 @@ export async function renderSecurity(app) {
       ${s.admin && !on ? '<div class="sub" style="margin-top:8px;color:var(--pink)">You are an admin: the admin panel needs 2-step sign-in.</div>' : ''}
     </section>
     ${s.admin ? `<a class="card linkcard" href="#/admin"><span style="font-size:30px" aria-hidden="true">🛡️</span><div style="flex:1"><h2 class="h3">Admin panel</h2><div class="sub">Reports, flags, held ratings, users and the security log.</div></div><span class="btn sm ghost" aria-hidden="true">Open</span></a>` : ''}
+    <section class="card teensafe" id="teen" hidden></section>
     <section class="card" id="stpriv"><h2 class="h3">🎬 Studios &amp; your data</h2>
       <p class="sub">Studios that make movies and shows can see <b>totals and averages</b> from Heartbeat (like "4.2 stars from 1,200 people"). They never see your name, profile, single ratings or messages. People under 18 are never counted.</p>
       <div id="privb" class="sub">Loading…</div></section>
@@ -42,6 +44,11 @@ export async function renderSecurity(app) {
       <li>🚩 You can report anything. Our team reviews reports and can pause accounts that break the rules.</li></ul></section>`;
   $('#mfa', box).onclick = () => on ? turnOff(app, on) : turnOn(app);
   fillPrivacy($('#privb', box));
+  box.insertAdjacentHTML('beforeend', yourDataHTML()); wireYourData(box);
+  cloud.sb.rpc('my_safety').then(({ data }) => {
+    const t = $('#teen', box);
+    if (t && data?.minor) { t.innerHTML = `<h2 class="h3">🧸 Extra safety is on</h2><p class="sub">Because you are under 18:</p><ul class="safelist">${data.protections.map(p => `<li>✅ ${esc(p)}</li>`).join('')}</ul>`; t.hidden = false; }
+  }, () => {});
 }
 
 async function fillPrivacy(el) {

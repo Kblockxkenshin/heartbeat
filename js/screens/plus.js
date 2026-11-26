@@ -87,7 +87,8 @@ async function salesHTML(st, info) {
     : `<section class="card wpeek"><h2 class="h3">Your Wrapped is waiting</h2><div class="sub">Rate a few titles and we'll build your year in stories.</div></section>`;
   const student = st?.student_ok && info.student;
   const trial = !st?.trial_used;
-  const can = info.ready && socialReady();
+  const teen = !!cloud.stats?.is_minor;
+  const can = info.ready && socialReady() && !teen;
   return `
     <section class="card phero"><div class="pheart" aria-hidden="true">💖</div>
       <h2>Extra fun, extra depth, extra style.</h2>
@@ -101,7 +102,8 @@ async function salesHTML(st, info) {
         <button type="button" role="radio" class="plan" data-plan="monthly" aria-checked="false"><b>$3.99 / month</b><span class="sub">Cancel any time</span></button>
         ${student ? `<button type="button" role="radio" class="plan" data-plan="student" aria-checked="false"><span class="save">🎓 Student</span><b>$1.99 / month</b><span class="sub">With your .edu email</span></button>` : ''}
       </div>
-      <button class="btn big" id="pbuy" ${can ? '' : 'disabled'}>${!socialReady() ? 'Sign in to get Plus' : !info.ready ? 'Payments open soon' : trial ? 'Start 7-day free trial' : 'Get Heartbeat Plus'}</button>
+      <button class="btn big" id="pbuy" ${can ? '' : 'disabled'}>${!socialReady() ? 'Sign in to get Plus' : teen ? 'Plus is for 18+' : !info.ready ? 'Payments open soon' : trial ? 'Start 7-day free trial' : 'Get Heartbeat Plus'}</button>
+      ${teen ? '<p class="sub" role="note">Heartbeat Plus is for people 18 and older. Everything free still works! 💓</p>' : ''}
       <div class="sub pfine">${trial ? 'Free for 7 days, then the price above. ' : ''}Cancel in 2 taps, any time. Secure checkout by Stripe.${!student && info.student ? ' Students: sign in with your confirmed .edu email to see the $1.99 price.' : ''}</div>
       ${!socialReady() ? `<a class="btn ghost" href="#/signin" style="width:100%;margin-top:8px">Sign in</a>` : ''}
       ${socialReady() ? '<button class="btn ghost sm" id="prestore" style="margin-top:8px">Restore purchases</button>' : ''}

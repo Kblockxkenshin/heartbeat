@@ -18,6 +18,7 @@ export const cloud = {
   needsCode: false,  // 2-step sign-in is on, and this session still needs the code
   sec: null,         // { admin, aal, status, until, reason, paused, mfa, needs_code } from the server
   turnstile: '',     // Cloudflare Turnstile site key (public), if bot protection is turned on
+  contactEmail: '',  // optional public support email (Vercel env CONTACT_EMAIL)
   remote: null,      // { ratings, swipes, watchlist } loaded from the server
   error: null,
 };
@@ -47,6 +48,7 @@ export function startCloud() {
       const cfg = await fetch('/api/config').then(r => r.ok ? r.json() : null).catch(() => null);
       if (!cfg?.ready) { cloud.error = cfg?.error || 'not-configured'; emit(); return; }
       cloud.turnstile = cfg.turnstileSiteKey || '';
+      cloud.contactEmail = cfg.contactEmail || '';
       const { createClient } = await import(SB_LIB);
       cloud.sb = createClient(cfg.url, cfg.anonKey, {
         auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
