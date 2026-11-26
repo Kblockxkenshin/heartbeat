@@ -4,7 +4,7 @@ import { BYID, TITLES } from '../data.js';
 import { cloud, keyOf, refreshRequests, plain } from '../cloud.js';
 import { U, toggleSave } from '../store.js';
 import { search as tmdbSearch } from '../tmdb.js';
-import { $, esc, toast, sheet, closeSheet, empty, poster, hydratePosters, buzz, hearts } from '../ui.js';
+import { $, esc, toast, sheet, closeSheet, empty, poster, hydratePosters, buzz, hearts, emo } from '../ui.js';
 import { S, socialReady, avatar, handle, profileHref, titleFor, ago } from '../social.js';
 import { localSearch } from './search.js';
 
@@ -36,7 +36,8 @@ export const C = {
   settings: () => rpc('my_chat_settings'),
   setSettings: (rr, allow) => rpc('set_chat_settings', { p_read_receipts: rr, p_allow_requests: allow }),
 };
-const EMOJI = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
+const EMOJI = ['❤️', '😂', '😮', '😢', '👍', '🔥'];  // stored values (the server only accepts these)
+const EMOJI_NAME = { '❤️': 'Love', '😂': 'Funny', '😮': 'Wow', '😢': 'Sad', '👍': 'Like', '🔥': 'Fire' };
 const nameOf = p => p?.display_name || (p?.username ? '@' + p.username : 'Someone');
 const chatName = c => c.title || (c.members || []).map(nameOf).join(', ') || 'Just you';
 const timeOf = iso => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -60,17 +61,17 @@ export function renderChats(app, folder = 'inbox') {
   document.title = 'Chat — Heartbeat';
   clearInterval(listTimer);
   if (!socialReady()) {
-    app.innerHTML = `<div class="screen"><header class="top"><h1 class="logo" style="font-size:26px;margin:0">💬 Chat</h1></header>
+    app.innerHTML = `<div class="screen"><header class="top"><h1 class="logo" style="font-size:26px;margin:0"><i class="i i-message-circle" aria-hidden="true"></i> Chat</h1></header>
       <div class="card">${empty(!cloud.ready ? 'Chat needs the online account, which isn\'t set up yet.' : cloud.user ? 'Finish setting up your account to chat.' : 'Make a free account to chat with friends about movies and shows.', 'happy',
         cloud.ready ? (cloud.user ? '<a class="btn" href="#/welcome">Finish setup</a>' : '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><a class="btn" href="#/signin/up">Make an account</a><a class="btn ghost" href="#/signin">Sign in</a></div>') : '')}</div></div>`;
     return;
   }
   const req = cloud.chatRequests || 0;
   app.innerHTML = `<div class="screen chats">
-    <header class="top"><h1 class="logo" style="font-size:26px;margin:0">💬 Chat</h1>
-      <div style="display:flex;gap:8px"><button class="icon-btn" id="csettings" aria-label="Chat settings">⚙️</button><button class="btn sm" id="cnew">✏️ New chat</button></div></header>
-    <nav class="ftabs" aria-label="Chat folders"><a href="#/chat" class="chip ${folder !== 'requests' ? 'on' : ''}" ${folder !== 'requests' ? 'aria-current="page"' : ''}>📥 Inbox</a>
-      <a href="#/chat/requests" class="chip ${folder === 'requests' ? 'on' : ''}" ${folder === 'requests' ? 'aria-current="page"' : ''}>📨 Requests${req ? ` <span class="cnt">${req}</span>` : ''}</a></nav>
+    <header class="top"><h1 class="logo" style="font-size:26px;margin:0"><i class="i i-message-circle" aria-hidden="true"></i> Chat</h1>
+      <div style="display:flex;gap:8px"><button class="icon-btn" id="csettings" aria-label="Chat settings"><i class="i i-settings" aria-hidden="true"></i></button><button class="btn sm" id="cnew"><i class="i i-pencil" aria-hidden="true"></i> New chat</button></div></header>
+    <nav class="ftabs" aria-label="Chat folders"><a href="#/chat" class="chip ${folder !== 'requests' ? 'on' : ''}" ${folder !== 'requests' ? 'aria-current="page"' : ''}><i class="i i-download" aria-hidden="true"></i> Inbox</a>
+      <a href="#/chat/requests" class="chip ${folder === 'requests' ? 'on' : ''}" ${folder === 'requests' ? 'aria-current="page"' : ''}><i class="i i-mail-plus" aria-hidden="true"></i> Requests${req ? ` <span class="cnt">${req}</span>` : ''}</a></nav>
     <div class="card clist" id="clist"><div class="rskel"></div><div class="rskel"></div></div>
   </div>`;
   $('#cnew', app).onclick = () => newChat();
@@ -85,7 +86,7 @@ export function renderChats(app, folder = 'inbox') {
     if (!box.isConnected) { clearInterval(listTimer); return; }
     box.innerHTML = list.length ? list.map(chatRow).join('')
       : folder === 'requests' ? `<div class="sub" style="padding:14px 4px">No message requests. When someone who isn't your friend messages you, it shows up here first.</div>`
-      : empty('No chats yet. Start one with a friend and send them a movie!', 'happy', '<button class="btn" id="cnew2">✏️ New chat</button>');
+      : empty('No chats yet. Start one with a friend and send them a movie!', 'happy', '<button class="btn" id="cnew2"><i class="i i-pencil" aria-hidden="true"></i> New chat</button>');
     const n2 = $('#cnew2', box); if (n2) n2.onclick = () => newChat();
   };
   load();
@@ -95,18 +96,18 @@ export function renderChats(app, folder = 'inbox') {
 function chatRow(c) {
   const l = c.last, me = l?.mine;
   const prev = !l ? '' : l.deleted ? 'Message deleted' : l.hidden ? 'Message hidden' : l.kind === 'system' ? l.body
-    : l.kind === 'title' ? `${me ? 'You' : nameOf(l.user)} sent a title 🎬` : `${me ? 'You: ' : c.kind === 'group' ? nameOf(l.user) + ': ' : ''}${l.body}`;
+    : l.kind === 'title' ? `${me ? 'You' : nameOf(l.user)} sent a title` : `${me ? 'You: ' : c.kind === 'group' ? nameOf(l.user) + ': ' : ''}${l.body}`;
   return `<a class="crow ${c.unread ? 'unread' : ''}" href="#/chat/${c.id}">${groupAvatar(c)}
-    <span class="cmain"><span class="cname"><b>${esc(chatName(c))}</b>${c.kind === 'group' ? `<span class="meta"> · ${c.count}</span>` : ''}${c.muted ? ' <span aria-label="Muted">🔕</span>' : ''}</span>
+    <span class="cmain"><span class="cname"><b>${esc(chatName(c))}</b>${c.kind === 'group' ? `<span class="meta"> · ${c.count}</span>` : ''}${c.muted ? ' <span aria-label="Muted"><i class="i i-bell-off" aria-hidden="true"></i></span>' : ''}</span>
       <span class="cprev">${esc(prev)}</span></span>
     <span class="cside"><span class="meta">${ago(c.at)}</span>${c.unread ? `<span class="cnt2" aria-label="${c.unread} new">${c.unread > 99 ? '99+' : c.unread}</span>` : ''}</span></a>`;
 }
 
 /* ---------------- new chat ---------------- */
 async function newChat() {
-  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 6px">✏️ New chat</h2><div class="sub">Pick one friend for a 1-on-1 chat, or a few for a group (up to 19).</div>
+  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 6px"><i class="i i-pencil" aria-hidden="true"></i> New chat</h2><div class="sub">Pick one friend for a 1-on-1 chat, or a few for a group (up to 19).</div>
     <div id="ncl" class="nclist"><div class="rskel"></div></div>
-    <div id="ngroup" hidden><label class="flabel" for="ngt">Group name (optional)</label><input id="ngt" maxlength="40" placeholder="Movie night 🍿"></div>
+    <div id="ngroup" hidden><label class="flabel" for="ngt">Group name (optional)</label><input id="ngt" maxlength="40" placeholder="Movie night <i class="i i-popcorn" aria-hidden="true"></i>"></div>
     <div class="sub" id="nerr" role="alert" style="color:var(--pink);min-height:20px"></div>
     <button class="btn" id="ngo" style="width:100%" disabled>Start chat</button>`);
   let friends = [];
@@ -133,11 +134,11 @@ async function newChat() {
 
 /* ---------------- settings ---------------- */
 async function chatSettings() {
-  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 12px">⚙️ Chat settings</h2><div id="csb"><div class="rskel"></div></div>`);
+  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 12px"><i class="i i-settings" aria-hidden="true"></i> Chat settings</h2><div id="csb"><div class="rskel"></div></div>`);
   let s; try { s = await C.settings(); } catch (e) { $('#csb', sh).innerHTML = `<div class="sub">${esc(plain(e))}</div>`; return; }
-  $('#csb', sh).innerHTML = `<div class="toggle"><span id="rrl">👀 Read receipts</span><button type="button" class="switch ${s.read_receipts ? 'on' : ''}" id="rr" role="switch" aria-checked="${s.read_receipts}" aria-labelledby="rrl"></button></div>
+  $('#csb', sh).innerHTML = `<div class="toggle"><span id="rrl"><i class="i i-eye" aria-hidden="true"></i> Read receipts</span><button type="button" class="switch ${s.read_receipts ? 'on' : ''}" id="rr" role="switch" aria-checked="${s.read_receipts}" aria-labelledby="rrl"></button></div>
     <div class="sub" style="font-size:13px;margin-bottom:14px">When off, people won't see when you read their messages, and you won't see theirs.</div>
-    <div class="flabel">✉️ Who can message me</div>
+    <div class="flabel"><i class="i i-mail" aria-hidden="true"></i> Who can message me</div>
     ${s.is_minor ? `<div class="sub">Only your friends can message you. This keeps people under 18 safe.</div>` : `<div class="menu">
       <label class="mitem"><input type="radio" name="ar" value="everyone" ${s.allow_requests === 'everyone' ? 'checked' : ''}> Everyone <small class="hint">(non-friends go to Requests)</small></label>
       <label class="mitem"><input type="radio" name="ar" value="friends" ${s.allow_requests === 'friends' ? 'checked' : ''}> Friends only</label></div>`}
@@ -168,7 +169,7 @@ export async function renderRoom(app, id) {
   leaveRoom(); clearInterval(listTimer);
   id = +id;
   document.body.classList.add('inroom');
-  app.innerHTML = `<div class="room"><header class="rhead"><a class="icon-btn" href="#/chat" aria-label="Back to chats">←</a><div class="rwhohd"><div class="rskel" style="width:140px"></div></div></header>
+  app.innerHTML = `<div class="room"><header class="rhead"><a class="icon-btn" href="#/chat" aria-label="Back to chats"><i class="i i-arrow-left" aria-hidden="true"></i></a><div class="rwhohd"><div class="rskel" style="width:140px"></div></div></header>
     <div class="msgs" id="msgs" role="log" aria-live="polite" aria-label="Messages"></div></div>`;
   if (!socialReady()) { if (cloud.ready) renderChats(app); return; }
   const r = room = { id, msgs: new Map(), last: 0, first: null, info: null, typing: {}, live: false };
@@ -193,7 +194,7 @@ function drawShell(app, r) {
   const canSend = i.status === 'active' && (i.kind === 'group' || (o && o.can_send && o.status !== 'declined'));
   document.title = `${roomTitle(i)} — Chat`;
   app.innerHTML = `<div class="room">
-    <header class="rhead"><a class="icon-btn" href="#/chat" aria-label="Back to chats">←</a>
+    <header class="rhead"><a class="icon-btn" href="#/chat" aria-label="Back to chats"><i class="i i-arrow-left" aria-hidden="true"></i></a>
       ${i.kind === 'dm' && o ? `<a href="${profileHref(o)}" class="rwhohd">${avatar(o, 'sm')}<span><b>${esc(roomTitle(i))}</b><span class="meta" id="rsub">${esc(sub)}</span></span></a>`
         : `<div class="rwhohd">${groupAvatar({ kind: 'group', members: i.members })}<span><b>${esc(roomTitle(i))}</b><span class="meta" id="rsub">${esc(sub)}</span></span></div>`}
       <button class="icon-btn" id="rmore" aria-label="Chat options">⋯</button></header>
@@ -201,16 +202,16 @@ function drawShell(app, r) {
       <div class="pbtns"><button class="btn sm" id="racc">Accept</button><button class="btn sm ghost" id="rdec">Delete</button><button class="btn sm ghost" id="rblk">Block</button></div></div>` : ''}
     <div class="msgs" id="msgs" role="log" aria-live="polite" aria-label="Messages"><div class="morewrap"><button class="btn ghost sm" id="older" style="display:none">Load older</button></div><div id="mlist"></div><div class="typing" id="typing" aria-live="polite"></div></div>
     ${canSend ? `<form class="composer" id="comp" autocomplete="off">
-        <button type="button" class="icon-btn" id="ctitle" aria-label="Send a movie or series">🎬</button>
+        <button type="button" class="icon-btn" id="ctitle" aria-label="Send a movie or series"><i class="i i-clapperboard" aria-hidden="true"></i></button>
         <label class="sr-only" for="cin">Message</label><textarea id="cin" rows="1" maxlength="2000" placeholder="Message…" enterkeyhint="send"></textarea>
-        <button class="sendbtn" id="csend" type="submit" aria-label="Send">➤</button></form>
+        <button class="sendbtn" id="csend" type="submit" aria-label="Send"><i class="i i-send" aria-hidden="true"></i></button></form>
       <div class="cerr" id="cerr" role="alert"></div>`
       : i.status === 'request' ? '' : `<div class="cnote">${esc(o?.why || (o?.status === 'declined' ? 'They didn\'t accept your message request.' : 'You can\'t send messages here.'))}</div>`}
   </div>`;
   $('#rmore', app).onclick = () => roomMenu(r);
   $('#older', app).onclick = () => loadOlder(r, false);
   if (i.status === 'request') {
-    $('#racc', app).onclick = async () => { try { await C.accept(r.id); toast('Accepted! Say hi 👋'); renderRoom($('#app'), r.id); } catch (e) { toast(plain(e), 'sad'); } };
+    $('#racc', app).onclick = async () => { try { await C.accept(r.id); toast('Accepted! Say hi'); renderRoom($('#app'), r.id); } catch (e) { toast(plain(e), 'sad'); } };
     $('#rdec', app).onclick = async () => { try { await C.decline(r.id, false); toast('Request deleted.'); location.hash = '#/chat/requests'; } catch (e) { toast(plain(e), 'sad'); } };
     $('#rblk', app).onclick = async () => { try { await C.decline(r.id, true); toast('Blocked. They can\'t message you anymore.'); location.hash = '#/chat/requests'; } catch (e) { toast(plain(e), 'sad'); } };
   }
@@ -272,7 +273,7 @@ function draw(r) {
     html += msgHTML(r, m, same, m === lastMine);
     prev = m;
   }
-  list.innerHTML = html || `<div class="sub" style="text-align:center;padding:30px 10px">No messages yet. Say hi 👋 or tap 🎬 to send a movie!</div>`;
+  list.innerHTML = html || `<div class="sub" style="text-align:center;padding:30px 10px">No messages yet. Say hi <i class="i i-hand" aria-hidden="true"></i> or tap <i class="i i-clapperboard" aria-hidden="true"></i> to send a movie!</div>`;
   hydratePosters(list);
   fillTitles(list);
 }
@@ -281,7 +282,7 @@ function msgHTML(r, m, same, isLastMine) {
   const body = m.deleted ? `<i class="gone">Message deleted</i>` : m.hidden ? `<i class="gone">Hidden after reports</i>`
     : m.kind === 'title' ? `<div class="tcard" data-tk="${esc(m.title_key)}"><div class="tcp"></div><div class="tci"><b>Loading…</b></div></div>${m.body ? `<div class="tnote">${esc(m.body)}</div>` : ''}`
     : esc(m.body || '').replace(/\n/g, '<br>');
-  const reacts = (m.reactions || []).length ? `<div class="reacts">${m.reactions.map(x => `<button type="button" class="rchip ${x.mine ? 'on' : ''}" data-react="${esc(x.e)}" aria-label="${x.e} ${x.n}${x.mine ? ', you reacted' : ''}">${x.e}${x.n > 1 ? ` ${x.n}` : ''}</button>`).join('')}</div>` : '';
+  const reacts = (m.reactions || []).length ? `<div class="reacts">${m.reactions.map(x => `<button type="button" class="rchip ${x.mine ? 'on' : ''}" data-react="${esc(x.e)}" aria-label="${esc(EMOJI_NAME[x.e] || 'Reaction')} ${x.n}${x.mine ? ', you reacted' : ''}">${emo(x.e)}${x.n > 1 ? ` ${x.n}` : ''}</button>`).join('')}</div>` : '';
   let seen = '';
   if (isLastMine && r.info.receipts) {
     const readers = r.info.members.filter(p => p.read_at && Date.parse(p.read_at) >= Date.parse(m.at));
@@ -302,7 +303,7 @@ async function fillTitles(list) {
     const saved = !!U.watchlist[t.id];
     el.querySelector('.tcp').innerHTML = poster(t, { small: true, mine: false });
     el.querySelector('.tci').innerHTML = `<b>${esc(t.name)}</b><span class="meta">${esc(t.year)} · ${t.type === 'tv' ? 'Series' : 'Movie'}</span>
-      <span class="tcbtns"><a class="btn sm ghost" href="#/t/${esc(t.id)}" data-open>Open</a><span role="button" tabindex="0" class="btn sm ${saved ? 'ghost' : ''}" data-csave="${esc(t.id)}">${saved ? '✓ Saved' : '＋ Watchlist'}</span></span>`;
+      <span class="tcbtns"><a class="btn sm ghost" href="#/t/${esc(t.id)}" data-open>Open</a><span role="button" tabindex="0" class="btn sm ${saved ? 'ghost' : ''}" data-csave="${esc(t.id)}">${saved ? 'Saved' : 'Watchlist'}</span></span>`;
     hydratePosters(el);
   }
 }
@@ -318,7 +319,7 @@ async function onMsgClick(e, r) {
   if (sv) {
     e.preventDefault(); e.stopPropagation();
     const res = toggleSave(sv.dataset.csave); buzz();
-    sv.textContent = res.saved ? '✓ Saved' : '＋ Watchlist'; sv.classList.toggle('ghost', res.saved);
+    sv.textContent = res.saved ? 'Saved' : 'Watchlist'; sv.classList.toggle('ghost', res.saved);
     if (res.saved) { const b = sv.getBoundingClientRect(); hearts(b.x + b.width / 2, b.y, 6); toast('Saved to your watchlist'); }
     return;
   }
@@ -336,9 +337,9 @@ function msgActions(r, id) {
   const m = r.msgs.get(id); if (!m || m.deleted || m.kind === 'system') return;
   const can = r.info.status === 'active';
   const sh = sheet(`<h2 class="sr-only">Message options</h2>
-    ${can && !m.hidden ? `<div class="emorow" role="group" aria-label="React">${EMOJI.map(x => `<button type="button" class="emo" data-e="${x}" aria-label="React ${x}">${x}</button>`).join('')}</div>` : ''}
-    <div class="menu">${m.body ? '<button class="mitem" data-a="copy">📋 Copy text</button>' : ''}
-      ${m.mine ? '<button class="mitem danger" data-a="del">🗑️ Delete for everyone</button>' : '<button class="mitem danger" data-a="rep">🚩 Report message</button>'}</div>`);
+    ${can && !m.hidden ? `<div class="emorow" role="group" aria-label="React">${EMOJI.map(x => `<button type="button" class="emo" data-e="${x}" aria-label="React ${EMOJI_NAME[x]}">${emo(x)}</button>`).join('')}</div>` : ''}
+    <div class="menu">${m.body ? '<button class="mitem" data-a="copy"><i class="i i-clipboard" aria-hidden="true"></i> Copy text</button>' : ''}
+      ${m.mine ? '<button class="mitem danger" data-a="del"><i class="i i-trash" aria-hidden="true"></i> Delete for everyone</button>' : '<button class="mitem danger" data-a="rep"><i class="i i-flag" aria-hidden="true"></i> Report message</button>'}</div>`);
   sh.addEventListener('click', async e => {
     const em = e.target.closest('[data-e]');
     if (em) { closeSheet(); return react(r, id, em.dataset.e); }
@@ -350,7 +351,7 @@ function msgActions(r, id) {
 }
 function reportMsg(id) {
   const R = [['harassment', 'Bullying or harassment'], ['scam', 'Scam or asking for money'], ['spam', 'Spam'], ['sexual', 'Sexual content'], ['hate', 'Hate'], ['other', 'Something else']];
-  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 6px">🚩 Report message</h2><div class="sub" style="margin-bottom:10px">Our team looks at every report. They won't know it was you.</div>
+  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 6px"><i class="i i-flag" aria-hidden="true"></i> Report message</h2><div class="sub" style="margin-bottom:10px">Our team looks at every report. They won't know it was you.</div>
     <form id="rmf"><div class="menu">${R.map(([k, l], i) => `<label class="mitem"><input type="radio" name="why" value="${k}" ${i ? '' : 'checked'}> ${l}</label>`).join('')}</div>
     <label class="sr-only" for="rmn">More details</label><textarea id="rmn" maxlength="300" rows="2" placeholder="More details (optional)" style="margin-top:10px"></textarea>
     <button class="btn" style="width:100%;margin-top:12px">Send report</button></form>`);
@@ -364,15 +365,15 @@ function reportMsg(id) {
 function roomMenu(r) {
   const i = r.info, o = i.other, group = i.kind === 'group', owner = i.role === 'owner';
   const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 10px">${esc(roomTitle(i))}</h2>
-    ${group ? `<div class="flabel">👥 People (${i.members.length + 1})</div><div class="nclist">${i.members.map(p => `<div class="ncrow"><a href="${profileHref(p)}" class="plink">${avatar(p, 'sm')}<span class="pname"><b>${esc(nameOf(p))}</b><span class="meta">${handle(p)}${p.role === 'owner' ? ' · Owner' : ''}</span></span></a>
+    ${group ? `<div class="flabel"><i class="i i-users" aria-hidden="true"></i> People (${i.members.length + 1})</div><div class="nclist">${i.members.map(p => `<div class="ncrow"><a href="${profileHref(p)}" class="plink">${avatar(p, 'sm')}<span class="pname"><b>${esc(nameOf(p))}</b><span class="meta">${handle(p)}${p.role === 'owner' ? ' · Owner' : ''}</span></span></a>
         ${owner ? `<button class="btn sm ghost" data-rm="${esc(p.id)}" aria-label="Remove ${esc(nameOf(p))}">Remove</button>` : ''}</div>`).join('')}</div>` : ''}
     <div class="menu" style="margin-top:10px">
-      ${group && i.status === 'active' ? '<button class="mitem" data-a="add">➕ Add friends</button><button class="mitem" data-a="ren">✏️ Rename group</button>' : ''}
-      <button class="mitem" data-a="mute">${i.muted ? '🔔 Unmute' : '🔕 Mute notifications'}</button>
-      ${!group && o ? `<a class="mitem" href="${profileHref(o)}">👤 View profile</a>
-        <button class="mitem danger" data-a="${o.blocked_by_me ? 'unblock' : 'block'}">${o.blocked_by_me ? '✅ Unblock' : '🚫 Block'} ${esc(nameOf(o))}</button>
-        <button class="mitem danger" data-a="repu">🚩 Report ${esc(nameOf(o))}</button>` : ''}
-      ${group ? '<button class="mitem danger" data-a="leave">🚪 Leave group</button>' : '<button class="mitem danger" data-a="leave">🗑️ Delete chat</button>'}
+      ${group && i.status === 'active' ? '<button class="mitem" data-a="add"><i class="i i-plus" aria-hidden="true"></i> Add friends</button><button class="mitem" data-a="ren"><i class="i i-pencil" aria-hidden="true"></i> Rename group</button>' : ''}
+      <button class="mitem" data-a="mute">${i.muted ? 'Unmute' : 'Mute notifications'}</button>
+      ${!group && o ? `<a class="mitem" href="${profileHref(o)}"><i class="i i-user" aria-hidden="true"></i> View profile</a>
+        <button class="mitem danger" data-a="${o.blocked_by_me ? 'unblock' : 'block'}">${o.blocked_by_me ? 'Unblock' : 'Block'} ${esc(nameOf(o))}</button>
+        <button class="mitem danger" data-a="repu"><i class="i i-flag" aria-hidden="true"></i> Report ${esc(nameOf(o))}</button>` : ''}
+      ${group ? '<button class="mitem danger" data-a="leave"><i class="i i-door-open" aria-hidden="true"></i> Leave group</button>' : '<button class="mitem danger" data-a="leave"><i class="i i-trash" aria-hidden="true"></i> Delete chat</button>'}
     </div>`);
   sh.addEventListener('click', async e => {
     const rm = e.target.closest('[data-rm]');
@@ -390,12 +391,12 @@ function roomMenu(r) {
   });
 }
 function renameSheet(r) {
-  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 10px">✏️ Rename group</h2><input id="rnt" maxlength="40" value="${esc(r.info.title || '')}" placeholder="Group name">
+  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 10px"><i class="i i-pencil" aria-hidden="true"></i> Rename group</h2><input id="rnt" maxlength="40" value="${esc(r.info.title || '')}" placeholder="Group name">
     <button class="btn" id="rns" style="width:100%;margin-top:12px">Save</button>`);
   $('#rns', sh).onclick = async () => { try { await C.rename(r.id, $('#rnt', sh).value.trim()); closeSheet(); renderRoom($('#app'), r.id); } catch (e) { toast(plain(e), 'sad'); } };
 }
 async function addSheet(r) {
-  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 10px">➕ Add friends</h2><div id="adl" class="nclist"><div class="rskel"></div></div><button class="btn" id="ads" style="width:100%;margin-top:12px">Add</button>`);
+  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 10px"><i class="i i-plus" aria-hidden="true"></i> Add friends</h2><div id="adl" class="nclist"><div class="rskel"></div></div><button class="btn" id="ads" style="width:100%;margin-top:12px">Add</button>`);
   const inChat = new Set(r.info.members.map(m => m.id));
   const fr = (await S.friends().catch(() => ({ friends: [] }))).friends.filter(p => !inChat.has(p.id));
   $('#adl', sh).innerHTML = fr.length ? fr.map(p => `<label class="ncrow">${avatar(p, 'sm')}<span class="pname"><b>${esc(p.display_name || p.username)}</b><span class="meta">${handle(p)}</span></span><input type="checkbox" value="${esc(p.id)}"></label>`).join('')
@@ -455,7 +456,7 @@ function sendTyping(r) {
 
 /* ---------- title picker ---------- */
 function pickTitle(onPick) {
-  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 10px">🎬 Send a movie or series</h2>
+  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 10px"><i class="i i-clapperboard" aria-hidden="true"></i> Send a movie or series</h2>
     <input id="tpq" type="search" placeholder="Search movies & series…" autocomplete="off" aria-label="Search titles"><div id="tpr" class="pkr" style="max-height:50vh;margin-top:8px"></div>`);
   const q = $('#tpq', sh), res = $('#tpr', sh); let timer, live = [];
   const draw2 = () => {
@@ -480,7 +481,7 @@ function pickTitle(onPick) {
    ===================================================================== */
 export async function sendTitleToChat(t) {
   if (!socialReady()) { toast(cloud.user ? 'Finish setting up your account first.' : 'Sign in to send this to friends.'); return; }
-  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 6px">💬 Send “${esc(t.name)}”</h2>
+  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 6px"><i class="i i-message-circle" aria-hidden="true"></i> Send “${esc(t.name)}”</h2>
     <label class="sr-only" for="stn">Add a note</label><input id="stn" maxlength="300" placeholder="Add a note (optional)">
     <div id="stl" class="nclist" style="margin-top:10px"><div class="rskel"></div></div>`);
   const [chats, fr] = await Promise.all([C.list('inbox').catch(() => []), S.friends().then(x => x.friends).catch(() => [])]);
@@ -495,7 +496,7 @@ export async function sendTitleToChat(t) {
       const id = b.dataset.chat ? +b.dataset.chat : await C.dm(b.dataset.user);
       const note = $('#stn', sh).value.trim();
       await C.send(id, note || null, keyOf(t.id));
-      b.querySelector('.btn').textContent = '✓ Sent'; buzz(); toast('Sent! 💌');
+      b.querySelector('.btn').textContent = '✓ Sent'; buzz(); toast('Sent!');
     } catch (er) { toast(plain(er), 'sad'); b.disabled = false; }
   };
 }

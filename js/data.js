@@ -21,10 +21,10 @@ export const TITLES = [
 export const BYID = Object.fromEntries(TITLES.map(t => [t.id, t]));
 
 export const LISTS = {
-  trending: {emoji:'🔥', name:'Trending this week', ids:['dune2','st','bear','shogun','squid','opp','wed','arcane']},
-  gems:     {emoji:'💎', name:'Hidden gems',        sort:t => (t.hype[1]-t.hype[0]), take:6},
-  overhyped:{emoji:'🎈', name:'Most overhyped',     sort:t => (t.hype[0]-t.hype[1]), take:6},
-  quit:     {emoji:'🚪', name:'Most quit',          ids:['opp','shogun','wed','squid','st','tlou']},
+  trending: {emoji:'<i class="i i-flame" aria-hidden="true"></i>', name:'Trending this week', ids:['dune2','st','bear','shogun','squid','opp','wed','arcane']},
+  gems:     {emoji:'<i class="i i-gem" aria-hidden="true"></i>', name:'Hidden gems',        sort:t => (t.hype[1]-t.hype[0]), take:6},
+  overhyped:{emoji:'<i class="i i-trending-down" aria-hidden="true"></i>', name:'Most overhyped',     sort:t => (t.hype[0]-t.hype[1]), take:6},
+  quit:     {emoji:'<i class="i i-door-open" aria-hidden="true"></i>', name:'Most quit',          ids:['opp','shogun','wed','squid','st','tlou']},
 };
 
 export const PEOPLE = [
@@ -38,19 +38,19 @@ export const PEOPLE = [
 
 export const HANDLES = ['nina.reacts','bingeboss','2amcinema','filmfrank','reelrachel','couchcritic','popcornpete','slowburnsam'];
 export const TAGS = ['Boring','Amazing','Funny','Scary','Sad','Plot twist'];
-export const TAGC = {'Boring':'#8a80a0','Amazing':'#ffd35c','Funny':'#4fe3b0','Scary':'#9b6bff','Sad':'#62b8ff','Plot twist':'#ff4f9a'};
-export const VIBEE = {'Funny':'😂','Scary':'😱','Sad':'😢','Mind-blowing':'🤯','Boring':'😴','Comfort watch':'🛋️'};
+export const TAGC = {'Boring':'#5A5A5A','Amazing':'#C6F432','Funny':'#F5F5F5','Scary':'#8A8A8A','Sad':'#8A8A8A','Plot twist':'#F5F5F5'};
+export const VIBEE = {'Funny':'<i class="i i-drama" aria-hidden="true"></i>','Scary':'<i class="i i-ghost" aria-hidden="true"></i>','Sad':'<i class="i i-cloud-rain" aria-hidden="true"></i>','Mind-blowing':'<i class="i i-brain" aria-hidden="true"></i>','Boring':'<i class="i i-moon" aria-hidden="true"></i>','Comfort watch':'<i class="i i-sofa" aria-hidden="true"></i>'};
 export const WORTH = ['Must watch','Watch if bored','Skip'];
-export const BESTE = {'Date night':'💘','Family':'👨‍👩‍👧','Alone at 2am':'🌙','With friends':'🍕'};
+export const BESTE = {'Date night':'<i class="i i-heart" aria-hidden="true"></i>','Family':'<i class="i i-users-round" aria-hidden="true"></i>','Alone at 2am':'<i class="i i-moon" aria-hidden="true"></i>','With friends':'<i class="i i-pizza" aria-hidden="true"></i>'};
 
 export const BADGES = [
-  {id:'first',  e:'🌱', name:'First rating',      test:s => s.rated >= 1},
-  {id:'ten',    e:'🎬', name:'Rated 10',          test:s => s.rated >= 10},
-  {id:'gem',    e:'💎', name:'Hidden Gem Hunter', test:s => s.gems >= 2},
-  {id:'journey',e:'🧭', name:'Journey Judge',     test:s => s.journeys >= 5},
-  {id:'streak3',e:'🔥', name:'3-day streak',      test:s => s.streak >= 3},
-  {id:'swiper', e:'⚡', name:'Quick Rater',       test:s => s.swipes >= 20},
-  {id:'list',   e:'🔖', name:'Planner',           test:s => s.saved >= 5},
-  {id:'twin',   e:'💞', name:'Found a twin',      test:s => s.bestMatch >= 80},
-  {id:'week',   e:'🏆', name:'7-day streak',      test:s => s.streak >= 7},
+  {id:'first',  e:'<i class="i i-sprout" aria-hidden="true"></i>', name:'First rating',      test:s => s.rated >= 1},
+  {id:'ten',    e:'<i class="i i-clapperboard" aria-hidden="true"></i>', name:'Rated 10',          test:s => s.rated >= 10},
+  {id:'gem',    e:'<i class="i i-gem" aria-hidden="true"></i>', name:'Hidden Gem Hunter', test:s => s.gems >= 2},
+  {id:'journey',e:'<i class="i i-compass" aria-hidden="true"></i>', name:'Journey Judge',     test:s => s.journeys >= 5},
+  {id:'streak3',e:'<i class="i i-flame" aria-hidden="true"></i>', name:'3-day streak',      test:s => s.streak >= 3},
+  {id:'swiper', e:'<i class="i i-zap" aria-hidden="true"></i>', name:'Quick Rater',       test:s => s.swipes >= 20},
+  {id:'list',   e:'<i class="i i-bookmark" aria-hidden="true"></i>', name:'Planner',           test:s => s.saved >= 5},
+  {id:'twin',   e:'<i class="i i-heart-handshake" aria-hidden="true"></i>', name:'Found a twin',      test:s => s.bestMatch >= 80},
+  {id:'week',   e:'<i class="i i-trophy" aria-hidden="true"></i>', name:'7-day streak',      test:s => s.streak >= 7},
 ];

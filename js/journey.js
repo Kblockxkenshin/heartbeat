@@ -55,14 +55,12 @@ export function heartbeatSVG(t, J, sel) {
   let d = `M${xs[0]},${ys[0]}`;
   for (let i = 0; i < n - 1; i++) { const x0 = xs[i - 1] ?? xs[i], y0 = ys[i - 1] ?? ys[i], x3 = xs[i + 2] ?? xs[i + 1], y3 = ys[i + 2] ?? ys[i + 1]; d += ` C${xs[i] + (xs[i + 1] - x0) / 6},${ys[i] + (ys[i + 1] - y0) / 6} ${xs[i + 1] - (x3 - xs[i]) / 6},${ys[i + 1] - (y3 - ys[i]) / 6} ${xs[i + 1]},${ys[i + 1]}`; }
   const step = n > 1 ? (W - 2 * P) / (n - 1) : W, every = n > 12 ? 3 : n > 8 ? 2 : 1, pk = argmax(vals);
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Heartbeat graph: how people felt across ${esc(t.name)}" style="display:block;font-family:Nunito,system-ui,sans-serif">
-  <defs><linearGradient id="hf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff4f9a" stop-opacity=".45"/><stop offset="1" stop-color="#ff4f9a" stop-opacity="0"/></linearGradient>
-  <linearGradient id="hl" x1="0" x2="1"><stop offset="0" stop-color="#ffd35c"/><stop offset=".5" stop-color="#ff4f9a"/><stop offset="1" stop-color="#9b6bff"/></linearGradient></defs>
-  <path d="${d} L${xs[n - 1]},${bot} L${xs[0]},${bot} Z" fill="url(#hf)"/>
-  <path d="${d}" fill="none" stroke="url(#hl)" stroke-width="3.5" stroke-linecap="round"/>
-  <text x="${xs[pk]}" y="${ys[pk] - 12}" text-anchor="middle" font-size="14">🔥</text>
-  ${xs.map((x, i) => `<circle cx="${x}" cy="${ys[i]}" r="${i === sel ? 8 : 4.5}" fill="${TAGC[dom(J.pts[i].tags)]}" stroke="${i === sel ? '#fff' : '#0d0b16'}" stroke-width="2.5"/>`).join('')}
-  ${J.tl.map((x, i) => i % every === 0 || i === n - 1 ? `<text x="${xs[i]}" y="${bot + 18}" fill="#b4abc8" font-size="11" font-weight="800" text-anchor="middle">${esc(x.s)}</text>` : '').join('')}
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Heartbeat graph: how people felt across ${esc(t.name)}" style="display:block;font-family:Inter,system-ui,sans-serif">
+  <line x1="${P}" x2="${W - P}" y1="${bot}" y2="${bot}" stroke="#1F1F1F" stroke-width="1"/>
+  <path d="${d}" fill="none" stroke="#C6F432" stroke-width="2" stroke-linecap="round"/>
+  <text x="${xs[pk]}" y="${ys[pk] - 14}" text-anchor="middle" font-size="10" letter-spacing="1" fill="#8A8A8A">PEAK</text>
+  ${xs.map((x, i) => `<circle cx="${x}" cy="${ys[i]}" r="${i === sel ? 6 : 3.5}" fill="${i === sel ? '#C6F432' : '#0A0A0A'}" stroke="${i === sel ? '#C6F432' : '#8A8A8A'}" stroke-width="1.5"/>`).join('')}
+  ${J.tl.map((x, i) => i % every === 0 || i === n - 1 ? `<text x="${xs[i]}" y="${bot + 18}" fill="#8A8A8A" font-size="10" font-weight="500" text-anchor="middle">${esc(x.s)}</text>` : '').join('')}
   ${xs.map((x, i) => `<rect data-pt="${i}" x="${x - step / 2}" y="0" width="${step}" height="${H}" fill="transparent" style="cursor:pointer"><title>${esc(J.tl[i].l)}</title></rect>`).join('')}
   </svg>`;
 }

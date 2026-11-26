@@ -1,10 +1,15 @@
-// Small shared UI pieces: escaping, posters, rows, mascot, toasts, hearts, confetti, sheets.
+// Small shared UI pieces: escaping, icons, posters, rows, toasts, sheets.
 import { U } from './store.js';
 import { CONFIG } from './config.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/** Line icon. ic('heart') -> <i class="i i-heart">. */
+export const ic = (n, cls = '') => `<i class="i i-${n}${cls ? ' ' + cls : ''}" aria-hidden="true"></i>`;
+const EMAP = {'★':'star','💖':'heart','🎬':'clapperboard','🔥':'flame','✅':'check','💬':'message-circle','💓':'heart-pulse','🎉':'party-popper','✏️':'pencil','🔒':'lock','👥':'users','💞':'heart-handshake','🔖':'bookmark','🛡️':'shield','🔎':'search','🚩':'flag','🏆':'trophy','🎁':'gift','✨':'sparkles','🍿':'popcorn','🎟️':'ticket','🙈':'eye-off','✓':'check','✍️':'pen-line','🤖':'bot','✕':'x','📜':'scroll-text','⏸️':'pause','🙋':'hand','🔗':'link','⚖️':'scale','🗑️':'trash','♥':'heart','⭐':'star','⚡':'zap','📤':'share','👀':'eye','📬':'inbox','😴':'moon','🧭':'compass','🏅':'medal','⬇️':'download','😍':'heart','👎':'thumbs-down','👍':'thumbs-up','🚫':'ban','💌':'mail','🔬':'microscope','🤝':'handshake','💎':'gem','🚪':'door-open','🎯':'target','🔐':'lock-keyhole','🧐':'glasses','🎢':'activity','📝':'notebook-pen','🤯':'brain','🌍':'globe','🎈':'trending-down','😂':'drama','😱':'ghost','😢':'cloud-rain','🥉':'medal','🥈':'medal','🥇':'medal','⚙️':'settings','📊':'chart-column','🔔':'bell','👤':'user','💡':'lightbulb','❤️':'heart','♡':'heart','📸':'camera','🔄':'refresh-cw','📨':'mail-plus','👋':'hand','🙅':'circle-slash','⌨️':'keyboard','💺':'armchair','👑':'crown','⬆️':'arrow-up','🗓️':'calendar','🏁':'flag-triangle-right','🤔':'circle-question-mark','📅':'calendar','📲':'smartphone','🔁':'repeat','🌟':'star','⏳':'hourglass','📦':'package','🎨':'palette','📥':'download','🔕':'bell-off','➕':'plus','🔑':'key-round','💗':'heart','💕':'heart','😭':'cloud-rain','🛋️':'sofa','💘':'heart','👨‍👩‍👧':'users-round','🌙':'moon','🍕':'pizza','🌱':'sprout','🔷':'diamond','♦️':'diamond','💚':'heart','🙂':'sun','🗺️':'map','🎖️':'award','⏩':'fast-forward','🎭':'drama','🔓':'lock-open','🧮':'calculator','🐢':'turtle','📱':'smartphone','🧸':'shield-check','🕘':'clock','🖨️':'printer','📈':'trending-up','🏷️':'tag','😊':'sun','😐':'circle-dot','😕':'cloud-rain','📄':'file-text','🎓':'graduation-cap','💳':'credit-card','💣':'bomb','✋':'hand','✔️':'check','↩️':'undo-2','🚨':'siren','🐞':'bug','😮':'sparkles','✉️':'mail','➤':'send','📋':'clipboard','✔':'check','🙃':'sun','📷':'camera','🤫':'volume-x','📍':'map-pin'};
+/** Turns emojis that come from the server (badges, events, prizes) into line icons. Other text is escaped. */
+export const emo = s => esc(String(s ?? '')).replace(/(?:[\u{1F300}-\u{1FAFF}\u2600-\u27BF\u2B50\u2B06\u2B07\u2194-\u21FF\u23E9-\u23FA\u231A\u231B\u2328](?:\uFE0F)?(?:\u200D[\u{1F300}-\u{1FAFF}\u2600-\u27BF](?:\uFE0F)?)*)/gu, e => EMAP[e] ? ic(EMAP[e]) : EMAP[e.replace(/\uFE0F/g, '')] ? ic(EMAP[e.replace(/\uFE0F/g, '')]) : ic('sparkles'));
 export const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 export const wide = () => matchMedia('(min-width: 768px)').matches;
 /** Small buzz on phones that support it. */
@@ -23,18 +28,18 @@ function posterImg(t, small) {
 }
 export const backdropUrl = t => t.backdropPath ? `${IMG}${CONFIG.backdropSize}${t.backdropPath}` : (t.posterPath ? `${IMG}w780${t.posterPath}` : null);
 
-/* ---------- poster: shimmer while loading, gradient card if it fails ---------- */
+/* ---------- poster: quiet placeholder while loading, plain card if it fails ---------- */
 export function poster(t, { badge = '', save = false, mine = true, small = false, hover = false } = {}) {
-  const g = `linear-gradient(160deg,${t.colors[1]},${t.colors[0]} 72%)`;
-  const s = U.ratings[t.id]?.overall ?? (U.swipes[t.id] === 'loved' ? '♥' : null);
+  const g = '#171717';
+  const s = U.ratings[t.id]?.overall ?? (U.swipes[t.id] === 'loved' ? '<i class="i i-heart" aria-hidden="true"></i>' : null);
   const im = posterImg(t, small);
-  return `<div class="poster ${im ? '' : 'fb'}" style="--glow:${t.colors[1]}aa">
+  return `<div class="poster ${im ? '' : 'fb'}">
     <div class="shimmer"></div>${im}
     <div class="fbk" style="background:${g}" ${im ? 'aria-hidden="true"' : ''}>${esc(t.name)}<small>${esc(t.year)} · ${t.type === 'tv' ? 'Series' : 'Movie'}</small></div>
     ${badge ? `<span class="badge-chip">${badge}</span>` : ''}
-    ${save ? `<button class="save-btn ${U.watchlist[t.id] ? 'on' : ''}" data-save="${esc(t.id)}" aria-label="${U.watchlist[t.id] ? 'Remove' : 'Add'} ${esc(t.name)} ${U.watchlist[t.id] ? 'from' : 'to'} watchlist"><span>${U.watchlist[t.id] ? '🔖' : '＋'}</span></button>` : ''}
-    ${mine && s != null ? `<span class="mine">${s === '♥' ? '♥' : '★ ' + s}</span>` : ''}
-    ${hover ? `<div class="hov"><button data-rate="${esc(t.id)}" aria-label="Rate ${esc(t.name)}">♥ Rate</button><button data-save="${esc(t.id)}" class="${U.watchlist[t.id] ? 'on' : ''}" aria-label="${U.watchlist[t.id] ? 'Remove from' : 'Add to'} watchlist"><span>${U.watchlist[t.id] ? '🔖 Saved' : '＋ Save'}</span></button></div>` : ''}
+    ${save ? `<button class="save-btn ${U.watchlist[t.id] ? 'on' : ''}" data-save="${esc(t.id)}" aria-label="${U.watchlist[t.id] ? 'Remove' : 'Add'} ${esc(t.name)} ${U.watchlist[t.id] ? 'from' : 'to'} watchlist"><span>${U.watchlist[t.id] ? '<i class="i i-bookmark-check" aria-hidden="true"></i>' : '<i class="i i-bookmark" aria-hidden="true"></i>'}</span></button>` : ''}
+    ${mine && s != null ? `<span class="mine">${s === '<i class="i i-heart" aria-hidden="true"></i>' ? '<i class="i i-heart" aria-hidden="true"></i>' : '<i class="i i-star" aria-hidden="true"></i> ' + s}</span>` : ''}
+    ${hover ? `<div class="hov"><button data-rate="${esc(t.id)}" aria-label="Rate ${esc(t.name)}"><i class="i i-heart" aria-hidden="true"></i> Rate</button><button data-save="${esc(t.id)}" class="${U.watchlist[t.id] ? 'on' : ''}" aria-label="${U.watchlist[t.id] ? 'Remove from' : 'Add to'} watchlist"><span>${U.watchlist[t.id] ? 'Saved' : '<i class="i i-plus" aria-hidden="true"></i> Save'}</span></button></div>` : ''}
   </div>`;
 }
 export function card(t, opts = {}) {
@@ -58,49 +63,25 @@ export function hydratePosters(root = document) {
   });
 }
 
-/* ---------- mascot: a small happy heart ---------- */
-export function mascot(mood = 'happy') {
-  const mouth = mood === 'sad' ? 'M40 63 Q50 56 60 63' : mood === 'wow' ? 'M46 60 a4 5 0 1 0 8 0 a4 5 0 1 0 -8 0' : 'M39 58 Q50 70 61 58';
-  return `<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff7ab5"/><stop offset="1" stop-color="#9b6bff"/></linearGradient></defs>
-  <path d="M50 88 C18 66 6 48 10 31 C14 15 34 9 50 26 C66 9 86 15 90 31 C94 48 82 66 50 88Z" fill="url(#mg)"/>
-  <ellipse cx="30" cy="30" rx="8" ry="5" fill="#fff" opacity=".35" transform="rotate(-30 30 30)"/>
-  <circle cx="38" cy="46" r="5.5" fill="#1a0f2e"/><circle cx="62" cy="46" r="5.5" fill="#1a0f2e"/>
-  <circle cx="40" cy="44" r="1.8" fill="#fff"/><circle cx="64" cy="44" r="1.8" fill="#fff"/>
-  <circle cx="29" cy="56" r="5" fill="#ff9fca" opacity=".7"/><circle cx="71" cy="56" r="5" fill="#ff9fca" opacity=".7"/>
-  <path d="${mouth}" stroke="#1a0f2e" stroke-width="3.5" fill="${mood === 'wow' ? '#1a0f2e' : 'none'}" stroke-linecap="round"/></svg>`;
-}
-export function empty(text, mood = 'happy', action = '') { return `<div class="mascot">${mascot(mood)}<div>${text}</div>${action}</div>`; }
+/* ---------- quiet feedback (no mascots, no confetti) ---------- */
+const MOOD_IC = { happy: 'check', wow: 'sparkles', sad: 'info', think: 'circle-question-mark', sleepy: 'moon' };
+export function mascot(mood = 'happy') { return ic(MOOD_IC[mood] || 'check'); }
+export function empty(text, mood = 'happy', action = '') { return `<div class="mascot"><div>${text}</div>${action}</div>`; }
 
 export function toast(msg, mood = 'happy') {
   $$('.toast').forEach(t => t.remove());
-  const d = document.createElement('div'); d.className = 'toast'; d.setAttribute('role', 'status');
+  const d = document.createElement('div'); d.className = 'toast' + (mood === 'sad' ? ' bad' : ''); d.setAttribute('role', 'status');
   d.innerHTML = mascot(mood) + `<span>${esc(msg)}</span>`;
   document.body.appendChild(d); setTimeout(() => d.remove(), 2600);
 }
-
-/* ---------- fun effects ---------- */
-export function hearts(x, y, n = 10) {
-  if (reduced()) return; const fx = $('#fx');
-  for (let i = 0; i < n; i++) {
-    const s = document.createElement('span'); s.className = 'burst'; s.textContent = ['💖', '💗', '✨', '💕'][i % 4];
-    const a = Math.random() * Math.PI * 2, d = 40 + Math.random() * 70;
-    s.style.cssText = `left:${x - 11}px;top:${y - 11}px;--dx:${Math.cos(a) * d}px;--dy:${Math.sin(a) * d - 30}px;--rot:${Math.random() * 90 - 45}deg`;
-    fx.appendChild(s); setTimeout(() => s.remove(), 950);
-  }
-}
-export function confetti(n = 90) {
-  if (reduced()) return; const fx = $('#fx'), cols = ['#ff4f9a', '#9b6bff', '#ffd35c', '#4fe3b0', '#62b8ff', '#ff8a4c'];
-  for (let i = 0; i < n; i++) {
-    const c = document.createElement('i'); c.className = 'conf';
-    c.style.cssText = `left:${Math.random() * 100}vw;background:${cols[i % cols.length]};--t:${1.6 + Math.random() * 1.6}s;--dx:${Math.random() * 160 - 80}px;--rot:${Math.random() * 900}deg;animation-delay:${Math.random() * .4}s`;
-    fx.appendChild(c); setTimeout(() => c.remove(), 3800);
-  }
-}
+/* The old celebration effects are kept as no-ops so existing calls stay safe. */
+export function hearts() { }
+export function confetti() { }
 /** Celebrate results from store actions (streaks, badges). */
 export function celebrate(res) {
   if (!res) return;
-  if (res.newBadges?.length) { confetti(); buzz([20, 40, 20]); toast(`New badge: ${res.newBadges[0].e} ${res.newBadges[0].name}!`, 'wow'); }
-  else if (res.streakUp) { confetti(60); toast(`🔥 ${U.streak.count}-day streak! Keep it going.`); }
+  if (res.newBadges?.length) { confetti(); buzz([20, 40, 20]); toast(`New badge: ${res.newBadges[0].name}!`, 'wow'); }
+  else if (res.streakUp) { confetti(60); toast(`${U.streak.count}-day streak! Keep it going.`); }
 }
 
 /* ---------- bottom sheet (phone) / centered dialog (desktop) ---------- */
@@ -109,7 +90,7 @@ export function sheet(html, onClose) {
   closeSheet();
   lastFocus = document.activeElement;
   const bg = document.createElement('div'); bg.className = 'sheet-bg'; bg.id = 'sheet';
-  bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" tabindex="-1"><div class="handle"></div><button class="sheet-x icon-btn" aria-label="Close">✕</button>${html}</div>`;
+  bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" tabindex="-1"><div class="handle"></div><button class="sheet-x icon-btn" aria-label="Close"><i class="i i-x" aria-hidden="true"></i></button>${html}</div>`;
   bg.addEventListener('click', e => { if (e.target === bg || e.target.closest('.sheet-x')) closeSheet(); });
   const sh = bg.firstElementChild; let y0 = null;
   // swipe the sheet down to close

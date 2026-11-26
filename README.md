@@ -92,6 +92,17 @@ Upload the app code first, then run `supabase/007_game.sql`. Everything is decid
   After the show: set each `winner` (the nominee's `k`) and run `select finish_event('oscars-2027');`
 - Recommendations a friend loves now give **+15 XP** (was +5).
 
+## Redesign, Upcoming & Box Office
+Upload the app code first, then run `supabase/012_upcoming.sql` and `supabase/013_boxoffice.sql`.
+- **Design:** flat black/gray, one lime accent (`--accent` in `css/app.css`), red only for "down"/"Flop". Fonts: Inter,
+  Instrument Serif (italic headline words), Geist Mono (numbers). Icons are Lucide line icons in `css/icons.css`
+  (`<i class="i i-heart"></i>`). No emojis, gradients, shadows or confetti.
+- **Upcoming** (`#/upcoming`): Indian movies in the next 6 months from TMDB (`/api/tmdb?upcoming=1`). Filters, "Most
+  anticipated" (Heartbeat watchlist saves), list + month calendar, "Notify me" reminders that show in the app on release day.
+- **Box Office** (`#/boxoffice`): admins enter numbers in **Admin → Box office** (one movie, then paste daily numbers:
+  `day, India net, India gross, overseas, note` in ₹ crore). The page shows the ticker, top stats, a stock-style chart
+  (budget + break-even lines, festivals, OTT date), key numbers and the weekly run. Always fill in the source.
+
 ## Legal & trust (Part 9)
 Upload the app code first, then run `supabase/011_legal.sql`.
 - **Pages:** `#/terms`, `#/privacy`, `#/guidelines`, `#/contact`, and a hub at `#/legal` (Me → Help & legal). The text

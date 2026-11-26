@@ -12,7 +12,7 @@ const law = () => LEGAL.law || 'the place where the operator of Heartbeat is bas
 
 export const DOCS = {
   terms: {
-    title: 'Terms of Service', icon: '📜',
+    title: 'Terms of Service', icon: '<i class="i i-scroll-text" aria-hidden="true"></i>',
     summary: ['You must be 13 or older. Under 18? Use Heartbeat with a parent or guardian\'s OK.', 'Be kind and follow the Community Guidelines.',
       'Your reviews stay yours, but you let us show them in Heartbeat.', 'Heartbeat Plus renews until you cancel. You can cancel any time.',
       'Movie and TV info comes from TMDB.'],
@@ -35,14 +35,14 @@ export const DOCS = {
     ],
   },
   privacy: {
-    title: 'Privacy Policy', icon: '🔒',
+    title: 'Privacy Policy', icon: '<i class="i i-lock" aria-hidden="true"></i>',
     summary: ['We never sell your personal information.', 'Studios only see grouped, anonymous numbers — and you can opt out.', 'Your birthday is private. Under-18s get extra protection.',
       'You can download all your data or delete your account any time.', 'Without an account, your ratings stay on your device.'],
     sections: [
       ['What this covers', [`This explains what information Heartbeat keeps, why, and your choices. Heartbeat is run by ${LEGAL.operator}.`]],
       ['What we keep', [
         '<b>Account:</b> email, username, password (scrambled by our sign-in provider), birthday (only you can see it), and if you add them: display name, bio, profile photo, favorite titles.',
-        '<b>What you do in the app:</b> ratings, quick-rate swipes, watchlist, reviews, comments, likes, friends, follows, blocks, chat messages, recommendations, trailer reactions, XP, streaks, leagues, picks, reports and appeals.',
+        '<b>What you do in the app:</b> ratings, quick-rate swipes, watchlist, reviews, comments, likes, friends, follows, blocks, chat messages, recommendations, trailer reactions, release reminders, XP, streaks, leagues, picks, reports and appeals.',
         '<b>Safety information:</b> a scrambled (one-way) code of your device and IP address, a rough region (like a country), and a security log (for example, too many ratings at once). We never keep your real IP address.',
         '<b>Payments:</b> if you buy Plus, Stripe handles the payment. We see your plan and status, never your card number.',
         '<b>Messages to us:</b> what you send through Contact us.'
@@ -75,11 +75,11 @@ export const DOCS = {
     ],
   },
   guidelines: {
-    title: 'Community Guidelines', icon: '🤝',
+    title: 'Community Guidelines', icon: '<i class="i i-handshake" aria-hidden="true"></i>',
     summary: ['Be kind — talk about the movie, not the person.', 'Hide spoilers.', 'Be honest: no fake accounts, paid reviews or rating waves.', 'No spam, hate, bullying or sexual content.', 'Report what breaks the rules. Appeal if we got it wrong.'],
     sections: [
       ['Be kind', ['Disagree with the review, not the person. No insults, threats, bullying or harassment. No hate against people for race, religion, gender, sexuality, disability or where they are from.']],
-      ['Hide spoilers', ['Use the 🙈 button to hide spoilers, or mark the whole review as having spoilers. Our AI may hide spoiler sentences for you.']],
+      ['Hide spoilers', ['Use the Hide spoiler button, or mark the whole review as having spoilers. Our AI may hide spoiler sentences for you.']],
       ['Be honest', ['Rate what you really watched. One account per person. No fake accounts, bots, paid or swapped reviews, vote rings, or rating waves on one title ("review-bombing"). These are held, removed or banned.']],
       ['Keep it about the title', ['No ads, links, self-promotion, "follow me", or copied text (like plot summaries from other websites). Write in your own words — computer-made filler isn\'t allowed.']],
       ['Keep it clean', ['No sexual content, and nothing that puts anyone in danger. Mild swearing in a review is OK.']],
@@ -87,7 +87,7 @@ export const DOCS = {
       ['Keep teens safe', ['People under 18 can only chat with friends. Never ask a younger person for private chats, photos or personal details. We act fast on reports about this.']],
       ['Screener panels', ['If a studio shows you a trailer or early cut, keep it private. Don\'t record or share it.']],
       ['What happens if rules are broken', ['Content can be blocked, hidden, or held for a person. XP can be removed. Accounts can be paused for a few days or banned. You will see the reason in the app.']],
-      ['Report and appeal', ['Use the ⋯ menu or 🚩 Report on any review, comment, message or profile. If your review was blocked, press "Ask a person" to appeal.', `For anything else, ${C}.`]],
+      ['Report and appeal', ['Use the ⋯ menu or Report on any review, comment, message or profile. If your review was blocked, press "Ask a person" to appeal.', `For anything else, ${C}.`]],
     ],
   },
 };

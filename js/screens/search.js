@@ -21,7 +21,7 @@ export function renderSearch(app, initial = '') {
   document.title = 'Search — Heartbeat';
   app.innerHTML = `<div class="screen">
     <header class="top"><h1 class="logo" style="font-size:26px;margin:0">Search</h1></header>
-    <label class="searchbar" style="cursor:text"><span aria-hidden="true">🔎</span><input id="q" type="search" placeholder="Movie, series or genre…" autocomplete="off" aria-label="Search movies and series" value="${esc(initial)}"></label>
+    <label class="searchbar" style="cursor:text"><span aria-hidden="true"><i class="i i-search" aria-hidden="true"></i></span><input id="q" type="search" placeholder="Movie, series or genre…" autocomplete="off" aria-label="Search movies and series" value="${esc(initial)}"></label>
     <div id="out"></div>
   </div>`;
   const q = $('#q'), out = $('#out'); let timer, live = [];
@@ -29,14 +29,14 @@ export function renderSearch(app, initial = '') {
   const draw = () => {
     const v = q.value;
     if (!v.trim()) {
-      out.innerHTML = (U.recent.length ? `<div class="sec"><h2>🕘 Recent</h2><button class="see" id="clr">Clear</button></div><div class="recent">${U.recent.map(r => `<button class="chip" data-r="${esc(r)}">${esc(r)}</button>`).join('')}</div>` : '')
-        + `<div class="sec"><h2>💡 Try</h2></div><div class="recent">${['Sci-Fi', 'Comedy', 'breking bad', 'intersteller'].map(r => `<button class="chip" data-r="${r}">${r}</button>`).join('')}</div>`;
+      out.innerHTML = (U.recent.length ? `<div class="sec"><h2><i class="i i-clock" aria-hidden="true"></i> Recent</h2><button class="see" id="clr">Clear</button></div><div class="recent">${U.recent.map(r => `<button class="chip" data-r="${esc(r)}">${esc(r)}</button>`).join('')}</div>` : '')
+        + `<div class="sec"><h2><i class="i i-lightbulb" aria-hidden="true"></i> Try</h2></div><div class="recent">${['Sci-Fi', 'Comedy', 'breking bad', 'intersteller'].map(r => `<button class="chip" data-r="${r}">${r}</button>`).join('')}</div>`;
     } else {
       const loc = localSearch(v);
       const extra = live.filter(x => !loc.some(t => norm(t.name) === norm(x.name))).slice(0, 8)
         .map(x => ({ id: `tmdb-${x.type}-${x.id}`, name: x.name, year: x.year, type: x.type, genres: [], posterPath: x.posterPath, colors: ['#262036', '#ff4f9a'] }));
       out.innerHTML = loc.map(t => row(t, `#/t/${t.id}`)).join('')
-        + (extra.length ? `<div class="sec"><h2>🌍 More from TMDB</h2></div>` + extra.map(t => row(t, `#/t/${t.id}`)).join('') : '')
+        + (extra.length ? `<div class="sec"><h2><i class="i i-globe" aria-hidden="true"></i> More from TMDB</h2></div>` + extra.map(t => row(t, `#/t/${t.id}`)).join('') : '')
         + (!loc.length && !extra.length ? empty(`No match for “${esc(v)}” yet.<br>Check the spelling or try a genre.`, 'sad') : '');
     }
     hydratePosters(out);

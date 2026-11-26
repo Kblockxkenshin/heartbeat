@@ -118,9 +118,9 @@ export function stats() {
   if (rs.length) {
     const st = rs.reduce((a, [, r]) => a + r.start, 0) / rs.length, en = rs.reduce((a, [, r]) => a + r.end, 0) / rs.length;
     const diff = en - st;
-    style = diff <= -0.5 ? { e: '🧐', name: 'Tough on endings', note: 'You expect a story to stick the landing.' }
-      : diff >= 0.5 ? { e: '🎢', name: 'Slow-burn lover', note: 'You forgive slow starts if the ending pays off.' }
-      : { e: '⚖️', name: 'Even-keeled', note: 'You judge the whole ride fairly.' };
+    style = diff <= -0.5 ? { e: '<i class="i i-glasses" aria-hidden="true"></i>', name: 'Tough on endings', note: 'You expect a story to stick the landing.' }
+      : diff >= 0.5 ? { e: '<i class="i i-activity" aria-hidden="true"></i>', name: 'Slow-burn lover', note: 'You forgive slow starts if the ending pays off.' }
+      : { e: '<i class="i i-scale" aria-hidden="true"></i>', name: 'Even-keeled', note: 'You judge the whole ride fairly.' };
     style.start = st; style.end = en;
   }
   const m = matches();

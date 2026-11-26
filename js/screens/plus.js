@@ -36,14 +36,14 @@ async function billing(action, plan) {
   return d;
 }
 const fmtDate = s => s ? new Date(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-const lock = `<span class="plock" aria-hidden="true">💖</span>`;
+const lock = `<span class="plock" aria-hidden="true"><i class="i i-heart" aria-hidden="true"></i></span>`;
 
 export const FEATURES = [
-  ['🎬', 'Heartbeat Wrapped', 'Your year as story slides: genres, decades, how you rate starts vs endings.', '#/wrapped'],
-  ['🔬', 'Taste Match Pro', 'See exactly where you and a friend disagree, part by part.', null],
-  ['🍿', 'Movie Night picker', 'Finds the perfect title for your whole group.', '#/movienight'],
-  ['🎨', 'Profile styles', 'Animated themes, banners and avatar frames.', '#/plus/style'],
-  ['💖', 'Plus badge', 'A little badge on your profile. Just for fun.', null],
+  ['<i class="i i-clapperboard" aria-hidden="true"></i>', 'Heartbeat Wrapped', 'Your year as story slides: genres, decades, how you rate starts vs endings.', '#/wrapped'],
+  ['<i class="i i-microscope" aria-hidden="true"></i>', 'Taste Match Pro', 'See exactly where you and a friend disagree, part by part.', null],
+  ['<i class="i i-popcorn" aria-hidden="true"></i>', 'Movie Night picker', 'Finds the perfect title for your whole group.', '#/movienight'],
+  ['<i class="i i-palette" aria-hidden="true"></i>', 'Profile styles', 'Animated themes, banners and avatar frames.', '#/plus/style'],
+  ['<i class="i i-heart" aria-hidden="true"></i>', 'Plus badge', 'A little badge on your profile. Just for fun.', null],
 ];
 const SOON = ['Unlimited custom lists with friends', 'Watch-party rooms', 'Streak Shield (2 repairs a month)', 'Early access to new features'];
 
@@ -53,13 +53,13 @@ const SOON = ['Unlimited custom lists with friends', 'Watch-party rooms', 'Strea
 export async function renderPlus(app, sub) {
   if (sub === 'style') return renderStyle(app);
   document.title = 'Heartbeat Plus';
-  app.innerHTML = `<div class="screen plus"><header class="top"><h1 class="logo" style="font-size:26px;margin:0">💖 Heartbeat Plus</h1></header>
+  app.innerHTML = `<div class="screen plus"><header class="top"><h1 class="logo" style="font-size:26px;margin:0"><i class="i i-heart" aria-hidden="true"></i> Heartbeat Plus</h1></header>
     <div id="pbody"><div class="card"><div class="rskel"></div><div class="rskel"></div></div></div></div>`;
   const body = $('#pbody', app);
   const [info, st] = await Promise.all([billingInfo(), socialReady() ? P.status().catch(() => null) : null]);
   if (sub === 'ok' && st && !st.plus) {
     // Just paid: Stripe tells our server in a few seconds. Ask once more, then refresh.
-    body.innerHTML = `<div class="card">${empty('Finishing up… 💖', 'happy')}</div>`;
+    body.innerHTML = `<div class="card">${empty('Finishing up…', 'happy')}</div>`;
     for (let i = 0; i < 5 && !(await P.status().catch(() => ({}))).plus; i++) {
       if (i === 1) await billing('restore').catch(() => {});
       await new Promise(r => setTimeout(r, 1500));
@@ -67,7 +67,7 @@ export async function renderPlus(app, sub) {
     await refreshMe();
     return renderPlus(app, '');
   }
-  if (sub === 'ok' && st?.plus) { confetti(120); buzz([20, 40, 20]); toast('Welcome to Heartbeat Plus! 💖'); history.replaceState(null, '', '#/plus'); }
+  if (sub === 'ok' && st?.plus) { confetti(120); buzz([20, 40, 20]); toast('Welcome to Heartbeat Plus!'); history.replaceState(null, '', '#/plus'); }
   body.innerHTML = st?.plus ? memberHTML(st) : await salesHTML(st, info);
   hydratePosters(body);
   wire(app, body, st, info);
@@ -83,14 +83,14 @@ async function salesHTML(st, info) {
         <div class="wpc blur" aria-hidden="true"><b>${w.decades[0]?.d || '2010s'}</b><span>your decade</span></div>
       </div>
       <div class="sub">With Plus you get the full story: your genres, ${w.decades.length === 1 ? 'your decade' : `${w.decades.length} decades`}, rating style, journey graph and more.</div>
-      <a class="btn sm ghost" href="#/wrapped" style="margin-top:10px">▶ Play the free preview</a></section>`
+      <a class="btn sm ghost" href="#/wrapped" style="margin-top:10px"><i class="i i-play" aria-hidden="true"></i> Play the free preview</a></section>`
     : `<section class="card wpeek"><h2 class="h3">Your Wrapped is waiting</h2><div class="sub">Rate a few titles and we'll build your year in stories.</div></section>`;
   const student = st?.student_ok && info.student;
   const trial = !st?.trial_used;
   const teen = !!cloud.stats?.is_minor;
   const can = info.ready && socialReady() && !teen;
   return `
-    <section class="card phero"><div class="pheart" aria-hidden="true">💖</div>
+    <section class="card phero"><div class="pheart" aria-hidden="true"><i class="i i-heart" aria-hidden="true"></i></div>
       <h2>Extra fun, extra depth, extra style.</h2>
       <p class="sub">Everything core stays <b>free forever</b>: rating, reviews, friends, chat, recommendations, Quick Rate, Taste Match, ranks, streaks and leaderboards. Plus never helps you win. No pay-to-win.</p></section>
     ${preview}
@@ -100,10 +100,10 @@ async function salesHTML(st, info) {
       <div class="plans" role="radiogroup" aria-label="Plan">
         <button type="button" role="radio" class="plan on" data-plan="yearly" aria-checked="true"><span class="save">Save 37%</span><b>$29.99 / year</b><span class="sub">$2.50 a month</span></button>
         <button type="button" role="radio" class="plan" data-plan="monthly" aria-checked="false"><b>$3.99 / month</b><span class="sub">Cancel any time</span></button>
-        ${student ? `<button type="button" role="radio" class="plan" data-plan="student" aria-checked="false"><span class="save">🎓 Student</span><b>$1.99 / month</b><span class="sub">With your .edu email</span></button>` : ''}
+        ${student ? `<button type="button" role="radio" class="plan" data-plan="student" aria-checked="false"><span class="save"><i class="i i-graduation-cap" aria-hidden="true"></i> Student</span><b>$1.99 / month</b><span class="sub">With your .edu email</span></button>` : ''}
       </div>
       <button class="btn big" id="pbuy" ${can ? '' : 'disabled'}>${!socialReady() ? 'Sign in to get Plus' : teen ? 'Plus is for 18+' : !info.ready ? 'Payments open soon' : trial ? 'Start 7-day free trial' : 'Get Heartbeat Plus'}</button>
-      ${teen ? '<p class="sub" role="note">Heartbeat Plus is for people 18 and older. Everything free still works! 💓</p>' : ''}
+      ${teen ? '<p class="sub" role="note">Heartbeat Plus is for people 18 and older. Everything free still works! <i class="i i-heart-pulse" aria-hidden="true"></i></p>' : ''}
       <div class="sub pfine">${trial ? 'Free for 7 days, then the price above. ' : ''}Cancel in 2 taps, any time. Secure checkout by Stripe.${!student && info.student ? ' Students: sign in with your confirmed .edu email to see the $1.99 price.' : ''}</div>
       ${!socialReady() ? `<a class="btn ghost" href="#/signin" style="width:100%;margin-top:8px">Sign in</a>` : ''}
       ${socialReady() ? '<button class="btn ghost sm" id="prestore" style="margin-top:8px">Restore purchases</button>' : ''}
@@ -114,17 +114,17 @@ function memberHTML(st) {
   const ends = st.cancel_at_period_end || !st.status;
   const plan = { monthly: '$3.99 / month', yearly: '$29.99 / year', student: 'Student · $1.99 / month' }[st.plan] || 'Heartbeat Plus';
   return `
-    <section class="card phero on"><div class="pheart" aria-hidden="true">💖</div><h2>You have Heartbeat Plus</h2>
+    <section class="card phero on"><div class="pheart" aria-hidden="true"><i class="i i-heart" aria-hidden="true"></i></div><h2>You have Heartbeat Plus</h2>
       <p class="sub">Thank you for supporting Heartbeat! ${st.status === 'trialing' ? 'You are on your free trial.' : ''}</p></section>
     <section class="card"><h2 class="h3">Your Plus tools</h2><div class="ptools">
       ${FEATURES.filter(f => f[3]).map(([e, t, , h]) => `<a class="ptool" href="${h}"><span aria-hidden="true">${e}</span>${t}</a>`).join('')}
-      <a class="ptool" href="#/friends/friends"><span aria-hidden="true">🔬</span>Taste Match Pro<small>open a friend's profile</small></a></div></section>
+      <a class="ptool" href="#/friends/friends"><span aria-hidden="true"><i class="i i-microscope" aria-hidden="true"></i></span>Taste Match Pro<small>open a friend's profile</small></a></div></section>
     <section class="card"><h2 class="h3">Your plan</h2>
       <div class="prow"><span>Plan</span><b>${esc(plan)}</b></div>
       <div class="prow"><span>${ends ? 'Plus ends' : st.status === 'trialing' ? 'Trial ends' : 'Renews'}</span><b>${fmtDate(st.period_end || st.plus_until)}</b></div>
       ${st.status === 'past_due' ? '<div class="sub" style="color:var(--pink)">Your last payment didn\'t go through. Update your card to keep Plus.</div>' : ''}
       <div class="pbtns2">
-        ${st.has_billing ? '<button class="btn sm ghost" id="pportal">💳 Card & receipts</button>' : ''}
+        ${st.has_billing ? '<button class="btn sm ghost" id="pportal"><i class="i i-credit-card" aria-hidden="true"></i> Card & receipts</button>' : ''}
         ${st.status && ends ? '<button class="btn sm" id="presume">Keep Plus</button>' : st.status ? '<button class="btn sm ghost" id="pcancel">Cancel Plus</button>' : ''}
         <button class="btn sm ghost" id="prestore">Restore purchases</button></div>
       ${ends && st.status ? `<div class="sub" style="margin-top:8px">Canceled. You keep Plus until ${fmtDate(st.period_end)}. You won't be charged again.</div>` : ''}
@@ -143,11 +143,11 @@ function wire(app, body, st, info) {
   on('prestore', async () => {
     const d = await billing('restore');
     await refreshMe();
-    toast(d.found ? (d.plus ? 'Plus restored! 💖' : 'Found your account. Plus is not active right now.') : 'No purchase found for this account.', d.found ? 'happy' : 'sad');
+    toast(d.found ? (d.plus ? 'Plus restored!' : 'Found your account. Plus is not active right now.') : 'No purchase found for this account.', d.found ? 'happy' : 'sad');
     renderPlus(app, '');
   });
   on('pportal', async () => { const d = await billing('portal'); location.href = d.url; });
-  on('presume', async () => { await billing('resume'); await refreshMe(); toast('Plus will keep going 💖'); renderPlus(app, ''); });
+  on('presume', async () => { await billing('resume'); await refreshMe(); toast('Plus will keep going'); renderPlus(app, ''); });
   // Cancel = 2 taps: "Cancel Plus" → "Yes, cancel".
   on('pcancel', async () => {
     const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 6px">Cancel Plus?</h2>
@@ -165,16 +165,16 @@ function wire(app, body, st, info) {
 /* =====================================================================
    Profile styles
    ===================================================================== */
-export const THEMES = [['sunset', 'Sunset'], ['ocean', 'Ocean'], ['aurora', 'Aurora ✨'], ['midnight', 'Midnight'], ['candy', 'Candy'], ['forest', 'Forest']];
+export const THEMES = [['sunset', 'Sunset'], ['ocean', 'Ocean'], ['aurora', 'Aurora'], ['midnight', 'Midnight'], ['candy', 'Candy'], ['forest', 'Forest']];
 export const BANNERS = [['stars', 'Stars'], ['waves', 'Waves'], ['hearts', 'Hearts'], ['film', 'Film strip'], ['neon', 'Neon'], ['confetti', 'Confetti']];
-export const FRAMES = [['glow', 'Glow'], ['rainbow', 'Rainbow ✨'], ['gold', 'Gold'], ['hearts', 'Hearts'], ['neon', 'Neon']];
+export const FRAMES = [['glow', 'Glow'], ['rainbow', 'Rainbow'], ['gold', 'Gold'], ['hearts', 'Hearts'], ['neon', 'Neon']];
 /** Classes for a profile card with Plus styles (only filled while the person has Plus). */
 export const styleClass = p => `${p?.theme ? 'th-' + p.theme : ''} ${p?.banner ? 'has-banner' : ''}`;
 export const bannerHTML = p => p?.banner ? `<div class="pbanner bn-${esc(p.banner)}" aria-hidden="true"></div>` : '';
 
 async function renderStyle(app) {
   document.title = 'Profile styles — Heartbeat Plus';
-  app.innerHTML = `<div class="screen plus"><header class="top"><a class="icon-btn" href="#/plus" aria-label="Back">←</a><h1 class="logo" style="font-size:22px;margin:0">🎨 Profile styles</h1><span></span></header>
+  app.innerHTML = `<div class="screen plus"><header class="top"><a class="icon-btn" href="#/plus" aria-label="Back"><i class="i i-arrow-left" aria-hidden="true"></i></a><h1 class="logo" style="font-size:22px;margin:0"><i class="i i-palette" aria-hidden="true"></i> Profile styles</h1><span></span></header>
     <div id="sbody"><div class="card"><div class="rskel"></div></div></div></div>`;
   const body = $('#sbody', app);
   if (!socialReady()) { body.innerHTML = `<div class="card">${empty('Sign in to style your profile.', 'happy', '<a class="btn" href="#/signin">Sign in</a>')}</div>`; return; }
@@ -187,12 +187,12 @@ async function renderStyle(app) {
   const paint = () => {
     const prev = $('#sprev', body), p = { ...me, ...cur };
     prev.className = `card phead sprev ${styleClass(p)}`;
-    prev.innerHTML = `${bannerHTML(p)}${avatar(p, 'lg')}<div class="pinfo"><h1>${esc(me.display_name || me.username || 'You')}</h1><div class="sub">@${esc(me.username || 'you')}</div><div class="pchips"><span class="pluschip">💖 Plus</span></div></div>`;
+    prev.innerHTML = `${bannerHTML(p)}${avatar(p, 'lg')}<div class="pinfo"><h1>${esc(me.display_name || me.username || 'You')}</h1><div class="sub">@${esc(me.username || 'you')}</div><div class="pchips"><span class="pluschip"><i class="i i-heart" aria-hidden="true"></i> Plus</span></div></div>`;
   };
   body.innerHTML = `<div class="card phead sprev" id="sprev"></div>
     ${plus ? '' : `<div class="card pnote">${lock} Try them on here. Saving styles needs <a class="see" href="#/plus">Heartbeat Plus</a>.</div>`}
     ${group('theme', 'Theme', THEMES)}${group('banner', 'Banner', BANNERS)}${group('frame', 'Avatar frame', FRAMES)}
-    <button class="btn big" id="ssave">${plus ? 'Save my style' : '💖 Get Plus to save'}</button>`;
+    <button class="btn big" id="ssave">${plus ? 'Save my style' : 'Get Plus to save'}</button>`;
   paint();
   body.addEventListener('click', e => {
     const b = e.target.closest('.sty'); if (!b) return;
@@ -202,7 +202,7 @@ async function renderStyle(app) {
   });
   $('#ssave', body).onclick = async () => {
     if (!plus) { location.hash = '#/plus'; return; }
-    try { await P.style(cur.theme, cur.banner, cur.frame); await refreshMe(); toast('Style saved! ✨'); }
+    try { await P.style(cur.theme, cur.banner, cur.frame); await refreshMe(); toast('Style saved!'); }
     catch (e) { toast(plain(e), 'sad'); }
   };
 }
@@ -212,13 +212,13 @@ async function renderStyle(app) {
    ===================================================================== */
 export async function openMatchPro(p) {
   if (!isPlus()) {
-    const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 6px">🔬 Taste Match Pro</h2>
+    const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 6px"><i class="i i-microscope" aria-hidden="true"></i> Taste Match Pro</h2>
       <div class="sub" style="margin-bottom:12px">See every title you both rated, part by part: who loved the start, who hated the ending, and where you split the most.</div>
-      <a class="btn big" href="#/plus" id="mpgo">💖 See Heartbeat Plus</a>`);
+      <a class="btn big" href="#/plus" id="mpgo"><i class="i i-heart" aria-hidden="true"></i> See Heartbeat Plus</a>`);
     $('#mpgo', sh).onclick = () => closeSheet();
     return;
   }
-  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 6px">🔬 You vs ${esc(p.display_name || p.username)}</h2><div id="mpb"><div class="rskel"></div><div class="rskel"></div></div>`);
+  const sh = sheet(`<h2 class="h3" style="font-size:21px;margin:0 0 6px"><i class="i i-microscope" aria-hidden="true"></i> You vs ${esc(p.display_name || p.username)}</h2><div id="mpb"><div class="rskel"></div><div class="rskel"></div></div>`);
   const box = $('#mpb', sh);
   try {
     const d = await P.pro(p.id);
@@ -233,7 +233,7 @@ export async function openMatchPro(p) {
           <table class="mptab"><thead><tr><th></th><th>Start</th><th>Middle</th><th>End</th></tr></thead><tbody>
             <tr><th>You</th>${[0, 1, 2].map(i => `<td class="${x.me[i] !== x.them[i] ? 'diff' : ''}">${x.me[i]}</td>`).join('')}</tr>
             <tr><th>${esc((p.display_name || p.username).split(' ')[0])}</th>${[0, 1, 2].map(i => `<td>${x.them[i]}</td>`).join('')}</tr></tbody></table>
-          <div class="sub">★ ${x.me[3]} vs ★ ${x.them[3]}${+x.gap >= 1.5 ? ' · <b class="rcgt">big split</b>' : +x.gap <= 0.5 ? ' · 🤝 same page' : ''}</div></div></a>`; }).join('') || '<div class="sub">Rate the same titles with Start / Middle / Ending to compare.</div>'}</div>`;
+          <div class="sub"><i class="i i-star" aria-hidden="true"></i> ${x.me[3]} vs <i class="i i-star" aria-hidden="true"></i> ${x.them[3]}${+x.gap >= 1.5 ? ' · <b class="rcgt">big split</b>' : +x.gap <= 0.5 ? ' · same page' : ''}</div></div></a>`; }).join('') || '<div class="sub">Rate the same titles with Start / Middle / Ending to compare.</div>'}</div>`;
     hydratePosters(box);
   } catch (e) { box.innerHTML = `<div class="sub">${esc(plain(e))}</div>`; }
 }
@@ -243,14 +243,14 @@ export async function openMatchPro(p) {
    ===================================================================== */
 export async function renderMovieNight(app) {
   document.title = 'Movie Night — Heartbeat Plus';
-  app.innerHTML = `<div class="screen plus"><header class="top"><h1 class="logo" style="font-size:24px;margin:0">🍿 Movie Night</h1></header>
+  app.innerHTML = `<div class="screen plus"><header class="top"><h1 class="logo" style="font-size:24px;margin:0"><i class="i i-popcorn" aria-hidden="true"></i> Movie Night</h1></header>
     <div id="mnb"><div class="card"><div class="rskel"></div></div></div></div>`;
   const body = $('#mnb', app);
   if (!socialReady()) { body.innerHTML = `<div class="card">${empty('Sign in and add friends to plan a movie night.', 'happy', '<a class="btn" href="#/signin">Sign in</a>')}</div>`; return; }
   if (!isPlus()) {
-    body.innerHTML = `<section class="card phero"><div class="pheart" aria-hidden="true">🍿</div><h2>Can't agree what to watch?</h2>
+    body.innerHTML = `<section class="card phero"><div class="pheart" aria-hidden="true"><i class="i i-popcorn" aria-hidden="true"></i></div><h2>Can't agree what to watch?</h2>
       <p class="sub">Pick your friends and Movie Night finds a title most of you haven't seen, that someone saved or loved, and nobody hated.</p>
-      <a class="btn big" href="#/plus">💖 Part of Heartbeat Plus</a></section>`;
+      <a class="btn big" href="#/plus"><i class="i i-heart" aria-hidden="true"></i> Part of Heartbeat Plus</a></section>`;
     return;
   }
   const fr = await S.friends().then(x => x.friends).catch(() => []);
@@ -265,7 +265,7 @@ export async function renderMovieNight(app) {
     const u = b.dataset.u;
     if (picked.has(u)) picked.delete(u); else if (picked.size < 7) picked.add(u); else return toast('Up to 7 friends.', 'sad');
     b.classList.toggle('on', picked.has(u)); b.setAttribute('aria-pressed', picked.has(u));
-    go.disabled = !picked.size; go.textContent = picked.size ? `🍿 Find our movie (${picked.size + 1} people)` : 'Pick friends';
+    go.disabled = !picked.size; go.textContent = picked.size ? `Find our movie (${picked.size + 1} people)` : 'Pick friends';
   };
   go.onclick = async () => {
     go.disabled = true;
@@ -280,7 +280,7 @@ export async function renderMovieNight(app) {
       res.innerHTML = !picks.length ? `<div class="card">${empty('No match yet. Ask everyone to save a few titles to their watchlist, then try again!', 'sad')}</div>` : `
         <section class="card mntop"><div class="sub">Tonight's pick</div>${mnCard(picks[0], ts, true)}</section>
         ${picks.length > 1 ? `<section class="card"><h2 class="h3">Also great</h2>${picks.slice(1, 6).map(x => mnCard(x, ts)).join('')}</section>` : ''}
-        ${avgPct.length ? `<section class="card"><h2 class="h3">💞 Group taste</h2>${avgPct.map(x => `<div class="prow"><span>${name(x.a)} + ${name(x.b)}</span><b>${x.pct}%</b></div>`).join('')}</section>` : ''}`;
+        ${avgPct.length ? `<section class="card"><h2 class="h3"><i class="i i-heart-handshake" aria-hidden="true"></i> Group taste</h2>${avgPct.map(x => `<div class="prow"><span>${name(x.a)} + ${name(x.b)}</span><b>${x.pct}%</b></div>`).join('')}</section>` : ''}`;
       hydratePosters(res); confetti(40);
     } catch (e) { res.innerHTML = `<div class="card">${empty(esc(plain(e)), 'sad')}</div>`; }
     go.disabled = false;
@@ -296,6 +296,6 @@ function mnCard(x, ts, big) {
 
 /* ---------- small Plus card for the Me page (never a pop-up) ---------- */
 export function mePlusCardHTML() {
-  if (isPlus()) return `<a class="card linkcard plusme on" href="#/plus"><span style="font-size:30px" aria-hidden="true">💖</span><div style="flex:1"><h2 class="h3">Heartbeat Plus</h2><div class="sub">Wrapped, Movie Night, styles and more.</div></div><span class="btn sm" aria-hidden="true">Open</span></a>`;
-  return `<a class="card linkcard plusme" href="#/plus"><span style="font-size:30px" aria-hidden="true">🎬</span><div style="flex:1"><h2 class="h3">Your Heartbeat Wrapped</h2><div class="sub">See your year in stories. Free preview, full story with Plus.</div></div><span class="btn sm ghost" aria-hidden="true">Peek</span></a>`;
+  if (isPlus()) return `<a class="card linkcard plusme on" href="#/plus"><span style="font-size:30px" aria-hidden="true"><i class="i i-heart" aria-hidden="true"></i></span><div style="flex:1"><h2 class="h3">Heartbeat Plus</h2><div class="sub">Wrapped, Movie Night, styles and more.</div></div><span class="btn sm" aria-hidden="true">Open</span></a>`;
+  return `<a class="card linkcard plusme" href="#/plus"><span style="font-size:30px" aria-hidden="true"><i class="i i-clapperboard" aria-hidden="true"></i></span><div style="flex:1"><h2 class="h3">Your Heartbeat Wrapped</h2><div class="sub">See your year in stories. Free preview, full story with Plus.</div></div><span class="btn sm ghost" aria-hidden="true">Peek</span></a>`;
 }

@@ -41,25 +41,25 @@ export const S = {
 export const socialReady = () => !!(cloud.ready && cloud.user && cloud.profile?.username);
 
 /* ---------- avatars ---------- */
-const COLORS = [['#ff4f9a', '#9b6bff'], ['#62b8ff', '#9b6bff'], ['#ffd35c', '#ff8a4c'], ['#4fe3b0', '#3fb6c9'], ['#ff8a4c', '#ff4f9a'], ['#9b6bff', '#62b8ff']];
+const COLORS = [['#1F1F1F']];
 const hue = s => [...String(s || '?')].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length;
-/** Round avatar: the photo if there is one, otherwise a colored circle with the first letter. */
+/** Round avatar: the photo if there is one, otherwise a gray circle with the first letter. */
 export function avatar(p, size = 'sm', extra = '') {
   const name = p?.display_name || p?.username || '?';
-  const [a, b] = COLORS[hue(p?.username)];
+  const [a] = COLORS[hue(p?.username)];
   const letter = esc((name[0] || '?').toUpperCase());
   const img = p?.avatar_url && /^https:\/\//.test(p.avatar_url)
     ? `<img src="${esc(p.avatar_url)}" alt="" loading="lazy" decoding="async">` : '';
   const rk = RANK_CLASS[p?.rank] || '';
   const fr = p?.frame && /^[a-z]+$/.test(p.frame) ? ` fr-${p.frame}` : rk ? ` ${rk}` : '';
-  return `<span class="ava ${size} ${extra}${fr}" aria-hidden="true" style="background:linear-gradient(135deg,${a},${b})"><i>${letter}</i>${img}</span>`;
+  return `<span class="ava ${size} ${extra}${fr}" aria-hidden="true" style="background:${a}"><i>${letter}</i>${img}</span>`;
 }
 // A photo that fails to load falls back to the letter underneath.
 document.addEventListener('error', e => { if (e.target?.matches?.('.ava img')) e.target.remove(); }, true);
 // Each rank unlocks a profile frame color (free). A Plus frame shows instead when picked.
 const RANK_CLASS = { 'Ticket Holder': 'rk1', 'Front Row': 'rk2', 'Critic': 'rk3', 'Top Critic': 'rk4', "Director's Cut": 'rk5', 'Legend': 'rk6' };
-export const RANK_E = { 'Popcorn': '🍿', 'Ticket Holder': '🎟️', 'Front Row': '💺', 'Critic': '📝', 'Top Critic': '⭐', "Director's Cut": '🎬', 'Legend': '👑' };
-export const rankChip = r => r ? `<span class="rankchip sm">${RANK_E[r] || '🍿'} ${esc(r)}</span>` : '';
+export const RANK_E = { 'Popcorn': '<i class="i i-popcorn" aria-hidden="true"></i>', 'Ticket Holder': '<i class="i i-ticket" aria-hidden="true"></i>', 'Front Row': '<i class="i i-armchair" aria-hidden="true"></i>', 'Critic': '<i class="i i-notebook-pen" aria-hidden="true"></i>', 'Top Critic': '<i class="i i-star" aria-hidden="true"></i>', "Director's Cut": '<i class="i i-clapperboard" aria-hidden="true"></i>', 'Legend': '<i class="i i-crown" aria-hidden="true"></i>' };
+export const rankChip = r => r ? `<span class="rankchip sm">${RANK_E[r] || '<i class="i i-popcorn" aria-hidden="true"></i>'} ${esc(r)}</span>` : '';
 export const handle = p => `@${esc(p?.username || 'someone')}`;
 export const profileHref = p => `#/u/${encodeURIComponent(p?.username || '')}`;
 

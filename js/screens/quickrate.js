@@ -12,8 +12,8 @@ export function renderQuickRate(app) {
   const q = queue();
   const done = TITLES.length - q.length;
   app.innerHTML = `<div class="screen qr">
-    <div class="qr-top"><div><h1 style="margin:0;font-size:clamp(26px,3vw,34px);font-weight:900">⚡ Quick Rate</h1><div class="sub">${session ? `${session} rated this round` : 'Seen it? Swipe it.'}</div></div>
-      <a class="icon-btn" href="#/" aria-label="Close">✕</a></div>
+    <div class="qr-top"><div><h1 style="margin:0;font-size:clamp(26px,3vw,34px);font-weight:900"><i class="i i-zap" aria-hidden="true"></i> Quick Rate</h1><div class="sub">${session ? `${session} rated this round` : 'Seen it? Swipe it.'}</div></div>
+      <a class="icon-btn" href="#/" aria-label="Close"><i class="i i-x" aria-hidden="true"></i></a></div>
     <div class="lvl" style="margin-top:12px" aria-label="${done} of ${TITLES.length} rated"><i style="width:${done / TITLES.length * 100}%"></i></div>
     ${q.length ? `<div class="stack" id="stack">
       ${q.slice(0, 2).reverse().map((t, i, a) => `<div class="qcard ${i === a.length - 1 ? 'front' : 'back'}" data-id="${t.id}">
@@ -23,12 +23,12 @@ export function renderQuickRate(app) {
       </div>`).join('')}
     </div>
     <div class="qbtns">
-      <button data-act="disliked" aria-label="Didn't like it (swipe left)">👎</button>
-      <button data-act="loved" class="love" aria-label="Loved it (swipe right)">💖</button>
-      <button data-act="unseen" aria-label="Haven't seen it (swipe up)">🙈</button>
+      <button data-act="disliked" aria-label="Didn't like it (swipe left)"><i class="i i-thumbs-down" aria-hidden="true"></i></button>
+      <button data-act="loved" class="love" aria-label="Loved it (swipe right)"><i class="i i-heart" aria-hidden="true"></i></button>
+      <button data-act="unseen" aria-label="Haven't seen it (swipe up)"><i class="i i-eye-off" aria-hidden="true"></i></button>
     </div>
     <div class="qhint">Swipe or use your keyboard: <kbd class="kbd">←</kbd> nope · <kbd class="kbd">→</kbd> loved · <kbd class="kbd">↑</kbd> haven't seen</div>`
-    : empty(`You rated everything here! ${session ? `That's ${session} in one go. 🎉` : ''}<br>Come back tomorrow for more.`, 'wow', `<a class="btn" href="#/me">See my stats</a>`)}
+    : empty(`You rated everything here! ${session ? `That's ${session} in one go.` : ''}<br>Come back tomorrow for more.`, 'wow', `<a class="btn" href="#/me">See my stats</a>`)}
   </div>`;
   hydratePosters(app);
   if (!q.length) return;

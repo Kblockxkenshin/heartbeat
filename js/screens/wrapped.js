@@ -24,9 +24,9 @@ export async function wrappedData() {
   }
   const avg = k => n ? items.reduce((a, x) => a + x.r[k], 0) / n : 0;
   const start = avg('start'), middle = avg('middle'), end = avg('end'), diff = end - start;
-  const style = !n ? null : diff <= -0.5 ? { e: '🧐', name: 'Tough on endings', note: 'A story has to stick the landing for you.' }
-    : diff >= 0.5 ? { e: '🎢', name: 'Slow-burn lover', note: 'You forgive a slow start if the ending pays off.' }
-    : { e: '⚖️', name: 'Even-keeled', note: 'You judge the whole ride fairly.' };
+  const style = !n ? null : diff <= -0.5 ? { e: '<i class="i i-glasses" aria-hidden="true"></i>', name: 'Tough on endings', note: 'A story has to stick the landing for you.' }
+    : diff >= 0.5 ? { e: '<i class="i i-activity" aria-hidden="true"></i>', name: 'Slow-burn lover', note: 'You forgive a slow start if the ending pays off.' }
+    : { e: '<i class="i i-scale" aria-hidden="true"></i>', name: 'Even-keeled', note: 'You judge the whole ride fairly.' };
   const sorted = items.slice().sort((a, b) => b.r.overall - a.r.overall || b.r.end - a.r.end);
   const biggestTurn = items.slice().sort((a, b) => Math.abs(b.r.end - b.r.start) - Math.abs(a.r.end - a.r.start))[0];
   return {
@@ -44,10 +44,9 @@ function journeySVG(w) {
   const pts = [w.start, w.middle, w.end].map((v, i) => [30 + i * 120, 150 - (v / 5) * 120]);
   const d = `M${pts[0]} C${pts[0][0] + 60},${pts[0][1]} ${pts[1][0] - 60},${pts[1][1]} ${pts[1]} S${pts[2][0] - 60},${pts[2][1]} ${pts[2]}`;
   return `<svg viewBox="0 0 300 170" class="wsvg" role="img" aria-label="Average start ${w.start.toFixed(1)}, middle ${w.middle.toFixed(1)}, ending ${w.end.toFixed(1)}">
-    <defs><linearGradient id="wg" x1="0" x2="1"><stop offset="0" stop-color="#ff4f9a"/><stop offset="1" stop-color="#9b6bff"/></linearGradient></defs>
     ${[1, 2, 3, 4, 5].map(v => `<line x1="20" x2="290" y1="${150 - v * 24}" y2="${150 - v * 24}" stroke="rgba(255,255,255,.08)"/>`).join('')}
-    <path d="${d}" fill="none" stroke="url(#wg)" stroke-width="6" stroke-linecap="round" class="wline"/>
-    ${pts.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="8" fill="#fff"/><text x="${x}" y="168" text-anchor="middle" fill="#cfc6e6" font-size="12" font-weight="800">${['Start', 'Middle', 'Ending'][i]}</text><text x="${x}" y="${y - 14}" text-anchor="middle" fill="#fff" font-size="14" font-weight="900">${[w.start, w.middle, w.end][i].toFixed(1)}</text>`).join('')}
+    <path d="${d}" fill="none" stroke="#C6F432" stroke-width="2" stroke-linecap="round" class="wline"/>
+    ${pts.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="4" fill="#F5F5F5"/><text x="${x}" y="168" text-anchor="middle" fill="#8A8A8A" font-size="11" font-weight="500">${['Start', 'Middle', 'Ending'][i]}</text><text x="${x}" y="${y - 14}" text-anchor="middle" fill="#fff" font-size="14" font-weight="900">${[w.start, w.middle, w.end][i].toFixed(1)}</text>`).join('')}
   </svg>`;
 }
 
@@ -55,14 +54,14 @@ function slides(w) {
   const yr = w.year ? `${w.year}` : 'so far';
   const bars = (list, key, lab) => { const mx = Math.max(...list.map(x => x.n), 1); return list.map(x => `<div class="wbar"><span>${esc(x[key])}</span><div><i style="width:${x.n / mx * 100}%"></i></div><b>${x.n}</b></div>`).join('') || `<div class="sub">${lab}</div>`; };
   return [
-    { c: 'w1', h: `<div class="wbig">🎬</div><div class="wk">Your Heartbeat ${yr}</div><div class="wnum">${w.n}</div><div class="wt">titles rated</div><div class="wsub">${w.movies} movies · ${w.series} series · about ${w.hours} hours of stories</div>` },
+    { c: 'w1', h: `<div class="wbig"><i class="i i-clapperboard" aria-hidden="true"></i></div><div class="wk">Your Heartbeat ${yr}</div><div class="wnum">${w.n}</div><div class="wt">titles rated</div><div class="wsub">${w.movies} movies · ${w.series} series · about ${w.hours} hours of stories</div>` },
     { c: 'w2', h: `<div class="wk">Your top genre</div><div class="wnum sm">${esc(w.genres[0]?.g || '—')}</div><div class="wlist">${bars(w.genres, 'g', 'Rate more to see genres')}</div>` },
     { c: 'w3', h: `<div class="wk">Your decades</div><div class="wnum sm">${esc(w.decades[0]?.d || '—')}</div><div class="wt">is your era</div><div class="wlist">${bars(w.decades.slice(0, 5), 'd', '')}</div>` },
-    { c: 'w4', h: `<div class="wbig">${w.style?.e || '⚖️'}</div><div class="wk">Your rating style</div><div class="wnum sm">${esc(w.style?.name || '')}</div><div class="wsub">${esc(w.style?.note || '')}</div><div class="wsub">Average ★ ${w.avgAll.toFixed(1)}</div>` },
+    { c: 'w4', h: `<div class="wbig">${w.style?.e || '<i class="i i-scale" aria-hidden="true"></i>'}</div><div class="wk">Your rating style</div><div class="wnum sm">${esc(w.style?.name || '')}</div><div class="wsub">${esc(w.style?.note || '')}</div><div class="wsub">Average <i class="i i-star" aria-hidden="true"></i> ${w.avgAll.toFixed(1)}</div>` },
     { c: 'w5', h: `<div class="wk">Your journey graph</div><div class="wt">How you rate starts vs endings</div>${journeySVG(w)}<div class="wsub">${w.end > w.start ? 'Endings win your heart.' : w.end < w.start ? 'Great starts, but endings must earn it.' : 'Starts and endings are equal to you.'}</div>` },
-    w.best && { c: 'w6', h: `<div class="wk">Your #1 of ${yr}</div><div class="wposter">${poster(w.best.t, { mine: false })}</div><div class="wnum sm">${esc(w.best.t.name)}</div><div class="wsub">★ ${w.best.r.overall} · ending ${w.best.r.end}/5</div>` },
+    w.best && { c: 'w6', h: `<div class="wk">Your #1 of ${yr}</div><div class="wposter">${poster(w.best.t, { mine: false })}</div><div class="wnum sm">${esc(w.best.t.name)}</div><div class="wsub"><i class="i i-star" aria-hidden="true"></i> ${w.best.r.overall} · ending ${w.best.r.end}/5</div>` },
     w.turn && Math.abs(w.turn.r.end - w.turn.r.start) >= 1 && { c: 'w7', h: `<div class="wk">Biggest plot twist (for you)</div><div class="wposter">${poster(w.turn.t, { mine: false })}</div><div class="wnum sm">${esc(w.turn.t.name)}</div><div class="wsub">Started at ${w.turn.r.start}, ended at ${w.turn.r.end}. ${w.turn.r.end > w.turn.r.start ? 'What a comeback!' : 'Ouch, that ending.'}</div>` },
-    { c: 'w8', h: `<div class="wbig">💖</div><div class="wk">That's a wrap!</div><div class="wcard"><b>${w.n}</b> titles · <b>${esc(w.genres[0]?.g || '—')}</b> fan · <b>${esc(w.style?.name || '')}</b></div><div class="wsub">Rate the journey, not just the ending.</div>` },
+    { c: 'w8', h: `<div class="wbig"><i class="i i-heart" aria-hidden="true"></i></div><div class="wk">That's a wrap!</div><div class="wcard"><b>${w.n}</b> titles · <b>${esc(w.genres[0]?.g || '—')}</b> fan · <b>${esc(w.style?.name || '')}</b></div><div class="wsub">Rate the journey, not just the ending.</div>` },
   ].filter(Boolean);
 }
 
@@ -71,14 +70,14 @@ export async function renderWrapped(app) {
   app.innerHTML = `<div class="wrap-bg"><div class="rskel"></div></div>`;
   const w = await wrappedData();
   if (!w.n) {
-    app.innerHTML = `<div class="screen"><header class="top"><a class="icon-btn" href="#/me" aria-label="Back">←</a></header><div class="card" style="text-align:center"><div style="font-size:48px">🎬</div><h2>Your Wrapped needs ratings</h2><div class="sub">Rate a few movies or series with Start / Middle / Ending, then come back.</div><a class="btn" href="#/rate" style="margin-top:12px">💖 Quick Rate</a></div></div>`;
+    app.innerHTML = `<div class="screen"><header class="top"><a class="icon-btn" href="#/me" aria-label="Back"><i class="i i-arrow-left" aria-hidden="true"></i></a></header><div class="card" style="text-align:center"><div style="font-size:48px"><i class="i i-clapperboard" aria-hidden="true"></i></div><h2>Your Wrapped needs ratings</h2><div class="sub">Rate a few movies or series with Start / Middle / Ending, then come back.</div><a class="btn" href="#/rate" style="margin-top:12px"><i class="i i-heart" aria-hidden="true"></i> Quick Rate</a></div></div>`;
     return;
   }
   const S = slides(w), plus = isPlus(), FREE = 2;
   let i = 0, timer = null;
   app.innerHTML = `<div class="wrap-bg" role="region" aria-label="Heartbeat Wrapped story" aria-roledescription="carousel">
     <div class="wbars">${S.map((_, k) => `<span><i></i></span>`).join('')}</div>
-    <a class="icon-btn wclose" href="#/me" aria-label="Close">✕</a>
+    <a class="icon-btn wclose" href="#/me" aria-label="Close"><i class="i i-x" aria-hidden="true"></i></a>
     <div class="wslide" id="wslide" aria-live="polite"></div>
     <button class="wnav prev" aria-label="Previous slide"></button><button class="wnav next" aria-label="Next slide"></button></div>`;
   const box = $('#wslide', app), bars = [...app.querySelectorAll('.wbars i')];
@@ -87,7 +86,7 @@ export async function renderWrapped(app) {
     i = Math.max(0, Math.min(S.length - 1, k));
     const locked = !plus && i >= FREE;
     box.className = `wslide ${S[i].c} ${locked ? 'locked' : ''}`;
-    box.innerHTML = locked ? `<div class="wbig">💖</div><div class="wk">There's more to your story</div>
+    box.innerHTML = locked ? `<div class="wbig"><i class="i i-heart" aria-hidden="true"></i></div><div class="wk">There's more to your story</div>
         <div class="wsub">${S.length - FREE} more slides: your decades, rating style, journey graph, your #1 and more.</div>
         <div class="wblur" aria-hidden="true">${S[i].h}</div>
         <a class="btn big" href="#/plus" style="position:relative;z-index:2;margin-top:16px">Unlock with Heartbeat Plus</a>` : S[i].h;

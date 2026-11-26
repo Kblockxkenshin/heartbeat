@@ -6,7 +6,7 @@ import { cloud, startCloud, onCloud, importLocal } from './cloud.js';
 import { renderAuth, renderWelcome, needsSetup } from './screens/auth.js';
 import { renderMyReviews } from './screens/reviews.js';
 import { hydrate, apply, loadTitle, search as tmdbSearch } from './tmdb.js';
-import { $, $$, esc, hearts, celebrate, closeSheet, sheet, toast, wide, buzz, mascot, poster, hydratePosters } from './ui.js';
+import { $, $$, esc, ic, hearts, celebrate, closeSheet, sheet, toast, wide, buzz, mascot, poster, hydratePosters } from './ui.js';
 import { renderHome } from './screens/home.js';
 import { renderDetail, openRate } from './screens/detail.js';
 import { renderQuickRate } from './screens/quickrate.js';
@@ -27,21 +27,26 @@ import { renderSecurity } from './screens/security.js';
 import { renderAdmin } from './screens/admin.js';
 import { renderStudios, renderStudio, renderScreeners } from './screens/studio.js';
 import { renderLegalDoc, renderLegalHub, renderContact, checkTerms } from './screens/legal.js';
+import { renderUpcoming, checkReminders } from './screens/upcoming.js';
+import { renderBoxOffice } from './screens/boxoffice.js';
+import { startTilt } from './motion.js';
 
 TITLES.forEach(apply); // use cached TMDB info right away
 
 /* ---------------- navigation ---------------- */
+// Desktop: one quiet top bar (logo · links · search + profile). Phone: the same bar (logo + chat) and 5 bottom tabs.
 const NAV = [
-  { h: '#/', k: 'home', l: 'Home', i: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>' },
-  { h: '#/search', k: 'search', l: 'Search', i: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>' },
-  { h: '#/rate', k: 'rate', l: 'Quick Rate', i: '<path d="M12 21C5 16 2 12.5 2 8.6 2 5.5 4.4 3 7.4 3c1.9 0 3.6 1 4.6 2.6C13 4 14.7 3 16.6 3 19.6 3 22 5.5 22 8.6c0 3.9-3 7.4-10 12.4z"/>' },
-  { h: '#/friends', k: 'friends', l: 'Friends', i: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.8 3.4-5.5 6.5-5.5s5.7 1.7 6.5 5.5"/><circle cx="17" cy="9" r="2.8"/><path d="M16.5 14.6c2.6.2 4.4 1.8 5 4.9"/>' },
-  { h: '#/chat', k: 'chat', l: 'Chat', i: '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.5 9.5 0 0 1-3.6-.7L3 21l1.6-4.6A8 8 0 0 1 3 11.5 8.6 8.6 0 0 1 12 3a8.6 8.6 0 0 1 9 8.5z"/>' },
-  { h: '#/play', k: 'play', l: 'Play', side: true, i: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>' },
-  { h: '#/me', k: 'me', l: 'Me', i: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.5-6 8-6s7 1.5 8 6"/>' },
+  { h: '#/', k: 'home', l: 'Home', i: 'house', tab: true },
+  { h: '#/search', k: 'search', l: 'Search', i: 'search', tab: true, top: false },
+  { h: '#/rate', k: 'rate', l: 'Rate', i: 'heart', tab: true },
+  { h: '#/friends', k: 'friends', l: 'Friends', i: 'users', tab: true },
+  { h: '#/chat', k: 'chat', l: 'Chat', i: 'message-circle' },
+  { h: '#/upcoming', k: 'upcoming', l: 'Upcoming', i: 'calendar-days' },
+  { h: '#/boxoffice', k: 'boxoffice', l: 'Box Office', i: 'chart-line' },
+  { h: '#/play', k: 'play', l: 'Play', i: 'trophy' },
+  { h: '#/me', k: 'me', l: 'Me', i: 'user', tab: true, top: false },
 ];
-const svg = (p, fill) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
-const LOGO = `<span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="24" height="24"><path d="M3 17h6l2.5-6 4 12 3-9 2 3H29" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
+const LOGO = `<svg class="lmark" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><path d="M2 17h7l2.5-6 4 12 3-9 2 3H30" fill="none" stroke="#C6F432" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 const dot = k => {
   const n = k === 'friends' ? (cloud.requests || 0) + (cloud.profile?.new_recs || 0) + (cloud.profile?.unread_notes || 0) : k === 'chat' ? (cloud.unreadChats || 0) + (cloud.chatRequests || 0) : 0;
@@ -50,31 +55,33 @@ const dot = k => {
   return `<span class="ndot" aria-label="${n} ${what}">${n > 9 ? '9+' : n}</span>`;
 };
 function chrome(active) {
-  // Phone: bottom tabs
-  $('#tabs').innerHTML = `<div class="bar">${NAV.filter(n => !n.side).map(n => { const on = active === n.k; return `<a href="${n.h}" class="${n.k === 'rate' ? 'rate' : ''} ${on ? 'on' : ''}" ${on ? 'aria-current="page"' : ''} aria-label="${n.l}"><span class="ic">${svg(n.i, on || n.k === 'rate')}${dot(n.k)}</span>${n.k === 'rate' ? '' : `<span class="lb">${n.l}</span>`}</a>`; }).join('')}</div>`;
+  // Phone: five plain tabs
+  $('#tabs').innerHTML = `<div class="bar">${NAV.filter(n => n.tab).map(n => { const on = active === n.k; return `<a href="${n.h}" class="${on ? 'on' : ''}" ${on ? 'aria-current="page"' : ''}><span class="ic">${ic(n.i)}${dot(n.k)}</span><span class="lb">${n.l}</span></a>`; }).join('')}</div>`;
   $('#tabs').hidden = active === 'none' || document.body.classList.contains('inroom');
-  // Tablet + desktop: sidebar
-  const st = streakAlive();
-  $('#side').innerHTML = `<a class="slogo" href="#/" aria-label="Heartbeat home">${LOGO}<span class="lb">heartbeat</span></a>
-    <nav class="snav">${NAV.map(n => { const on = active === n.k; return `<a href="${n.h}" class="sitem ${n.k === 'rate' ? 'srate' : ''} ${on ? 'on' : ''}" ${on ? 'aria-current="page"' : ''} title="${n.l}" aria-label="${n.l}"><span class="ic">${svg(n.i, on || n.k === 'rate')}${dot(n.k)}</span><span class="lb">${n.l}</span></a>`; }).join('')}</nav>
-    <div class="sfoot">
-      <button class="sitem" id="helpBtn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><span class="ic">⌨️</span><span class="lb">Shortcuts <kbd class="kbd">?</kbd></span></button>
-      ${cloud.ready && !cloud.user ? `<a class="sitem ssign" href="#/signin" aria-label="Sign in"><span class="ic">🔑</span><span class="lb">Sign in</span></a>` : ''}
-      <a class="sme" href="#/me" aria-label="${esc(displayName())}, ${st}-day streak">${cloud.profile ? avatar(cloud.profile, 'sm') : `<span class="ava sm" aria-hidden="true">${esc((displayName()[0] || 'Y').toUpperCase())}</span>`}<span class="lb"><b>${esc(displayName())}</b><small>${cloud.stats ? esc(cloud.stats.rank) + ' · ' : ''}🔥 ${st}-day streak</small></span></a>
-    </div>`;
-  $('#side').hidden = active === 'none';
-  $('#topbar').hidden = active === 'none';
+  // Top bar links (desktop) + profile
+  $('#tnav').innerHTML = NAV.filter(n => n.top !== false).map(n => { const on = active === n.k; return `<a href="${n.h}" class="${on ? 'on' : ''}" ${on ? 'aria-current="page"' : ''}>${n.l}${dot(n.k)}</a>`; }).join('');
+  $('#tchat').innerHTML = ic('message-circle') + dot('chat');
+  $('#tchat').classList.toggle('on', active === 'chat');
+  $('#tme').innerHTML = cloud.ready && !cloud.user ? `<a class="btn sm" href="#/signin">Sign in</a>`
+    : `<a class="tava ${active === 'me' ? 'on' : ''}" href="#/me" aria-label="${esc(displayName())}, your profile">${cloud.profile ? avatar(cloud.profile, 'sm') : `<span class="ava sm" aria-hidden="true"><i>${esc((displayName()[0] || 'Y').toUpperCase())}</i></span>`}</a>`;
+  $('#side').hidden = true;
+  $('#topbar').hidden = active === 'none' || document.body.classList.contains('inroom');
 }
 
-/* ---------------- top search bar (tablet + desktop) ---------------- */
+/* ---------------- top bar + search ---------------- */
 function topbar() {
   $('#topbar').innerHTML = `<div class="tb">
-    <div class="tsearch" role="combobox" aria-expanded="false" aria-owns="gdrop" aria-haspopup="listbox">
-      <span aria-hidden="true">🔎</span><input id="gq" type="search" autocomplete="off" placeholder="Search movies & series…" aria-label="Search movies and series" aria-controls="gdrop">
-      <kbd class="kbd" aria-hidden="true">/</kbd>
-      <div id="gdrop" role="listbox" hidden></div>
-    </div>
-    <button class="icon-btn" id="helpTop" aria-label="Keyboard shortcuts">?</button></div>`;
+    <a class="tlogo" href="#/" aria-label="Heartbeat home">${LOGO}<span>heartbeat</span></a>
+    <nav class="tnav" id="tnav" aria-label="Main"></nav>
+    <div class="tright">
+      <div class="tsearch" role="combobox" aria-expanded="false" aria-owns="gdrop" aria-haspopup="listbox">
+        ${ic('search')}<input id="gq" type="search" autocomplete="off" placeholder="Search" aria-label="Search movies and series" aria-controls="gdrop">
+        <kbd class="kbd" aria-hidden="true">/</kbd>
+        <div id="gdrop" role="listbox" hidden></div>
+      </div>
+      <a class="icon-btn tchat" id="tchat" href="#/chat" aria-label="Chat"></a>
+      <span id="tme"></span>
+    </div></div>`;
   const q = $('#gq'), drop = $('#gdrop'); let timer, live = [], idx = -1;
   const items = () => $$('[role=option]', drop);
   const draw = () => {
@@ -82,7 +89,7 @@ function topbar() {
     if (!v) { drop.hidden = true; q.parentElement.setAttribute('aria-expanded', 'false'); return; }
     const loc = localSearch(v).slice(0, 6);
     const extra = live.filter(x => !loc.some(t => t.name.toLowerCase() === x.name.toLowerCase())).slice(0, 6);
-    const rowHtml = (t, href, meta) => `<a role="option" class="dres" href="${href}">${poster({ ...t, colors: t.colors || ['#262036', '#ff4f9a'] }, { mine: false, small: true })}<span><b>${esc(t.name)}</b><span class="meta">${esc(meta)}</span></span></a>`;
+    const rowHtml = (t, href, meta) => `<a role="option" class="dres" href="${href}">${poster({ ...t, colors: t.colors || ['#171717', '#171717'] }, { mine: false, small: true })}<span><b>${esc(t.name)}</b><span class="meta">${esc(meta)}</span></span></a>`;
     drop.innerHTML = (loc.map(t => rowHtml(t, `#/t/${t.id}`, `${t.year} · ${t.type === 'tv' ? 'Series' : 'Movie'}`)).join('')
       + extra.map(x => rowHtml({ ...x, posterPath: x.posterPath, year: x.year }, `#/t/tmdb-${x.type}-${x.id}`, `${x.year || ''} · ${x.type === 'tv' ? 'Series' : 'Movie'} · TMDB`)).join(''))
       || `<div class="dempty">${mascot('sad')}<span>No match for “${esc(v)}” yet.</span></div>`;
@@ -97,13 +104,12 @@ function topbar() {
   });
   drop.addEventListener('click', () => { setTimeout(() => { q.value = ''; draw(); }, 0); });
   document.addEventListener('click', e => { if (!e.target.closest('.tsearch')) drop.hidden = true; });
-  $('#helpTop').onclick = showHelp;
 }
 
 /* ---------------- router ---------------- */
 const route = () => { const p = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent); return { p: p[0] || '', a: p[1] || '', b: p[2] || '' }; };
 let baseHash = null, baseRendered = null, modalFromBase = false, lastKey = '';
-const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight], play: ['play', null], security: ['me', renderSecurity], admin: ['me', null], studios: ['me', renderStudios], studio: ['me', null], screeners: ['me', renderScreeners], legal: ['me', renderLegalHub], terms: ['me', a => renderLegalDoc($('#app'), 'terms')], privacy: ['me', a => renderLegalDoc($('#app'), 'privacy')], guidelines: ['me', a => renderLegalDoc($('#app'), 'guidelines')], contact: ['me', renderContact] };
+const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight], play: ['play', null], security: ['me', renderSecurity], admin: ['me', null], studios: ['me', renderStudios], studio: ['me', null], screeners: ['me', renderScreeners], legal: ['me', renderLegalHub], terms: ['me', a => renderLegalDoc($('#app'), 'terms')], privacy: ['me', a => renderLegalDoc($('#app'), 'privacy')], guidelines: ['me', a => renderLegalDoc($('#app'), 'guidelines')], contact: ['me', renderContact], upcoming: ['upcoming', renderUpcoming], boxoffice: ['boxoffice', null] };
 
 function renderBase(r, keepScroll) {
   const app = $('#app'), y = scrollY, key = location.hash || '#/';
@@ -123,6 +129,7 @@ function renderBase(r, keepScroll) {
   else if (r.p === 'play') renderPlay(app, r.a || 'league', r.b);
   else if (r.p === 'admin') renderAdmin(app, r.a || 'overview');
   else if (r.p === 'studio') renderStudio(app, r.a, r.b);
+  else if (r.p === 'boxoffice') renderBoxOffice(app, r.a);
   else if (r.p === 'chat') { if (inRoom) renderRoom(app, r.a); else renderChats(app, r.a); }
   else (PAGES[r.p] || PAGES[''])[1](app);
   baseHash = key; baseRendered = key;
@@ -221,7 +228,7 @@ $('#skip').onclick = () => $('#app').focus();
 /* ---------------- keyboard shortcuts ---------------- */
 function showHelp() {
   const keys = [['/', 'Search'], ['R', 'Rate this title (or the card you\'re on)'], ['← → ↑ ↓', 'Move between posters'], ['Enter', 'Open the poster'], ['Esc', 'Close'], ['1–5', 'Rate the ending (in the rating box)'], ['→ ← ↑', 'Quick Rate: loved · nope · haven\'t seen'], ['?', 'This help']];
-  sheet(`<h2 class="h3" style="font-size:22px;margin:0 0 12px">⌨️ Keyboard shortcuts</h2><dl class="keys">${keys.map(([k, d]) => `<dt><kbd class="kbd">${k}</kbd></dt><dd>${d}</dd>`).join('')}</dl>`);
+  sheet(`<h2 class="h3" style="font-size:22px;margin:0 0 12px"><i class="i i-keyboard" aria-hidden="true"></i> Keyboard shortcuts</h2><dl class="keys">${keys.map(([k, d]) => `<dt><kbd class="kbd">${k}</kbd></dt><dd>${d}</dd>`).join('')}</dl>`);
 }
 const typing = el => el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
 function moveFocus(cur, dir) {
@@ -283,7 +290,7 @@ addEventListener('offline', netBanner);
 /* ---------------- install prompt ---------------- */
 let bip = null;
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); bip = e; if (route().p === 'me') rerender(); });
-addEventListener('appinstalled', () => { bip = null; toast('Heartbeat is installed! 🎉', 'wow'); rerender(); });
+addEventListener('appinstalled', () => { bip = null; toast('Heartbeat is installed!', 'wow'); rerender(); });
 export const install = {
   installed: () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true,
   ios: () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
@@ -305,13 +312,14 @@ onCloud(async c => {
     applyRemote(c.remote, uid);
     if (n) toast(`Moved ${n} ratings from this device into your account.`);
   }
-  if (c.stats?.rank && lastRank && c.stats.rank !== lastRank) { confettiSafe(); toast(`New rank: ${c.stats.rank}! 🎉`, 'wow'); }
+  if (c.stats?.rank && lastRank && c.stats.rank !== lastRank) { confettiSafe(); toast(`New rank: ${c.stats.rank}!`, 'wow'); }
   if (c.stats?.rank) lastRank = c.stats.rank;
   if (c.checkin?.xp_gained) { toast(`+${c.checkin.xp_gained} XP for showing up today!`); c.checkin = null; }
   // 2-step sign-in turned on: ask for the code before anything else.
   if (uid && c.needsCode && route().a !== '2fa') { location.hash = '#/signin/2fa'; return; }
   if (uid && needsSetup() && c.profile !== undefined && !/^#\/(welcome|signin)/.test(location.hash) && (c.profile || c.stats)) location.hash = '#/welcome';
   const becameReady = c.ready && !lastReady; lastReady = c.ready;
+  if (becameReady || (uid && uid !== lastReminderUser)) { lastReminderUser = uid; if (!c.needsCode) checkReminders(); }
   if (c.user && c.profile?.username) { watchInbox(); checkTerms(); } else unwatchInbox();
   // Opened an invite link before signing in? Finish it now.
   const inv = socialReady() && pendingInvite();
@@ -320,6 +328,7 @@ onCloud(async c => {
   if (becameReady || uid !== lastUser || hadProfile !== lastHadProfile || ['me', 'welcome', 'signin'].includes(route().p)) { lastUser = uid; render(true); }
   else chrome(PAGES[route().p]?.[0] || 'home');
 });
+let lastReminderUser = null;
 function confettiSafe() { import('./ui.js').then(m => m.confetti()); }
 
 /* ---------------- start ---------------- */
@@ -327,6 +336,8 @@ addEventListener('hashchange', () => render());
 let wasWide = wide();
 addEventListener('resize', () => { if (wide() !== wasWide) { wasWide = wide(); baseRendered = null; render(true); } });
 topbar();
+startTilt();
+setTimeout(() => checkReminders(), 2500);
 netBanner();
 render();
 startCloud();

@@ -32,7 +32,7 @@ function twoStep(app) {
   if (!cloud.user) { location.hash = '#/signin'; return; }
   if (!cloud.needsCode) { location.hash = '#/me'; return; }
   app.innerHTML = frame(`<div class="mascot" style="padding:6px 0">${mascot('wow')}</div>
-    <h1 class="authh">One more step 🔐</h1>
+    <h1 class="authh">One more step <i class="i i-lock-keyhole" aria-hidden="true"></i></h1>
     <p class="sub" style="text-align:center">Open your authenticator app and type the 6-digit code for Heartbeat.</p>
     <form id="f" novalidate><label class="fld"><span>6-digit code</span><input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" pattern="[0-9 ]{6,7}" required></label>
     <p class="errmsg" id="err" role="alert" tabindex="-1" hidden></p>
@@ -46,7 +46,7 @@ function twoStep(app) {
       const f = (await mfaList()).find(x => x.status === 'verified');
       if (!f) throw new Error('No authenticator found for this account.');
       await mfaVerify(f.id, $('#code').value);
-      toast('Signed in! 💓'); location.hash = '#/me';
+      toast('Signed in!'); location.hash = '#/me';
     } catch (x) { busy(b, false); showErr($('#err'), plain(x)); $('#code').select(); }
   };
 }
@@ -109,7 +109,7 @@ export function renderAuth(app, mode = '') {
         await signIn(email, password, bot.token() || undefined);
         const { data } = await cloud.sb.auth.mfa.getAuthenticatorAssuranceLevel().catch(() => ({}));
         if (data?.nextLevel === 'aal2' && data?.currentLevel !== 'aal2') { cloud.needsCode = true; location.hash = '#/signin/2fa'; return; }
-        toast('Signed in! 💓');
+        toast('Signed in!');
         location.hash = '#/me';
       }
     } catch (x) { busy(btn, false); bot.reset(); showErr(err, plain(x)); }
@@ -118,7 +118,7 @@ export function renderAuth(app, mode = '') {
 
 function checkEmail(app) {
   app.innerHTML = frame(`<div class="mascot" style="padding:10px 0">${mascot('wow')}</div>
-    <h1 class="authh">Check your email 📬</h1>
+    <h1 class="authh">Check your email <i class="i i-inbox" aria-hidden="true"></i></h1>
     <p class="sub" style="text-align:center">We sent a link to <b>${esc(lastEmail || 'your email')}</b>.<br>Tap it to turn on your account. Then come back here.</p>
     <p class="sub" style="text-align:center">You need to confirm your email before you can chat or post reviews.</p>
     <button class="btn ghost big" id="again" ${lastEmail ? '' : 'disabled'}>Send the email again</button>
@@ -145,7 +145,7 @@ function forgot(app) {
     e.preventDefault(); const email = $('#em').value.trim(); lastEmail = email;
     if (cloud.turnstile && !bot.token()) return showErr($('#err'), 'Please finish the "I\'m not a robot" check.');
     const b = $('#go'); busy(b, true);
-    try { await sendReset(email, bot.token() || undefined); app.querySelector('form').outerHTML = `<p class="okmsg" role="status">If that email has an account, a link is on its way. 📬</p>`; }
+    try { await sendReset(email, bot.token() || undefined); app.querySelector('form').outerHTML = `<p class="okmsg" role="status">If that email has an account, a link is on its way. <i class="i i-inbox" aria-hidden="true"></i></p>`; }
     catch (x) { busy(b, false); showErr($('#err'), plain(x)); }
   };
 }
@@ -172,7 +172,7 @@ export function renderWelcome(app) {
   if (!cloud.profile && !cloud.stats) { app.innerHTML = frame(`<div class="mascot">${mascot('happy')}<div>Loading your account…</div></div>`); return; }
   if (!needsSetup()) { location.hash = '#/me'; return; }
   const needB = cloud.needsBirthdate, needU = !cloud.profile?.username;
-  app.innerHTML = frame(`<h1 class="authh">Almost done! 🎉</h1>
+  app.innerHTML = frame(`<h1 class="authh">Almost done! <i class="i i-party-popper" aria-hidden="true"></i></h1>
     <p class="sub" style="text-align:center;margin:0 0 16px">Just ${needB && needU ? 'two quick things' : 'one quick thing'}.</p>
     <form id="f" novalidate>
       ${needU ? `<label class="fld"><span>Pick a username</span><input id="un" autocomplete="username" required maxlength="20" placeholder="like movie.maya" autocapitalize="none" spellcheck="false"><small class="hint">3–20 letters, numbers, _ or .</small></label>` : ''}
@@ -199,7 +199,7 @@ export function renderWelcome(app) {
         await setBirthdate(bd);   // birthday first: the server only lets members edit their profile
       }
       if (needU) await saveProfile({ username: u });
-      confetti(); toast('Welcome to Heartbeat! 💓'); location.hash = '#/me';
+      confetti(); toast('Welcome to Heartbeat!'); location.hash = '#/me';
     } catch (x) { const bb = $('#go'); if (bb) busy(bb, false); const ee = $('#err'); if (ee) showErr(ee, plain(x)); }
   };
 }

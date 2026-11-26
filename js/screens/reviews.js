@@ -7,7 +7,7 @@ import { sendTitleToChat } from './chat.js';
 import { cloud, keyOf, idOf } from '../cloud.js';
 import { $, $$, esc, sheet, closeSheet, toast, hearts, confetti, buzz, mascot, wide, poster, hydratePosters } from '../ui.js';
 import {
-  TAG_LIST, MIN, MAX, PRIVACY, listReviews, precheck, postReview, editReview, deleteReview, vote, listComments, addComment,
+  TAG_LIST, tagLabel, MIN, MAX, PRIVACY, listReviews, precheck, postReview, editReview, deleteReview, vote, listComments, addComment,
   deleteComment, report, myReviews, saveDraft, loadDraft, dropDraft, allDrafts, fmt, countChars, miniGraph, ordinal, ago, shareReviewImage,
   appealReview, syncReviews, aiCheck,
 } from '../reviews.js';
@@ -21,7 +21,7 @@ export const setReviewsChanged = fn => { onChange = fn; };
 const needAccount = what => {
   if (!cloud.ready) { toast('Reviews need the internet. Try again soon.', 'sad'); return true; }
   if (!cloud.user) {
-    sheet(`<h2 class="h3" style="font-size:22px;margin:0 0 6px">✍️ ${esc(what)}</h2>
+    sheet(`<h2 class="h3" style="font-size:22px;margin:0 0 6px"><i class="i i-pen-line" aria-hidden="true"></i> ${esc(what)}</h2>
       <p class="sub">Reviews are shared with other people, so you need a free account. It takes 1 minute.</p>
       <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap"><a class="btn" href="#/signin/up" onclick="document.getElementById('sheet')?.remove()">Make an account</a><a class="btn ghost" href="#/signin" onclick="document.getElementById('sheet')?.remove()">Sign in</a></div>`);
     return true;
@@ -46,7 +46,7 @@ export function promptReview(t) {
     if (cloud.user && await fetchMine(t).catch(() => null)) return;
     if ($('#sheet') || $('#editor')) return;
     sheet(`<div style="text-align:center">
-      <div style="font-size:44px" aria-hidden="true">✍️</div>
+      <div style="font-size:44px" aria-hidden="true"><i class="i i-pen-line" aria-hidden="true"></i></div>
       <h2 class="h3" style="font-size:22px;justify-content:center;margin:4px 0">Want to tell people why?</h2>
       <p class="sub">A few sentences about <b>${esc(t.name)}</b> help others decide. Good reviews earn up to +20 XP.</p>
       <div style="display:flex;gap:10px;justify-content:center;margin-top:14px"><button class="btn" id="pw">Write a review</button><button class="btn ghost" id="ps">Skip</button></div></div>`);
@@ -75,41 +75,41 @@ export async function openEditor(t, existing = null) {
   const el = document.createElement('div'); el.id = 'editor'; el.className = 'redit-bg';
   el.innerHTML = `<div class="redit" role="dialog" aria-modal="true" aria-labelledby="edh">
     <header class="redhead">
-      <button class="icon-btn" id="edClose" aria-label="Close editor">✕</button>
+      <button class="icon-btn" id="edClose" aria-label="Close editor"><i class="i i-x" aria-hidden="true"></i></button>
       <div class="redt"><h2 id="edh">${existing ? 'Edit review' : 'Write a review'}</h2><div class="sub">${esc(t.name)} · <span id="edSaved">${draft ? 'Draft loaded' : 'Drafts save by themselves'}</span></div></div>
       <button class="btn sm" id="edPost">${existing ? 'Save' : 'Post'}</button>
     </header>
     <div class="redbody">
       <div class="redform">
         ${ratedAlready ? '' : `<div class="card redrate"><div class="h3" style="font-size:16px">First, rate the journey</div>
-          ${[['start_h', 'Start'], ['middle_h', 'Middle'], ['end_h', 'Ending']].map(([k, l]) => `<div class="jrow"><div class="lab">${l}</div><div class="hearts" role="radiogroup" aria-label="${l} rating">${[1, 2, 3, 4, 5].map(n => `<button type="button" role="radio" aria-checked="${v[k] === n}" aria-label="${l}: ${n} hearts" class="${v[k] >= n ? 'on' : ''}" data-hk="${k}" data-hv="${n}">💖</button>`).join('')}</div></div>`).join('')}</div>`}
+          ${[['start_h', 'Start'], ['middle_h', 'Middle'], ['end_h', 'Ending']].map(([k, l]) => `<div class="jrow"><div class="lab">${l}</div><div class="hearts" role="radiogroup" aria-label="${l} rating">${[1, 2, 3, 4, 5].map(n => `<button type="button" role="radio" aria-checked="${v[k] === n}" aria-label="${l}: ${n} hearts" class="${v[k] >= n ? 'on' : ''}" data-hk="${k}" data-hv="${n}"><i class="i i-heart" aria-hidden="true"></i></button>`).join('')}</div></div>`).join('')}</div>`}
         <label class="fld"><span>Title <small class="hint" style="display:inline">(optional)</small></span><input id="edHead" maxlength="120" placeholder="Sum it up in a few words" value="${esc(v.headline)}"></label>
         <div class="fld"><span id="edBodyL">Your review</span>
           <div class="redtools" role="toolbar" aria-label="Formatting">
             <button type="button" data-fx="b" aria-label="Bold"><b>B</b></button><button type="button" data-fx="i" aria-label="Italic"><i>I</i></button>
-            <button type="button" data-fx="s" aria-label="Hide selected text as spoiler">🙈 Hide as spoiler</button>
-            <button type="button" class="wide-hide" id="edPrevBtn" aria-pressed="false">👀 Preview</button>
+            <button type="button" data-fx="s" aria-label="Hide selected text as spoiler"><i class="i i-eye-off" aria-hidden="true"></i> Hide as spoiler</button>
+            <button type="button" class="wide-hide" id="edPrevBtn" aria-pressed="false"><i class="i i-eye" aria-hidden="true"></i> Preview</button>
           </div>
           <textarea id="edBody" aria-labelledby="edBodyL" rows="6" placeholder="What did you think? Why?">${esc(v.body)}</textarea>
-          <div class="redcount"><span id="edCount"></span><span class="hint">Tip: select text, then tap 🙈 to hide a spoiler.</span></div>
+          <div class="redcount"><span id="edCount"></span><span class="hint">Tip: select text, then tap <i class="i i-eye-off" aria-hidden="true"></i> to hide a spoiler.</span></div>
           <div class="redprev wide-hide" id="edPrevPh" hidden></div>
         </div>
-        <details class="rednotes" ${v.start_note || v.middle_note || v.ending_note ? 'open' : ''}><summary>🧭 Short notes for each part <span class="hint">(optional)</span></summary>
+        <details class="rednotes" ${v.start_note || v.middle_note || v.ending_note ? 'open' : ''}><summary><i class="i i-compass" aria-hidden="true"></i> Short notes for each part <span class="hint">(optional)</span></summary>
           ${[['start_note', 'Start'], ['middle_note', 'Middle'], ['ending_note', 'Ending']].map(([k, l]) => `<label class="fld"><span>${l}</span><input id="ed_${k}" maxlength="500" value="${esc(v[k])}" placeholder="How was the ${l.toLowerCase()}?"></label>`).join('')}
         </details>
-        <div class="fld"><span>Quick tags</span><div class="chips" id="edTags">${TAG_LIST.map(x => `<button type="button" class="chip ${v.tags.includes(x) ? 'on' : ''}" aria-pressed="${v.tags.includes(x)}" data-tag="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>
+        <div class="fld"><span>Quick tags</span><div class="chips" id="edTags">${TAG_LIST.map(x => `<button type="button" class="chip ${v.tags.includes(x) ? 'on' : ''}" aria-pressed="${v.tags.includes(x)}" data-tag="${esc(x)}">${esc(tagLabel(x))}</button>`).join('')}</div></div>
         <div class="redrow">
           <label class="fld"><span>Watched on</span><input id="edDate" type="date" max="${new Date().toISOString().slice(0, 10)}" value="${esc(v.watched_on || '')}"></label>
           <label class="fld"><span>Who can see it</span><select id="edPriv">${Object.entries(PRIVACY).map(([k, [e, l]]) => `<option value="${k}" ${v.privacy === k ? 'selected' : ''}>${e} ${l}</option>`).join('')}</select></label>
         </div>
         <div class="redrow">
           <label class="tog"><input type="checkbox" id="edSpo" ${v.has_spoilers ? 'checked' : ''}><span>Contains spoilers <small class="hint">(hides the whole review)</small></span></label>
-          ${existing ? '' : `<label class="tog"><input type="checkbox" id="edRew" ${v.is_rewatch ? 'checked' : ''}><span>🔁 Rewatch</span></label>`}
+          ${existing ? '' : `<label class="tog"><input type="checkbox" id="edRew" ${v.is_rewatch ? 'checked' : ''}><span><i class="i i-repeat" aria-hidden="true"></i> Rewatch</span></label>`}
         </div>
         <p class="errmsg" id="edErr" role="alert" tabindex="-1" hidden></p>
         <div id="edCheck"></div>
       </div>
-      <aside class="redside wide-only" aria-label="Live preview"><div class="sub" style="font-weight:900;margin-bottom:8px">👀 Live preview</div><div id="edPrev"></div></aside>
+      <aside class="redside wide-only" aria-label="Live preview"><div class="sub" style="font-weight:900;margin-bottom:8px"><i class="i i-eye" aria-hidden="true"></i> Live preview</div><div id="edPrev"></div></aside>
     </div></div>`;
   document.body.appendChild(el);
   document.documentElement.classList.add('locked');
@@ -151,7 +151,7 @@ export async function openEditor(t, existing = null) {
     b.onclick = () => {
       const fx = b.dataset.fx, mark = fx === 'b' ? '**' : fx === 'i' ? '*' : '||';
       let s = body.selectionStart, e = body.selectionEnd; const txt = body.value;
-      if (s === e) { if (fx === 's') { toast('Select the spoiler text first, then tap 🙈.'); return; } }
+      if (s === e) { if (fx === 's') { toast('Select the spoiler text first, then tap Hide as spoiler.'); return; } }
       const sel = txt.slice(s, e) || (fx === 'b' ? 'bold text' : 'italic text');
       body.value = txt.slice(0, s) + mark + sel + mark + txt.slice(e);
       body.focus(); body.setSelectionRange(s + mark.length, s + mark.length + sel.length);
@@ -210,11 +210,11 @@ export async function openEditor(t, existing = null) {
     }
     const tier = chk.score >= 60 ? 'great' : chk.score >= 35 ? 'ok' : 'low';
     $('#edCheck', el).innerHTML = `<div class="card rcheck ${tier}" role="status">
-      <div class="h3" style="font-size:17px">${tier === 'great' ? '🌟 Looks great!' : tier === 'ok' ? '👍 Good to go' : '💡 Quick tip before you post'}</div>
+      <div class="h3" style="font-size:17px">${tier === 'great' ? 'Looks great!' : tier === 'ok' ? 'Good to go' : 'Quick tip before you post'}</div>
       <div class="qbar" aria-label="Quality ${chk.score} out of 100"><i style="width:${chk.score}%"></i></div>
       <div class="sub">Quality ${chk.score}/100 · ${existing ? 'XP was given when you first posted' : `you'll earn <b>+${chk.xp} XP</b>`}</div>
       ${chk.tips?.length ? `<ul class="tips">${chk.tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-      ${hid ? `<div class="spohid">🙈 We hid ${hid} sentence${hid > 1 ? 's' : ''} that might be a spoiler. <button type="button" class="see" id="edUndo">Undo</button></div>` : ''}
+      ${hid ? `<div class="spohid"><i class="i i-eye-off" aria-hidden="true"></i> We hid ${hid} sentence${hid > 1 ? 's' : ''} that might be a spoiler. <button type="button" class="see" id="edUndo">Undo</button></div>` : ''}
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button class="btn" id="edDo">${existing ? 'Save changes' : 'Post it'}</button><button class="btn ghost" id="edMore">Keep editing</button></div></div>`;
     $('#edCheck', el).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     $('#edMore', el).onclick = () => { $('#edCheck', el).innerHTML = ''; body.focus(); };
@@ -231,7 +231,7 @@ export async function openEditor(t, existing = null) {
         if (out.status === 'pending' || out.status === 'held') await showCheck(out, t, !!existing);
         else {
           if (!existing && out.xp >= 20) confetti(60);
-          toast(existing ? 'Review updated! ✏️' : out.xp ? `Posted! +${out.xp} XP 💓` : 'Posted! 💓');
+          toast(existing ? 'Review updated!' : out.xp ? `Posted! +${out.xp} XP` : 'Posted!');
           aiCheck(out.id).catch(() => {});   // the server may also check it in the background
         }
         onChange();
@@ -245,27 +245,27 @@ export async function openEditor(t, existing = null) {
 /* =====================================================================
    AI check: result after posting, and the status on my own review cards
    ===================================================================== */
-const checkingHTML = () => `<div class="aibig spin" aria-hidden="true">🤖</div><h2 class="h3">Checking your review…</h2>
+const checkingHTML = () => `<div class="aibig spin" aria-hidden="true"><i class="i i-bot" aria-hidden="true"></i></div><h2 class="h3">Checking your review…</h2>
   <p class="sub">This takes a few seconds. We check that it's kind, real and about the movie or show.</p>`;
 function resultHTML(r, edited) {
   const tips = (r.tips || []).filter(Boolean);
   const tipsHTML = tips.length ? `<ul class="tips">${tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
   if (r.status === 'ok' || r.status === 'tips') {
     const q = r.score ?? null;
-    return `<div class="aibig" aria-hidden="true">${q >= 60 ? '🌟' : '💓'}</div><h2 class="h3">${edited ? 'Review updated!' : 'Posted!'}${r.xp ? ` +${r.xp} XP` : ''}</h2>
+    return `<div class="aibig" aria-hidden="true">${q >= 60 ? '<i class="i i-star" aria-hidden="true"></i>' : '<i class="i i-heart-pulse" aria-hidden="true"></i>'}</div><h2 class="h3">${edited ? 'Review updated!' : 'Posted!'}${r.xp ? ` +${r.xp} XP` : ''}</h2>
       ${q != null ? `<div class="qbar" aria-label="Quality ${q} out of 100"><i style="width:${q}%"></i></div>
       <div class="sub">Quality ${q}/100${!edited && r.xp && r.xp < 20 ? ' · Great reviews earn up to +20 XP' : ''}</div>` : ''}
-      ${tipsHTML}${r.hidden_spoilers ? `<div class="spohid">🙈 We hid ${r.hidden_spoilers} spoiler sentence${r.hidden_spoilers > 1 ? 's' : ''} behind "Tap to reveal". Edit your review to change it.</div>` : ''}
+      ${tipsHTML}${r.hidden_spoilers ? `<div class="spohid"><i class="i i-eye-off" aria-hidden="true"></i> We hid ${r.hidden_spoilers} spoiler sentence${r.hidden_spoilers > 1 ? 's' : ''} behind "Tap to reveal". Edit your review to change it.</div>` : ''}
       <button class="btn big" id="aiDone">Nice!</button>`;
   }
-  if (r.status === 'held') return `<div class="aibig" aria-hidden="true">👀</div><h2 class="h3">A person will check it soon</h2>
+  if (r.status === 'held') return `<div class="aibig" aria-hidden="true"><i class="i i-eye" aria-hidden="true"></i></div><h2 class="h3">A person will check it soon</h2>
       ${r.note ? `<p class="sub">${esc(r.note)}</p>` : ''}<p class="sub">Only you can see it until then. You'll get your XP when it's approved.</p>
       <button class="btn big" id="aiDone">OK</button>`;
-  if (r.status === 'blocked') return `<div class="aibig" aria-hidden="true">🚫</div><h2 class="h3">Not posted yet</h2>
+  if (r.status === 'blocked') return `<div class="aibig" aria-hidden="true"><i class="i i-ban" aria-hidden="true"></i></div><h2 class="h3">Not posted yet</h2>
       <p class="sub"><b>${esc(r.note || 'It breaks the community rules.')}</b></p>
       <p class="sub">You can change it and post again. If you think our robot made a mistake, ask a person to look.</p>
-      <div class="aibtns"><button class="btn" id="aiEdit">✏️ Change it</button><button class="btn ghost" id="aiAppeal">🙋 Ask a person</button></div>`;
-  return `<div class="aibig" aria-hidden="true">⏳</div><h2 class="h3">Saved! Still checking</h2>
+      <div class="aibtns"><button class="btn" id="aiEdit"><i class="i i-pencil" aria-hidden="true"></i> Change it</button><button class="btn ghost" id="aiAppeal"><i class="i i-hand" aria-hidden="true"></i> Ask a person</button></div>`;
+  return `<div class="aibig" aria-hidden="true"><i class="i i-hourglass" aria-hidden="true"></i></div><h2 class="h3">Saved! Still checking</h2>
       <p class="sub">Our robot is busy right now. Your review will be checked soon. Only you can see it until then.</p>
       <button class="btn big" id="aiDone">OK</button>`;
 }
@@ -297,22 +297,22 @@ async function showCheck(out, t, edited) {
 function statusStrip(r) {
   const st = r.ai_status;
   if (!st || st === 'ok') return '';
-  if (st === 'tips') return r.ai_tips?.length ? `<div class="aistrip tip">💡 ${esc(r.ai_tips[0])}</div>` : '';
-  if (st === 'pending') return `<div class="aistrip wait" role="status">🤖 Checking your review… Only you can see it for now.</div>`;
-  if (st === 'held') return `<div class="aistrip wait" role="status">👀 A person will check it soon. Only you can see it.${r.ai_note ? `<div class="sub">${esc(r.ai_note)}</div>` : ''}</div>`;
+  if (st === 'tips') return r.ai_tips?.length ? `<div class="aistrip tip"><i class="i i-lightbulb" aria-hidden="true"></i> ${esc(r.ai_tips[0])}</div>` : '';
+  if (st === 'pending') return `<div class="aistrip wait" role="status"><i class="i i-bot" aria-hidden="true"></i> Checking your review… Only you can see it for now.</div>`;
+  if (st === 'held') return `<div class="aistrip wait" role="status"><i class="i i-eye" aria-hidden="true"></i> A person will check it soon. Only you can see it.${r.ai_note ? `<div class="sub">${esc(r.ai_note)}</div>` : ''}</div>`;
   const ap = r.appeal;
-  return `<div class="aistrip no" role="note"><b>🚫 Not posted.</b> ${esc(r.ai_note || 'It breaks the community rules.')}
-    <div class="aibtns"><button type="button" class="btn sm" data-act="edit">✏️ Change it</button>${ap === 'open' ? '<span class="sub">🙋 A person will look at it again.</span>'
-      : ap === 'upheld' ? '<span class="sub">A person checked it again and kept it hidden.</span>' : '<button type="button" class="btn sm ghost" data-act="appeal">🙋 Ask a person</button>'}</div></div>`;
+  return `<div class="aistrip no" role="note"><b><i class="i i-ban" aria-hidden="true"></i> Not posted.</b> ${esc(r.ai_note || 'It breaks the community rules.')}
+    <div class="aibtns"><button type="button" class="btn sm" data-act="edit"><i class="i i-pencil" aria-hidden="true"></i> Change it</button>${ap === 'open' ? '<span class="sub"><i class="i i-hand" aria-hidden="true"></i> A person will look at it again.</span>'
+      : ap === 'upheld' ? '<span class="sub">A person checked it again and kept it hidden.</span>' : '<button type="button" class="btn sm ghost" data-act="appeal"><i class="i i-hand" aria-hidden="true"></i> Ask a person</button>'}</div></div>`;
 }
 function openAppeal(r, after) {
-  const sh = sheet(`<h2 class="h3" style="font-size:20px;margin:0 0 6px">🙋 Ask a person to look</h2>
+  const sh = sheet(`<h2 class="h3" style="font-size:20px;margin:0 0 6px"><i class="i i-hand" aria-hidden="true"></i> Ask a person to look</h2>
     <p class="sub">Tell us why it should be posted. A moderator will read your review again.</p>
     <label class="fld"><span>Why? (you can skip this)</span><textarea id="apN" maxlength="300" rows="3" placeholder="Like: I meant the villain in the movie, not a real person."></textarea></label>
     <p class="errmsg" id="apE" role="alert" hidden></p>
     <button class="btn big" id="apGo">Send</button>`);
   $('#apGo', sh).onclick = async () => {
-    try { await appealReview(r.id, $('#apN', sh).value.trim()); closeSheet(); toast('Sent! A person will look at it. 🙋'); r.appeal = 'open'; after?.(); }
+    try { await appealReview(r.id, $('#apN', sh).value.trim()); closeSheet(); toast('Sent! A person will look at it.'); r.appeal = 'open'; after?.(); }
     catch (e) { const x = $('#apE', sh); x.textContent = e.message; x.hidden = false; }
   };
 }
@@ -339,25 +339,25 @@ export function reviewCardHTML(r, { preview = false, showTitle = false } = {}) {
   return `<article class="rcard ${r.top_critic ? 'critic' : ''} ${r.friend ? 'friend' : ''}" data-rid="${r.id}">
     <header class="rch">
       ${r.username && !preview ? `<a href="#/u/${encodeURIComponent(r.username)}" class="ravl" tabindex="-1" aria-hidden="true">${avatar(r, 'sm', 'rav')}</a>` : avatar(r, 'sm', 'rav')}
-      <div class="rwho">${r.username && !preview ? `<a href="#/u/${encodeURIComponent(r.username)}"><b>@${esc(r.username)}</b></a>` : `<b>@${esc(r.username || 'someone')}</b>`}${r.top_critic ? ' <span class="crit" title="Top Critic">⭐ Top Critic</span>' : ''}${r.friend ? ' <span class="frd">Friend</span>' : ''}
+      <div class="rwho">${r.username && !preview ? `<a href="#/u/${encodeURIComponent(r.username)}"><b>@${esc(r.username)}</b></a>` : `<b>@${esc(r.username || 'someone')}</b>`}${r.top_critic ? ' <span class="crit" title="Top Critic"><i class="i i-star" aria-hidden="true"></i> Top Critic</span>' : ''}${r.friend ? ' <span class="frd">Friend</span>' : ''}
         <div class="meta">${esc(r.rank || 'Popcorn')} · ${r.created_at ? ago(r.created_at) : ''}${r.edited ? ' · Edited' : ''}${r.mine && r.privacy && r.privacy !== 'public' ? ` · ${PRIVACY[r.privacy][0]} ${PRIVACY[r.privacy][1]}` : ''}</div></div>
-      <div class="rscore">${r.start_h ? miniGraph(r.start_h, r.middle_h, r.end_h) : ''}<b>★ ${r.overall || '–'}</b></div>
+      <div class="rscore">${r.start_h ? miniGraph(r.start_h, r.middle_h, r.end_h) : ''}<b><i class="i i-star" aria-hidden="true"></i> ${r.overall || '–'}</b></div>
     </header>
     ${r.mine ? statusStrip(r) : ''}
     ${t ? `<a class="rtitle" href="#/t/${esc(t.id)}">${esc(t.name)}</a>` : r.title_key && showTitle ? `<a class="rtitle" href="#/t/${esc(idOf(r.title_key))}">Open title</a>` : ''}
-    <div class="rlabels">${r.is_rewatch ? `<span class="pill2">🔁 ${ordinal(r.watch_no || 2)} watch</span>` : ''}${r.watched_on ? `<span class="pill2">📅 ${esc(new Date(r.watched_on + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }))}</span>` : ''}${(r.tags || []).map(x => `<span class="pill2 tag">${esc(x)}</span>`).join('')}</div>
+    <div class="rlabels">${r.is_rewatch ? `<span class="pill2"><i class="i i-repeat" aria-hidden="true"></i> ${ordinal(r.watch_no || 2)} watch</span>` : ''}${r.watched_on ? `<span class="pill2"><i class="i i-calendar" aria-hidden="true"></i> ${esc(new Date(r.watched_on + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }))}</span>` : ''}${(r.tags || []).map(x => `<span class="pill2 tag">${esc(tagLabel(x))}</span>`).join('')}</div>
     ${r.headline ? `<h3 class="rhead">${esc(r.headline)}</h3>` : ''}
     <div class="rbody-wrap ${wholeSpoiler && !show && !preview ? 'blurred' : ''}">
       <div class="rbody ${long && !open ? 'clamp6' : ''}">${fmt(r.body, { revealAll: show })}</div>
       ${notes.length ? `<dl class="rnotes">${notes.map(([l, n]) => `<div><dt>${l}</dt><dd>${fmt(n, { revealAll: show })}</dd></div>`).join('')}</dl>` : ''}
-      ${wholeSpoiler && !show && !preview ? `<button class="spocover" type="button" data-reveal="${r.id}">🙈 Contains spoilers · <u>Tap to reveal</u></button>` : ''}
+      ${wholeSpoiler && !show && !preview ? `<button class="spocover" type="button" data-reveal="${r.id}"><i class="i i-eye-off" aria-hidden="true"></i> Contains spoilers · <u>Tap to reveal</u></button>` : ''}
     </div>
     ${long && !open ? `<button class="see more" type="button" data-more="${r.id}">Read more</button>` : ''}
     ${preview ? '' : `<footer class="ract">
-      <button type="button" class="rbtn ${r.my_helpful ? 'on' : ''}" data-act="helpful" aria-pressed="${!!r.my_helpful}" ${r.mine ? 'disabled title="You can\'t vote on your own review"' : ''}>👍 Helpful${r.helpful ? ` · ${r.helpful}` : ''}</button>
-      <button type="button" class="rbtn ${r.my_like ? 'on' : ''}" data-act="like" aria-pressed="${!!r.my_like}" aria-label="Like" ${r.mine ? 'disabled' : ''}>${r.my_like ? '❤️' : '♡'}${r.likes ? ` ${r.likes}` : ''}</button>
-      <button type="button" class="rbtn" data-act="comments" aria-label="Comments">💬${r.comments ? ` ${r.comments}` : ''}</button>
-      <button type="button" class="rbtn" data-act="share" aria-label="Share as image">📤</button>
+      <button type="button" class="rbtn ${r.my_helpful ? 'on' : ''}" data-act="helpful" aria-pressed="${!!r.my_helpful}" ${r.mine ? 'disabled title="You can\'t vote on your own review"' : ''}><i class="i i-thumbs-up" aria-hidden="true"></i> Helpful${r.helpful ? ` · ${r.helpful}` : ''}</button>
+      <button type="button" class="rbtn ${r.my_like ? 'on' : ''}" data-act="like" aria-pressed="${!!r.my_like}" aria-label="Like" ${r.mine ? 'disabled' : ''}>${r.my_like ? '<i class="i i-heart" aria-hidden="true"></i>' : '<i class="i i-heart" aria-hidden="true"></i>'}${r.likes ? ` ${r.likes}` : ''}</button>
+      <button type="button" class="rbtn" data-act="comments" aria-label="Comments"><i class="i i-message-circle" aria-hidden="true"></i>${r.comments ? ` ${r.comments}` : ''}</button>
+      <button type="button" class="rbtn" data-act="share" aria-label="Share as image"><i class="i i-share" aria-hidden="true"></i></button>
       <button type="button" class="rbtn" data-act="more" aria-label="More options">⋯</button>
     </footer>`}
   </article>`;
@@ -374,8 +374,8 @@ export function reviewsSectionHTML(t) {
   if (!s || s.uid !== uid) s = state[t.id] = { sort: s?.sort || 'helpful', min: 0, max: 5, items: null, uid };
   const mine = mineFor(t.id);
   return `<section class="card span2 revsec" id="revsec" aria-labelledby="revh">
-    <div class="revtop"><h2 class="h3" id="revh">✍️ Reviews</h2>
-      <button class="btn sm" id="writeBtn2">${mine ? '✏️ Edit my review' : '✍️ Write a review'}</button></div>
+    <div class="revtop"><h2 class="h3" id="revh"><i class="i i-pen-line" aria-hidden="true"></i> Reviews</h2>
+      <button class="btn sm" id="writeBtn2">${mine ? 'Edit my review' : 'Write a review'}</button></div>
     <div class="revctl">
       <div class="chips" role="group" aria-label="Sort reviews">${SORTS.map(([k, l]) => `<button type="button" class="chip ${s.sort === k ? 'on' : ''}" aria-pressed="${s.sort === k}" data-sort="${k}">${l}</button>`).join('')}</div>
       <label class="rfilter"><span class="sr-only">Filter by rating</span><select id="revFilter">
@@ -401,8 +401,8 @@ export async function loadReviews(root, t, force = false) {
   } catch (e) { s.items = s.items || []; s.error = e.message; }
   const list = $('#revlist', root); if (!list) return;
   list.innerHTML = listHTML(t, s);
-  const wb = $('#writeBtn2', root); if (wb) wb.innerHTML = mineFor(t.id) ? '✏️ Edit my review' : '✍️ Write a review';
-  const wb1 = $('#writeBtn', root); if (wb1) wb1.innerHTML = mineFor(t.id) ? '✏️ Edit my review' : '✍️ Write a review';
+  const wb = $('#writeBtn2', root); if (wb) wb.innerHTML = mineFor(t.id) ? 'Edit my review' : 'Write a review';
+  const wb1 = $('#writeBtn', root); if (wb1) wb1.innerHTML = mineFor(t.id) ? 'Edit my review' : 'Write a review';
   wireReviews(root, t);
 }
 function wireReviews(root, t) {
@@ -432,7 +432,7 @@ function rerenderCard(sec, t, id) {
 /* ---- actions shared by title page + My Reviews ---- */
 async function cardAction(act, r, t, btn, redraw, reload) {
   if (act === 'share') {
-    try { const how = await shareReviewImage(t || { name: 'Heartbeat', year: '', type: 'movie', colors: ['#2b0d4f', '#ff4f9a'] }, r); toast(how === 'shared' ? 'Shared! 📤' : 'Image saved! Post it to your story 📸'); }
+    try { const how = await shareReviewImage(t || { name: 'Heartbeat', year: '', type: 'movie', colors: ['#2b0d4f', '#ff4f9a'] }, r); toast(how === 'shared' ? 'Shared!' : 'Image saved! Post it to your story'); }
     catch (e) { if (e.name !== 'AbortError') toast('Could not make the image.', 'sad'); }
     return;
   }
@@ -453,10 +453,10 @@ function moreMenu(r, t, redraw, reload) {
   const mine = r.mine;
   sheet(`<h2 class="h3" style="font-size:20px;margin:0 0 10px">${mine ? 'Your review' : 'Review options'}</h2>
     <div class="menu">
-      ${mine ? `<button class="mitem" id="mEdit">✏️ Edit review</button><button class="mitem danger" id="mDel">🗑️ Delete review</button>` : ''}
-      <button class="mitem" id="mChat">💬 Send to a friend</button>
-      <button class="mitem" id="mCopy">🔗 Copy link</button>
-      ${mine ? '' : `<button class="mitem danger" id="mRep">🚩 Report review</button>`}
+      ${mine ? `<button class="mitem" id="mEdit"><i class="i i-pencil" aria-hidden="true"></i> Edit review</button><button class="mitem danger" id="mDel"><i class="i i-trash" aria-hidden="true"></i> Delete review</button>` : ''}
+      <button class="mitem" id="mChat"><i class="i i-message-circle" aria-hidden="true"></i> Send to a friend</button>
+      <button class="mitem" id="mCopy"><i class="i i-link" aria-hidden="true"></i> Copy link</button>
+      ${mine ? '' : `<button class="mitem danger" id="mRep"><i class="i i-flag" aria-hidden="true"></i> Report review</button>`}
     </div>`);
   $('#mChat').onclick = () => { closeSheet(); const tt = t || BYID[idOf(r.title_key)]; if (tt) sendTitleToChat(tt); else titleFor(r.title_key).then(x => x && sendTitleToChat(x)); };
   $('#mCopy').onclick = async () => { closeSheet(); const u = location.origin + '/#/t/' + idOf(r.title_key || keyOf(t?.id)); try { await navigator.clipboard.writeText(u); toast('Link copied!'); } catch (e) { toast(u); } };
@@ -473,13 +473,13 @@ function moreMenu(r, t, redraw, reload) {
 function openReport(reviewId, commentId) {
   if (needAccount('Report')) return;
   const R = [['spam', 'Spam or ads'], ['spoilers', 'Spoilers not hidden'], ['hate', 'Hate'], ['harassment', 'Harassment or bullying'], ['other', 'Something else']];
-  sheet(`<h2 class="h3" style="font-size:20px;margin:0 0 4px">🚩 Report ${commentId ? 'comment' : 'review'}</h2><p class="sub">Thanks for keeping Heartbeat kind. What's wrong?</p>
+  sheet(`<h2 class="h3" style="font-size:20px;margin:0 0 4px"><i class="i i-flag" aria-hidden="true"></i> Report ${commentId ? 'comment' : 'review'}</h2><p class="sub">Thanks for keeping Heartbeat kind. What's wrong?</p>
     <div class="menu" role="radiogroup">${R.map(([k, l], i) => `<label class="mitem radio"><input type="radio" name="rr" value="${k}" ${i ? '' : 'checked'}> ${l}</label>`).join('')}</div>
     <label class="fld" style="margin-top:8px"><span>More details <small class="hint" style="display:inline">(optional)</small></span><input id="rNote" maxlength="300"></label>
     <button class="btn" id="rSend">Send report</button>`);
   $('#rSend').onclick = async e => {
     e.currentTarget.disabled = true;
-    try { await report(reviewId, commentId, $('[name=rr]:checked').value, $('#rNote').value.trim()); closeSheet(); toast('Report sent. Thank you! 💓'); }
+    try { await report(reviewId, commentId, $('[name=rr]:checked').value, $('#rNote').value.trim()); closeSheet(); toast('Report sent. Thank you!'); }
     catch (x) { e.currentTarget.disabled = false; toast(x.message, 'sad'); }
   };
 }
@@ -487,7 +487,7 @@ function openReport(reviewId, commentId) {
 /* ---- comments (replies one level deep) ---- */
 async function openComments(r, redraw) {
   let replyTo = null;
-  const sh = sheet(`<h2 class="h3" style="font-size:20px;margin:0 0 8px">💬 Comments</h2><div id="cList" class="clist"><div class="rskel"></div></div>
+  const sh = sheet(`<h2 class="h3" style="font-size:20px;margin:0 0 8px"><i class="i i-message-circle" aria-hidden="true"></i> Comments</h2><div id="cList" class="clist"><div class="rskel"></div></div>
     <form id="cForm" class="cform"><div class="sub" id="cTo" hidden></div>
       <div style="display:flex;gap:8px"><input id="cIn" maxlength="1000" placeholder="${cloud.user ? 'Add a comment…' : 'Sign in to comment'}" ${cloud.user ? '' : 'disabled'} aria-label="Write a comment"><button class="btn sm" ${cloud.user ? '' : 'disabled'}>Send</button></div></form>`);
   const draw = async () => {
@@ -521,7 +521,7 @@ async function openComments(r, redraw) {
    ===================================================================== */
 export function meReviewsCardHTML() {
   if (!cloud.user) return '';
-  return `<section class="card span2" id="meRev"><div class="revtop"><h2 class="h3">✍️ My reviews</h2><a class="btn sm ghost" href="#/myreviews">See all</a></div>
+  return `<section class="card span2" id="meRev"><div class="revtop"><h2 class="h3"><i class="i i-pen-line" aria-hidden="true"></i> My reviews</h2><a class="btn sm ghost" href="#/myreviews">See all</a></div>
     <div id="meDrafts" class="sub">Loading drafts…</div></section>`;
 }
 export async function fillMeReviews(root) {
@@ -529,7 +529,7 @@ export async function fillMeReviews(root) {
   const drafts = await allDrafts().catch(() => []);
   if (!$('#meDrafts', root)) return;
   box.className = '';
-  box.innerHTML = drafts.length ? `<div class="sub" style="font-weight:900;margin:4px 0 8px">📝 Drafts (${drafts.length})</div>
+  box.innerHTML = drafts.length ? `<div class="sub" style="font-weight:900;margin:4px 0 8px"><i class="i i-notebook-pen" aria-hidden="true"></i> Drafts (${drafts.length})</div>
     <div class="drafts">${drafts.map(d => { const id = idOf(d.key), t = BYID[id]; return `<button class="draft" type="button" data-draft="${esc(id)}"><b>${esc(t?.name || 'A title')}</b><span class="sub">${esc((d.data?.body || '').replace(/\|\||\*\*?/g, '').slice(0, 80) || 'Empty draft')}</span><span class="meta">${ago(new Date(d.at).toISOString())}</span></button>`; }).join('')}</div>`
     : `<div class="sub">No drafts. Your reviews save as drafts while you write, so nothing gets lost.</div>`;
   $$('[data-draft]', box).forEach(b => b.onclick = async () => {
@@ -541,12 +541,12 @@ export async function fillMeReviews(root) {
 
 export async function renderMyReviews(app) {
   document.title = 'My reviews — Heartbeat';
-  if (!cloud.user) { app.innerHTML = `<div class="screen"><div class="back-row"><a class="icon-btn" href="#/me" aria-label="Back">←</a><h1>My reviews</h1></div><div class="mascot">${mascot('happy')}<div>Sign in to see your reviews.<br><a class="see" href="#/signin">Sign in</a></div></div></div>`; return; }
+  if (!cloud.user) { app.innerHTML = `<div class="screen"><div class="back-row"><a class="icon-btn" href="#/me" aria-label="Back"><i class="i i-arrow-left" aria-hidden="true"></i></a><h1>My reviews</h1></div><div class="mascot">${mascot('happy')}<div>Sign in to see your reviews.<br><a class="see" href="#/signin">Sign in</a></div></div></div>`; return; }
   const st = renderMyReviews.st || (renderMyReviews.st = { q: '', sort: 'new', priv: 'all' });
   app.innerHTML = `<div class="screen myrev">
-    <div class="back-row"><a class="icon-btn" href="#/me" aria-label="Back to Me">←</a><h1>✍️ My reviews</h1></div>
+    <div class="back-row"><a class="icon-btn" href="#/me" aria-label="Back to Me"><i class="i i-arrow-left" aria-hidden="true"></i></a><h1><i class="i i-pen-line" aria-hidden="true"></i> My reviews</h1></div>
     <div class="myctl">
-      <label class="searchbar" style="margin:0;width:auto;flex:1;min-width:200px"><span aria-hidden="true">🔎</span><input id="mrq" type="search" placeholder="Search my reviews" value="${esc(st.q)}" aria-label="Search my reviews"></label>
+      <label class="searchbar" style="margin:0;width:auto;flex:1;min-width:200px"><span aria-hidden="true"><i class="i i-search" aria-hidden="true"></i></span><input id="mrq" type="search" placeholder="Search my reviews" value="${esc(st.q)}" aria-label="Search my reviews"></label>
       <select id="mrs" aria-label="Sort"><option value="new">Newest</option><option value="helpful">Most helpful</option><option value="rating">Highest rated</option></select>
       <div class="chips" role="group" aria-label="Who can see">${[['all', 'All'], ...Object.entries(PRIVACY).map(([k, [e, l]]) => [k, `${e} ${l}`])].map(([k, l]) => `<button type="button" class="chip ${st.priv === k ? 'on' : ''}" data-pv="${k}" aria-pressed="${st.priv === k}">${l}</button>`).join('')}</div>
     </div>

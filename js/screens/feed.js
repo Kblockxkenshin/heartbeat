@@ -14,7 +14,7 @@ export function parseVideo(url) {
 }
 function videos(t) {
   const J = journey(t), g = argmax(J.gotGood), n = J.tl.length, h = t.id.length * 7;
-  const caps = [`Is ${t.name} worth it? 60-second take`, `Don't quit before ${J.tl[g].l}!`, `That moment near the end… 😱`, `Rating ${t.name} with zero spoilers`];
+  const caps = [`Is ${t.name} worth it? 60-second take`, `Don't quit before ${J.tl[g].l}!`, `That moment near the end…`, `Rating ${t.name} with zero spoilers`];
   return caps.map((c, i) => ({ id: t.id + 'v' + i, h: HANDLES[(i + h) % 8], plat: ['YouTube Shorts', 'TikTok', 'Instagram Reel', 'TikTok'][i], cap: c, moment: i === 1 ? g : i === 2 ? Math.max(0, n - 2) : null, likes: 400 + i * 913 + h * 31, sample: true }))
     .concat((U.videos?.[t.id] || []));
 }
@@ -25,16 +25,16 @@ export function renderFeed(app, id, start) {
   const tl = timeline(t), prog = U.progress[t.id] ?? -1, vids = videos(t);
   document.title = `${t.name} video reviews — Heartbeat`;
   app.innerHTML = `<div class="feed-top"><a class="pill" href="#/t/${t.id}">← ${esc(t.name)}</a>
-    <div style="display:flex;gap:8px"><select id="prog" class="pill" style="width:auto;border:0;color:#fff" aria-label="How far you have watched"><option value="-1">Not started</option>${tl.map((x, j) => `<option value="${j}" ${prog === j ? 'selected' : ''}>Up to ${esc(x.s)}</option>`).join('')}</select><button class="pill" id="add">＋ Add</button></div></div>
+    <div style="display:flex;gap:8px"><select id="prog" class="pill" style="width:auto;border:0;color:#fff" aria-label="How far you have watched"><option value="-1">Not started</option>${tl.map((x, j) => `<option value="${j}" ${prog === j ? 'selected' : ''}>Up to ${esc(x.s)}</option>`).join('')}</select><button class="pill" id="add"><i class="i i-plus" aria-hidden="true"></i> Add</button></div></div>
   <div class="feed" id="feed">${vids.map(v => { const locked = v.moment != null && v.moment > prog; return `<section class="slide" data-v="${v.id}">
     ${v.embed && !locked ? `<iframe src="${esc(v.embed)}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen title="Video review by ${esc(v.h)}"></iframe>`
-      : `<div class="ph" style="position:absolute;inset:0;justify-content:center;background:linear-gradient(170deg,${t.colors[0]},#000 80%)"><div style="font-size:56px">▶️</div><div>${v.sample ? 'Sample video' : esc(v.plat)}</div><div class="meta" style="color:#ddd">${v.sample ? 'Real TikToks, Shorts and Reels play here' : 'Open it on ' + esc(v.plat)}</div></div>`}
-    ${locked ? `<div class="lock"><div style="font-size:44px">🔒</div><b style="font-size:20px">Spoiler lock</b><div class="meta" style="color:#ddd">This one is about ${esc(tl[v.moment].l)}.<br>You're at ${prog < 0 ? 'the start' : esc(tl[prog].l)}.</div><button class="btn sm" data-unlock>Show anyway</button></div>` : ''}
-    <div class="over"><div style="font-weight:900">@${esc(v.h)} <span class="meta" style="color:#ccc">· ${esc(v.plat)}</span></div><div style="margin:4px 0;font-weight:700">${esc(v.cap)}</div>${v.moment != null ? `<span class="pill">📍 ${esc(tl[v.moment].l)}</span>` : ''}</div>
+      : `<div class="ph" style="position:absolute;inset:0;justify-content:center;background:#121212"><div style="font-size:44px"><i class="i i-play" aria-hidden="true"></i></div><div>${v.sample ? 'Sample video' : esc(v.plat)}</div><div class="meta" style="color:#ddd">${v.sample ? 'Real TikToks, Shorts and Reels play here' : 'Open it on ' + esc(v.plat)}</div></div>`}
+    ${locked ? `<div class="lock"><div style="font-size:44px"><i class="i i-lock" aria-hidden="true"></i></div><b style="font-size:20px">Spoiler lock</b><div class="meta" style="color:#ddd">This one is about ${esc(tl[v.moment].l)}.<br>You're at ${prog < 0 ? 'the start' : esc(tl[prog].l)}.</div><button class="btn sm" data-unlock>Show anyway</button></div>` : ''}
+    <div class="over"><div style="font-weight:900">@${esc(v.h)} <span class="meta" style="color:#ccc">· ${esc(v.plat)}</span></div><div style="margin:4px 0;font-weight:700">${esc(v.cap)}</div>${v.moment != null ? `<span class="pill"><i class="i i-map-pin" aria-hidden="true"></i> ${esc(tl[v.moment].l)}</span>` : ''}</div>
     <div class="acts">
-      <button data-like class="${U.likes[v.id] ? 'on' : ''}" aria-label="Like"><span>❤️</span>${(v.likes || 0) + (U.likes[v.id] ? 1 : 0)}</button>
-      <button data-help class="${U.helped[v.id] ? 'on' : ''}" aria-label="This helped me decide"><span>✅</span>Helped</button>
-      <button data-rep aria-label="Report"><span>🚩</span>Report</button>
+      <button data-like class="${U.likes[v.id] ? 'on' : ''}" aria-label="Like"><span><i class="i i-heart" aria-hidden="true"></i></span>${(v.likes || 0) + (U.likes[v.id] ? 1 : 0)}</button>
+      <button data-help class="${U.helped[v.id] ? 'on' : ''}" aria-label="This helped me decide"><span><i class="i i-check" aria-hidden="true"></i></span>Helped</button>
+      <button data-rep aria-label="Report"><span><i class="i i-flag" aria-hidden="true"></i></span>Report</button>
     </div></section>`; }).join('')}</div>`;
   const feed = $('#feed');
   if (start) { const el = feed.querySelector(`[data-v="${CSS.escape(start)}"]`); if (el) feed.scrollTop = el.offsetTop; }

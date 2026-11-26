@@ -4,6 +4,7 @@
 //   /api/tmdb?q=breaking bad          -> search movies + series
 //   /api/tmdb?type=movie&id=27205     -> one movie
 //   /api/tmdb?type=tv&id=1396         -> one series
+//   /api/tmdb?upcoming=1&page=1[&lang=hi] -> upcoming Indian movies (next 6 months) with director + main cast
 // Images are built in the browser from poster_path/backdrop_path:
 //   https://image.tmdb.org/t/p/w500{poster_path}
 
@@ -20,9 +21,45 @@ async function tmdb(path, params = {}) {
   return r.json();
 }
 
+// Indian languages for the Upcoming page (TMDB original_language codes).
+export const IN_LANGS = ['hi', 'te', 'ta', 'ml', 'kn', 'bn', 'mr', 'pa', 'gu', 'or', 'as'];
+let genreCache = null;
+async function genres() {
+  if (!genreCache) { const g = await tmdb('genre/movie/list', { language: 'en-US' }); genreCache = Object.fromEntries((g.genres || []).map(x => [x.id, x.name])); }
+  return genreCache;
+}
+const iso = d => d.toISOString().slice(0, 10);
+async function upcoming(query) {
+  const lang = IN_LANGS.includes(String(query.lang)) ? String(query.lang) : IN_LANGS.join('|');
+  const page = Math.min(Math.max(parseInt(query.page, 10) || 1, 1), 5);
+  const today = new Date(), until = new Date(Date.now() + 183 * 864e5);
+  const [d, G] = await Promise.all([tmdb('discover/movie', {
+    region: 'IN', with_original_language: lang, 'release_date.gte': iso(today), 'release_date.lte': iso(until),
+    with_release_type: '2|3', sort_by: 'primary_release_date.asc', include_adult: 'false', include_video: 'false', language: 'en-US', page: String(page),
+  }), genres()]);
+  const list = (d.results || []).slice(0, 20);
+  // Director + 3 main actors for each film (cached by Vercel for 6 hours).
+  const credits = await Promise.all(list.map(m => tmdb(`movie/${m.id}/credits`, { language: 'en-US' }).catch(() => null)));
+  return {
+    page, total_pages: Math.min(d.total_pages || 1, 5),
+    results: list.map((m, i) => ({
+      id: m.id, name: m.title, original_name: m.original_title !== m.title ? m.original_title : null, lang: m.original_language,
+      date: m.release_date || null, poster_path: m.poster_path || null, overview: (m.overview || '').slice(0, 400),
+      genres: (m.genre_ids || []).map(g => G[g]).filter(Boolean),
+      director: (credits[i]?.crew || []).filter(c => c.job === 'Director').map(c => c.name).slice(0, 2),
+      cast: (credits[i]?.cast || []).slice(0, 3).map(c => c.name),
+    })),
+  };
+}
+
 export default async function handler(req, res) {
   try {
     const { q, type, id } = req.query;
+    if (req.query.upcoming) {
+      const out = await upcoming(req.query);
+      res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
+      return res.status(200).json(out);
+    }
     if (q) {
       const data = await tmdb('search/multi', { query: String(q).slice(0, 100), include_adult: 'false', language: 'en-US', page: '1' });
       const results = (data.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv').slice(0, 12).map(r => ({
