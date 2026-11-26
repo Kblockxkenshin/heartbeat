@@ -30,6 +30,9 @@ export async function renderSecurity(app) {
       ${s.admin && !on ? '<div class="sub" style="margin-top:8px;color:var(--pink)">You are an admin: the admin panel needs 2-step sign-in.</div>' : ''}
     </section>
     ${s.admin ? `<a class="card linkcard" href="#/admin"><span style="font-size:30px" aria-hidden="true">🛡️</span><div style="flex:1"><h2 class="h3">Admin panel</h2><div class="sub">Reports, flags, held ratings, users and the security log.</div></div><span class="btn sm ghost" aria-hidden="true">Open</span></a>` : ''}
+    <section class="card" id="stpriv"><h2 class="h3">🎬 Studios &amp; your data</h2>
+      <p class="sub">Studios that make movies and shows can see <b>totals and averages</b> from Heartbeat (like "4.2 stars from 1,200 people"). They never see your name, profile, single ratings or messages. People under 18 are never counted.</p>
+      <div id="privb" class="sub">Loading…</div></section>
     <section class="card"><h2 class="h3">How we keep Heartbeat safe</h2><ul class="safelist">
       <li>🧮 Your XP, rank, streak and Plus are worked out on our server. Nobody can edit them from the app.</li>
       <li>🔒 Every table has rules, so people only see what they're allowed to.</li>
@@ -38,6 +41,26 @@ export async function renderSecurity(app) {
       <li>📱 We keep a scrambled code for your device, never your real IP address.</li>
       <li>🚩 You can report anything. Our team reviews reports and can pause accounts that break the rules.</li></ul></section>`;
   $('#mfa', box).onclick = () => on ? turnOff(app, on) : turnOn(app);
+  fillPrivacy($('#privb', box));
+}
+
+async function fillPrivacy(el) {
+  let p;
+  try { const { data, error } = await cloud.sb.rpc('my_privacy'); if (error) throw error; p = data; } catch (e) { el.textContent = 'Could not load these settings.'; return; }
+  const draw = () => {
+    el.className = '';
+    el.innerHTML = `<label class="tog"><input type="checkbox" id="pvin" ${p.studio_opt_out ? '' : 'checked'}><span>Include me in studio stats <small class="hint">(always anonymous and grouped)</small></span></label>
+      <label class="tog"><input type="checkbox" id="pvpn" ${p.panels_opt_in ? 'checked' : ''} ${p.adult && p.verified ? '' : 'disabled'}><span>Invite me to screener panels <small class="hint">(watch trailers or early cuts, +50 XP, answers without your name)</small></span></label>
+      ${!p.adult ? '<p class="meta">Screener panels are for people 18 and older.</p>' : !p.verified ? '<p class="meta">Confirm your email to join screener panels.</p>' : !p.panel_ready ? '<p class="meta">Invites go to members ranked Critic or higher. Keep rating and reviewing!</p>' : ''}
+      <a class="see" href="#/screeners">See my screener invites</a>`;
+    const save = async () => {
+      try { const { data, error } = await cloud.sb.rpc('set_studio_privacy', { p_opt_out: !$('#pvin', el).checked, p_panels: $('#pvpn', el).checked }); if (error) throw error; p = data; toast('Saved.'); }
+      catch (e) { toast(e.message || 'Could not save.', 'sad'); }
+      draw();
+    };
+    $('#pvin', el).onchange = save; $('#pvpn', el).onchange = save;
+  };
+  draw();
 }
 
 async function turnOn(app) {

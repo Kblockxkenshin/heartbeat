@@ -83,7 +83,11 @@ export function startCloud() {
 async function loadMe(first) {
   const sb = cloud.sb, uid = cloud.user?.id; if (!sb || !uid) return;
   await checkAal();
-  if (first) sb.rpc('register_device', { p_device: deviceId() }).then(() => {}, () => {});
+  if (first) {
+    sb.rpc('register_device', { p_device: deviceId() }).then(() => {}, () => {});
+    let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { }
+    sb.rpc('set_region', { p_tz: tz }).then(() => {}, () => {});
+  }
   const [p, s, priv, r, sw, w, mine, sec] = await Promise.all([
     sb.from('profiles').select('username,display_name,avatar_url').eq('id', uid).maybeSingle(),
     sb.from('user_stats').select('xp,rank,streak_count,streak_best,streak_last,is_minor,plus_until').eq('user_id', uid).maybeSingle(),

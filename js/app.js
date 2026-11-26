@@ -25,6 +25,7 @@ import { renderWrapped } from './screens/wrapped.js';
 import { renderPlay } from './screens/play.js';
 import { renderSecurity } from './screens/security.js';
 import { renderAdmin } from './screens/admin.js';
+import { renderStudios, renderStudio, renderScreeners } from './screens/studio.js';
 
 TITLES.forEach(apply); // use cached TMDB info right away
 
@@ -101,7 +102,7 @@ function topbar() {
 /* ---------------- router ---------------- */
 const route = () => { const p = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent); return { p: p[0] || '', a: p[1] || '', b: p[2] || '' }; };
 let baseHash = null, baseRendered = null, modalFromBase = false, lastKey = '';
-const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight], play: ['play', null], security: ['me', renderSecurity], admin: ['me', null] };
+const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight], play: ['play', null], security: ['me', renderSecurity], admin: ['me', null], studios: ['me', renderStudios], studio: ['me', null], screeners: ['me', renderScreeners] };
 
 function renderBase(r, keepScroll) {
   const app = $('#app'), y = scrollY, key = location.hash || '#/';
@@ -120,6 +121,7 @@ function renderBase(r, keepScroll) {
   else if (r.p === 'plus') renderPlus(app, r.a);
   else if (r.p === 'play') renderPlay(app, r.a || 'league', r.b);
   else if (r.p === 'admin') renderAdmin(app, r.a || 'overview');
+  else if (r.p === 'studio') renderStudio(app, r.a, r.b);
   else if (r.p === 'chat') { if (inRoom) renderRoom(app, r.a); else renderChats(app, r.a); }
   else (PAGES[r.p] || PAGES[''])[1](app);
   baseHash = key; baseRendered = key;

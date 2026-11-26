@@ -48,6 +48,7 @@ export function renderDetail(el, id, { modal = false } = {}) {
   <div class="dhead">${poster(t, { mine: false })}
     <div><h1 id="dtitle">${esc(t.name)}</h1><div class="meta">${esc(t.year)} · ${t.type === 'tv' ? 'Series' : 'Movie'}${len ? ' · ' + len : ''}</div><div class="meta">${esc(t.genres.join(' · '))}</div>
     <button class="btn big rate-main" id="rateBtn">${mine ? `★ ${mine.overall} · Edit my rating` : '💖 Rate it'} <kbd class="kbd">R</kbd></button>
+    <div id="trbox" class="trbox"></div>
     ${cloud.ready ? `<div class="dbtns"><button class="btn ghost writebtn" id="writeBtn">✍️ Write a review</button><button class="btn ghost writebtn" id="recBtn" aria-label="Recommend to friends">🎁 Recommend</button></div><div id="hbfans" class="hbfans" aria-live="polite"></div>` : ''}</div>
   </div>
   <div class="dgrid"><div class="dmain">
@@ -124,6 +125,7 @@ function wire(el, t, k, s, modal) {
   const sc = $('#sendchat', el); if (sc) sc.onclick = () => sendTitleToChat(t);
   const rb = $('#recBtn', el); if (rb) rb.onclick = () => recommendSheet(t);
   fillFans(el, t);
+  fillTrailer(el, t);
   setReviewsChanged(() => rerender());
   loadReviews(el, t);
   $('#wl', el).onclick = e => { const r = toggleSave(k); buzz(); if (r.saved) { const b = e.currentTarget.getBoundingClientRect(); hearts(b.x + 23, b.y + 23, 8); toast('Saved to your watchlist'); } celebrate(r); rerender(); };
@@ -183,6 +185,36 @@ export function openRate(t, onDone) {
   sh.addEventListener('keydown', e => {
     if (/^[1-5]$/.test(e.key)) { e.preventDefault(); set('end', +e.key); }
     else if (e.key === 'Enter' && cur.end) { e.preventDefault(); doSave(); }
+  });
+}
+
+/* Trailer (from TMDB) + quick reactions. Reactions help studios see the hype (counted, never named). */
+const RX = [['fire', '🔥', "Can't wait"], ['love', '😍', 'Love it'], ['meh', '🤔', 'Not sure'], ['nope', '👎', 'Not for me']];
+async function fillTrailer(el, t) {
+  const box = $('#trbox', el), k = keyOf(t.id);
+  if (!box || !k) return;
+  const [type, id] = k.split(':');
+  const d = await fetch(`/api/tmdb?type=${type}&id=${id}`).then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!box.isConnected || !d) return;
+  const soon = d.release_date && new Date(d.release_date + 'T12:00') > new Date();
+  box.innerHTML = `${soon ? `<span class="pill2 soonpill">📅 Coming ${esc(new Date(d.release_date + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }))}</span>` : ''}
+    ${d.trailer ? `<button class="btn ghost trbtn" id="trBtn">▶️ Watch the trailer</button>` : ''}`;
+  if (d.trailer) $('#trBtn', box).onclick = () => openTrailer(t, k, d.trailer);
+}
+async function openTrailer(t, k, yt) {
+  const sh = sheet(`<h2 class="h3" style="font-size:20px;margin:0 0 10px">▶️ ${esc(t.name)}</h2>
+    <div class="trvid"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(yt)}?rel=0" title="${esc(t.name)} trailer" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+    <div class="sub" style="margin:12px 0 6px;font-weight:800">How does it look?</div>
+    <div class="trrx" id="trrx" role="group" aria-label="Your reaction">${RX.map(([kk, e, l]) => `<button type="button" class="chip" data-rx="${kk}" aria-pressed="false"><span aria-hidden="true">${e}</span> ${l} <b class="trn"></b></button>`).join('')}</div>`);
+  const draw = c => { $$('[data-rx]', sh).forEach(b => { const on = c?.mine === b.dataset.rx; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.querySelector('.trn').textContent = c?.[b.dataset.rx] ? c[b.dataset.rx] : ''; }); };
+  let cur = null;
+  if (cloud.sb) cloud.sb.rpc('trailer_counts', { p_title: k }).then(({ data }) => { cur = data; draw(cur); }, () => {});
+  $$('[data-rx]', sh).forEach(b => b.onclick = async () => {
+    if (!cloud.user) { toast('Make a free account to react to trailers.'); return; }
+    const kind = cur?.mine === b.dataset.rx ? null : b.dataset.rx;
+    const { data, error } = await cloud.sb.rpc('react_trailer', { p_title: k, p_kind: kind });
+    if (error) { toast(error.message, 'sad'); return; }
+    cur = data; draw(cur); if (kind) buzz(8);
   });
 }
 

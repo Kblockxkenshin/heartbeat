@@ -9,7 +9,7 @@ async function rpc(fn, args = {}) {
   if (error) throw new Error(error.message || 'Something went wrong.');
   return data;
 }
-const TABS = [['overview', '📊 Overview'], ['ai', '🤖 AI queue'], ['reports', '🚩 Reports'], ['flags', '🤖 Flags'], ['held', '⏸️ Held ratings'], ['users', '👤 Users'], ['log', '📜 Log']];
+const TABS = [['overview', '📊 Overview'], ['ai', '🤖 AI queue'], ['reports', '🚩 Reports'], ['flags', '🤖 Flags'], ['held', '⏸️ Held ratings'], ['users', '👤 Users'], ['studios', '🎬 Studios'], ['log', '📜 Log']];
 const who = p => p ? (p.hidden ? esc(p.display_name) : `<a href="${profileHref(p)}">${avatar(p, 'xs')} <b>${esc(p.display_name || p.username)}</b> <span class="meta">@${esc(p.username || '')}</span></a>`) : '<span class="meta">—</span>';
 const day = s => s ? new Date(s).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
 
@@ -29,7 +29,7 @@ export async function renderAdmin(app, tab = 'overview') {
     <nav class="ftabs" aria-label="Admin sections">${TABS.map(([k, l]) => `<a href="#/admin/${k}" class="chip ${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
     <div id="ab" class="fbody"><div class="card"><div class="rskel"></div><div class="rskel"></div></div></div></div>`;
   const box = $('#ab', app);
-  try { await ({ overview, ai, reports, flags, held, users, log })[tab](box, app); }
+  try { await ({ overview, ai, reports, flags, held, users, studios, log })[tab](box, app); }
   catch (e) { box.innerHTML = `<div class="card">${empty(esc(plain(e)), 'sad')}</div>`; }
 }
 
@@ -161,6 +161,34 @@ async function users(box) {
     wirePause($('#ul', box), draw);
   };
   $('#uf', box).onsubmit = e => { e.preventDefault(); draw().catch(er => toast(plain(er), 'sad')); };
+  await draw();
+}
+
+async function studios(box) {
+  const draw = async () => {
+    const S = await rpc('admin_studios');
+    box.innerHTML = `<section class="card"><h2 class="h3">💌 Sales requests</h2>
+      ${S.requests.length ? S.requests.map(r => `<article class="arep stbox" data-r="${r.id}">
+        <div><b>${esc(r.company)}</b> <span class="meta">· ${esc(r.job || '')} · ${day(r.at)}</span></div>
+        <div class="meta">${esc(r.email)}${r.website ? ' · ' + esc(r.website) : ''} · account ${who(r.who)}</div>
+        ${r.message ? `<blockquote class="rnote">${esc(r.message)}</blockquote>` : ''}
+        <div class="stgrid3"><label class="fld"><span>Studio name</span><input class="sn" maxlength="80" value="${esc(r.company)}"></label>
+          <label class="fld"><span>Plan</span><select class="sp"><option>pilot</option><option>pro</option><option>enterprise</option></select></label>
+          <label class="fld"><span>Title limit</span><input class="sl" type="number" min="1" max="500" value="10"></label></div>
+        <div class="rbtns"><button class="btn sm" data-ok="1">✅ Approve</button><button class="btn sm ghost" data-ok="0">Decline</button></div></article>`).join('') : '<p class="sub">No open requests.</p>'}</section>
+      <section class="card"><h2 class="h3">🎬 Studios</h2>
+      ${S.studios.length ? S.studios.map(s => `<article class="arep" data-s="${s.id}"><div><b>${esc(s.name)}</b> <span class="pill2 ${s.status === 'active' ? 'ok' : ''}">${esc(s.status)}</span> <span class="meta">${esc(s.plan)} · ${s.titles}/${s.title_limit} titles · ${s.team} people · owner ${who(s.owner)}</span></div>
+        <div class="rbtns">${s.status === 'active' ? '<button class="btn sm ghost" data-st="suspended">⏸️ Pause</button>' : '<button class="btn sm" data-st="active">▶️ Turn back on</button>'}</div></article>`).join('') : '<p class="sub">No studios yet.</p>'}</section>`;
+    box.querySelectorAll('[data-ok]').forEach(b => b.onclick = async () => {
+      const c = b.closest('[data-r]');
+      try { await rpc('admin_studio_request', { p_id: +c.dataset.r, p_approve: b.dataset.ok === '1', p_name: c.querySelector('.sn').value.trim(), p_plan: c.querySelector('.sp').value, p_limit: +c.querySelector('.sl').value }); toast('Done.'); draw(); }
+      catch (e) { toast(plain(e), 'sad'); }
+    });
+    box.querySelectorAll('[data-st]').forEach(b => b.onclick = async () => {
+      try { await rpc('admin_studio_set', { p_studio: +b.closest('[data-s]').dataset.s, p_status: b.dataset.st, p_plan: null, p_limit: null }); toast('Done.'); draw(); }
+      catch (e) { toast(plain(e), 'sad'); }
+    });
+  };
   await draw();
 }
 

@@ -34,7 +34,10 @@ export default async function handler(req, res) {
       return res.status(200).json({ results });
     }
     if ((type === 'movie' || type === 'tv') && /^\d+$/.test(String(id || ''))) {
-      const d = await tmdb(`${type}/${id}`, { language: 'en-US' });
+      const d = await tmdb(`${type}/${id}`, { language: 'en-US', append_to_response: 'videos' });
+      // Best YouTube trailer: official trailers first, then teasers.
+      const vids = (d.videos?.results || []).filter(v => v.site === 'YouTube' && /^[\w-]{6,20}$/.test(v.key || '') && (v.type === 'Trailer' || v.type === 'Teaser'));
+      vids.sort((a, b) => (b.type === 'Trailer') - (a.type === 'Trailer') || (b.official === true) - (a.official === true));
       res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=604800');
       return res.status(200).json({
         id: d.id, type, name: d.title || d.name,
@@ -45,6 +48,8 @@ export default async function handler(req, res) {
         backdrop_path: d.backdrop_path || null,
         runtime: d.runtime || (d.episode_run_time && d.episode_run_time[0]) || null,
         seasons: type === 'tv' ? (d.seasons || []).filter(s => s.season_number > 0).map(s => s.episode_count || 1) : null,
+        release_date: d.release_date || d.first_air_date || null,
+        trailer: vids[0]?.key || null,
       });
     }
     return res.status(400).json({ error: 'Use ?q=name or ?type=movie|tv&id=123' });

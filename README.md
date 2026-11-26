@@ -92,6 +92,22 @@ Upload the app code first, then run `supabase/007_game.sql`. Everything is decid
   After the show: set each `winner` (the nominee's `k`) and run `select finish_event('oscars-2027');`
 - Recommendations a friend loves now give **+15 XP** (was +5).
 
+## Heartbeat for Studios (Part 8)
+Upload the app code first, then run `supabase/010_studios.sql`.
+- **#/studios** explains the product and has a "Talk to sales" form. An admin approves requests in
+  Admin → 🎬 Studios (sets the plan and title limit). Studio team members must use 2-step sign-in.
+- **Dashboard (#/studio):** for each tracked title — data quality score, journey (where people lose interest),
+  star spread, sentiment over time, top tags, AI theme summary, age ranges, regions, hype (watchlist adds,
+  trailer reactions, friend recs), and comparison with the studio's other titles and the Heartbeat average.
+  Export as CSV or PDF (print). A "Most anticipated" ranking and a team page.
+- **Early Screener Panels:** studios add a YouTube/Vimeo link and questions. Only critics (rank Critic+, 18+,
+  confirmed email) who opted in are invited. Critics answer on #/screeners and get +50 XP.
+  Studios see answers without names, and only after 3 people finished.
+- **Trailers:** title pages show the TMDB trailer with 🔥 😍 🤔 👎 reactions (used for hype).
+- **Privacy:** studios only get totals and averages from trusted members (confirmed email, 18+, older account,
+  not held/flagged/paused). Groups under 10 people are hidden. Anyone can opt out in Me → Security.
+- **AI summaries** use `ANTHROPIC_API_KEY` + `SUPABASE_SERVICE_ROLE_KEY` (same as Part 7). Saved for 24 hours.
+
 ## AI review check (Part 7)
 Upload the app code first, then run `supabase/009_ai_reviews.sql`.
 - **Two checks.** The fast rule check runs first, the moment you press Post. Then Claude reads the review on the
