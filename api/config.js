@@ -14,5 +14,7 @@ export default function handler(req, res) {
     if (payload.role && payload.role !== 'anon') return res.status(200).json({ ready: false, error: 'wrong-key' });
   } catch (e) { /* new-style publishable keys are not JWTs: fine */ }
   if (anonKey.startsWith('sb_secret_')) return res.status(200).json({ ready: false, error: 'wrong-key' });
-  res.status(200).json({ ready: true, url, anonKey });
+  // Optional bot check on sign-up / sign-in: Cloudflare Turnstile SITE key (public). The secret key goes in
+  // Supabase → Authentication → Attack Protection (never here).
+  res.status(200).json({ ready: true, url, anonKey, turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || '' });
 }

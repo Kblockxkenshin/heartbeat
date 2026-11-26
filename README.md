@@ -91,3 +91,26 @@ Upload the app code first, then run `supabase/007_game.sql`. Everything is decid
   then `update events set status = 'open', locks_at = '2027-03-01 00:00+00' where slug = 'oscars-2027';`
   After the show: set each `winner` (the nominee's `k`) and run `select finish_event('oscars-2027');`
 - Recommendations a friend loves now give **+15 XP** (was +5).
+
+## Security & anti-cheat (Part 6)
+Upload the app code first, then run `supabase/008_security.sql`.
+- **Server decides everything:** XP, ranks, streaks, leagues and Plus are only changed by the database.
+  Every table has Row Level Security. Ratings, reviews, messages, friend requests and recommendations
+  have speed limits.
+- **Bots and fake accounts:** the app sends a random device id after sign-in; the server stores only a
+  scrambled (hashed) version, plus a hashed IP. 4+ accounts on one device get flagged. 40 ratings in
+  2 minutes get held and flagged; 100 are blocked.
+- **Review-bombing:** a wave of ratings on one title from brand-new accounts (or accounts that share a
+  device) is held. Held ratings don't count in the public "Heartbeat fans" score and give no XP until
+  an admin releases them.
+- **Accounts can be paused or banned.** Paused people can look around but can't rate, review, chat or play.
+- **2-step sign-in:** Me → Security. Uses any authenticator app. The server enforces it.
+- **Admin panel** (`#/admin`): reports, flags, held ratings, users, security log. Admins must use
+  2-step sign-in. Make someone an admin in the SQL editor:
+  `insert into public.admins (user_id) select id from auth.users where email = 'you@example.com';`
+- **Robot check on sign-up (optional):** make a free Cloudflare Turnstile widget, put the SITE key in
+  Vercel as `TURNSTILE_SITE_KEY`, and the SECRET key in Supabase → Authentication → Attack Protection
+  (turn on CAPTCHA, provider Turnstile). The form shows the check only when the site key is set.
+- **Web safety:** strict Content-Security-Policy and other security headers (vercel.json), all user
+  text is escaped before showing, no cookies are used for sign-in (so no CSRF), secrets live only in
+  environment variables, payments are checked by server webhooks.

@@ -23,6 +23,8 @@ import { renderChats, renderRoom, leaveRoom, watchInbox, unwatchInbox } from './
 import { renderPlus, renderMovieNight } from './screens/plus.js';
 import { renderWrapped } from './screens/wrapped.js';
 import { renderPlay } from './screens/play.js';
+import { renderSecurity } from './screens/security.js';
+import { renderAdmin } from './screens/admin.js';
 
 TITLES.forEach(apply); // use cached TMDB info right away
 
@@ -99,7 +101,7 @@ function topbar() {
 /* ---------------- router ---------------- */
 const route = () => { const p = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent); return { p: p[0] || '', a: p[1] || '', b: p[2] || '' }; };
 let baseHash = null, baseRendered = null, modalFromBase = false, lastKey = '';
-const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight], play: ['play', null] };
+const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight], play: ['play', null], security: ['me', renderSecurity], admin: ['me', null] };
 
 function renderBase(r, keepScroll) {
   const app = $('#app'), y = scrollY, key = location.hash || '#/';
@@ -117,6 +119,7 @@ function renderBase(r, keepScroll) {
   else if (r.p === 'invite') renderInvite(app, r.a);
   else if (r.p === 'plus') renderPlus(app, r.a);
   else if (r.p === 'play') renderPlay(app, r.a || 'league', r.b);
+  else if (r.p === 'admin') renderAdmin(app, r.a || 'overview');
   else if (r.p === 'chat') { if (inRoom) renderRoom(app, r.a); else renderChats(app, r.a); }
   else (PAGES[r.p] || PAGES[''])[1](app);
   baseHash = key; baseRendered = key;
@@ -126,6 +129,8 @@ function renderBase(r, keepScroll) {
 
 export async function render(keepScroll = false) {
   const r = route(), key = location.hash || '#/';
+  // 2-step sign-in is on and the code isn't entered yet: only the code screen.
+  if (cloud.user && cloud.needsCode && !(r.p === 'signin' && r.a === '2fa')) { location.hash = '#/signin/2fa'; return; }
   if (r.p === 't') {
     if (!BYID[r.a]) { if (!(await loadTitle(r.a))) { closeModal(); chrome('home'); $('#app').innerHTML = `<div class="mascot">${mascot('sad')}<div>I can't find that title right now.<br><a class="see" href="#/">Go home</a></div></div>`; return; } }
     if (wide()) {
@@ -300,6 +305,8 @@ onCloud(async c => {
   if (c.stats?.rank && lastRank && c.stats.rank !== lastRank) { confettiSafe(); toast(`New rank: ${c.stats.rank}! 🎉`, 'wow'); }
   if (c.stats?.rank) lastRank = c.stats.rank;
   if (c.checkin?.xp_gained) { toast(`+${c.checkin.xp_gained} XP for showing up today!`); c.checkin = null; }
+  // 2-step sign-in turned on: ask for the code before anything else.
+  if (uid && c.needsCode && route().a !== '2fa') { location.hash = '#/signin/2fa'; return; }
   if (uid && needsSetup() && c.profile !== undefined && !/^#\/(welcome|signin)/.test(location.hash) && (c.profile || c.stats)) location.hash = '#/welcome';
   const becameReady = c.ready && !lastReady; lastReady = c.ready;
   if (c.user && c.profile?.username) watchInbox(); else unwatchInbox();

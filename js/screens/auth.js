@@ -1,5 +1,5 @@
 // Sign up / sign in / check your email / forgot password / first-time setup.
-import { cloud, signUp, signIn, signInGoogle, resendEmail, sendReset, setNewPassword, setBirthdate, saveProfile, usernameFree, plain } from '../cloud.js';
+import { cloud, signUp, signIn, signInGoogle, resendEmail, sendReset, setNewPassword, setBirthdate, saveProfile, usernameFree, plain, mfaList, mfaVerify, signOut } from '../cloud.js';
 import { $, esc, mascot, toast, confetti } from '../ui.js';
 
 const LOGO = `<span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="24" height="24"><path d="M3 17h6l2.5-6 4 12 3-9 2 3H29" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
@@ -10,6 +10,45 @@ const ageOf = b => { const d = new Date(b), n = new Date(); let a = n.getFullYea
 const today = () => new Date().toISOString().slice(0, 10);
 const frame = inner => `<div class="screen auth"><div class="authbox">
   <a class="slogo authlogo" href="#/" aria-label="Heartbeat home">${LOGO}<span>heartbeat</span></a>${inner}</div></div>`;
+
+/* ---------- "I'm not a robot" check (Cloudflare Turnstile), only if it's switched on ---------- */
+let tsLoad = null;
+function botCheck(el) {
+  if (!cloud.turnstile || !el) return { token: () => '', reset() {} };
+  let token = '', id = null;
+  tsLoad = tsLoad || new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'; s.async = true;
+    s.onload = res; s.onerror = rej; document.head.appendChild(s);
+  });
+  tsLoad.then(() => { if (el.isConnected) id = window.turnstile.render(el, { sitekey: cloud.turnstile, theme: 'dark', callback: t => { token = t; }, 'expired-callback': () => { token = ''; } }); })
+    .catch(() => { el.textContent = 'The robot check could not load. Check your internet.'; });
+  return { token: () => token, reset() { token = ''; try { window.turnstile?.reset(id); } catch (e) { } } };
+}
+
+/* ---------- 2-step code after the password ---------- */
+function twoStep(app) {
+  if (!cloud.user) { location.hash = '#/signin'; return; }
+  if (!cloud.needsCode) { location.hash = '#/me'; return; }
+  app.innerHTML = frame(`<div class="mascot" style="padding:6px 0">${mascot('wow')}</div>
+    <h1 class="authh">One more step 🔐</h1>
+    <p class="sub" style="text-align:center">Open your authenticator app and type the 6-digit code for Heartbeat.</p>
+    <form id="f" novalidate><label class="fld"><span>6-digit code</span><input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" pattern="[0-9 ]{6,7}" required></label>
+    <p class="errmsg" id="err" role="alert" tabindex="-1" hidden></p>
+    <button class="btn big" id="go">Continue</button></form>
+    <div class="authlinks"><button class="see linkbtn" id="out" type="button">Use a different account</button></div>`);
+  $('#code').focus();
+  $('#out').onclick = async () => { await signOut(); location.hash = '#/signin'; };
+  $('#f').onsubmit = async e => {
+    e.preventDefault(); const b = $('#go'); busy(b, true);
+    try {
+      const f = (await mfaList()).find(x => x.status === 'verified');
+      if (!f) throw new Error('No authenticator found for this account.');
+      await mfaVerify(f.id, $('#code').value);
+      toast('Signed in! 💓'); location.hash = '#/me';
+    } catch (x) { busy(b, false); showErr($('#err'), plain(x)); $('#code').select(); }
+  };
+}
 const notReady = () => frame(`<div class="mascot">${mascot('sad')}<div>${cloud.error === 'offline' ? 'You seem to be offline. Accounts need the internet.' : 'Accounts are not switched on yet.'}<br><a class="see" href="#/">Keep using Heartbeat on this device</a></div></div>`);
 
 function busy(btn, on, label) { btn.disabled = on; if (on) { btn.dataset.l = btn.innerHTML; btn.innerHTML = label || 'One sec…'; } else if (btn.dataset.l) btn.innerHTML = btn.dataset.l; }
@@ -18,6 +57,7 @@ function showErr(el, msg) { el.textContent = msg; el.hidden = !msg; if (msg) el.
 export function renderAuth(app, mode = '') {
   document.title = 'Sign in — Heartbeat';
   if (!cloud.ready) { app.innerHTML = notReady(); return; }
+  if (mode === '2fa') return twoStep(app);
   if (cloud.user && !['reset'].includes(mode)) { location.hash = needsSetup() ? '#/welcome' : '#/me'; return; }
   if (mode === 'check') return checkEmail(app);
   if (mode === 'forgot') return forgot(app);
@@ -34,13 +74,14 @@ export function renderAuth(app, mode = '') {
       ${up ? `<label class="fld"><span>Username</span><input id="un" autocomplete="username" required minlength="3" maxlength="20" pattern="[a-z0-9_.]{3,20}" placeholder="like movie.maya" autocapitalize="none" spellcheck="false"><small class="hint">3–20 letters, numbers, _ or .</small></label>
       <label class="fld"><span>Birthday</span><input id="bd" type="date" required max="${today()}" min="1900-01-01"><small class="hint">You must be 13 or older. Only you can see this.</small></label>` : ''}
       <label class="fld"><span>Password</span><input id="pw" type="password" autocomplete="${up ? 'new-password' : 'current-password'}" required minlength="8"><small class="hint">${up ? 'At least 8 characters.' : ''}</small></label>
+      ${cloud.turnstile ? '<div class="botcheck" id="ts"></div>' : ''}
       <p class="errmsg" id="err" role="alert" tabindex="-1" hidden></p>
       <button class="btn big" id="go" type="submit">${up ? 'Create account' : 'Sign in'}</button>
     </form>
     <div class="authlinks">${up ? `Already have an account? <a class="see" href="#/signin">Sign in</a>` : `New here? <a class="see" href="#/signin/up">Make an account</a> · <a class="see" href="#/signin/forgot">Forgot password?</a>`}</div>
     <p class="sub tiny">You can keep using Heartbeat without an account. Your ratings then stay on this device only.</p>`);
   cloud.flash = null;
-  const err = $('#err');
+  const err = $('#err'), bot = botCheck($('#ts'));
   $('#google').onclick = async e => { busy(e.currentTarget, true); try { await signInGoogle(); } catch (x) { busy(e.currentTarget, false); showErr(err, plain(x)); } };
   if (up) $('#un').addEventListener('input', e => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_.]/g, ''); });
   $('#f').onsubmit = async e => {
@@ -49,6 +90,7 @@ export function renderAuth(app, mode = '') {
     lastEmail = email;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return showErr(err, 'Please enter a real email.');
     if (password.length < 8) return showErr(err, 'Your password needs at least 8 characters.');
+    if (cloud.turnstile && !bot.token()) return showErr(err, 'Please finish the "I\'m not a robot" check.');
     const btn = $('#go'); busy(btn, true);
     try {
       if (up) {
@@ -57,14 +99,16 @@ export function renderAuth(app, mode = '') {
         if (!birthdate) throw new Error('Please add your birthday.');
         if (ageOf(birthdate) < 13) throw new Error('You must be 13 or older to use Heartbeat.');
         if (!(await usernameFree(username))) throw new Error('That username is taken. Try another one.');
-        const d = await signUp({ email, password, username, birthdate });
+        const d = await signUp({ email, password, username, birthdate, captchaToken: bot.token() || undefined });
         if (d.session) { confetti(); location.hash = '#/welcome'; } else location.hash = '#/signin/check';
       } else {
-        await signIn(email, password);
+        await signIn(email, password, bot.token() || undefined);
+        const { data } = await cloud.sb.auth.mfa.getAuthenticatorAssuranceLevel().catch(() => ({}));
+        if (data?.nextLevel === 'aal2' && data?.currentLevel !== 'aal2') { cloud.needsCode = true; location.hash = '#/signin/2fa'; return; }
         toast('Signed in! 💓');
         location.hash = '#/me';
       }
-    } catch (x) { busy(btn, false); showErr(err, plain(x)); }
+    } catch (x) { busy(btn, false); bot.reset(); showErr(err, plain(x)); }
   };
 }
 
@@ -88,13 +132,16 @@ function forgot(app) {
   app.innerHTML = frame(`<h1 class="authh">Forgot your password?</h1>
     <p class="sub" style="text-align:center">No problem. We'll email you a link to make a new one.</p>
     <form id="f" novalidate><label class="fld"><span>Email</span><input id="em" type="email" autocomplete="email" required value="${esc(lastEmail)}"></label>
+    ${cloud.turnstile ? '<div class="botcheck" id="ts"></div>' : ''}
     <p class="errmsg" id="err" role="alert" tabindex="-1" hidden></p>
     <button class="btn big" id="go">Send me a link</button></form>
     <div class="authlinks"><a class="see" href="#/signin">Back to sign in</a></div>`);
+  const bot = botCheck($('#ts'));
   $('#f').onsubmit = async e => {
     e.preventDefault(); const email = $('#em').value.trim(); lastEmail = email;
+    if (cloud.turnstile && !bot.token()) return showErr($('#err'), 'Please finish the "I\'m not a robot" check.');
     const b = $('#go'); busy(b, true);
-    try { await sendReset(email); app.querySelector('form').outerHTML = `<p class="okmsg" role="status">If that email has an account, a link is on its way. 📬</p>`; }
+    try { await sendReset(email, bot.token() || undefined); app.querySelector('form').outerHTML = `<p class="okmsg" role="status">If that email has an account, a link is on its way. 📬</p>`; }
     catch (x) { busy(b, false); showErr($('#err'), plain(x)); }
   };
 }

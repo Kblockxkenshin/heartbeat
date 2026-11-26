@@ -5,7 +5,7 @@ import { U, save, rate, forYou, toggleSave } from '../store.js';
 import { $, $$, esc, poster, card, backdropUrl, hydratePosters, sheet, closeSheet, hearts, celebrate, toast, empty, fmtRuntime, buzz } from '../ui.js';
 import { journey, heartbeatSVG, beat, argmax } from '../journey.js';
 import { rerender, closeDetail } from '../app.js';
-import { cloud } from '../cloud.js';
+import { cloud, keyOf } from '../cloud.js';
 import { reviewsSectionHTML, loadReviews, openEditor, promptReview, setReviewsChanged } from './reviews.js';
 
 const sel = {};
@@ -48,7 +48,7 @@ export function renderDetail(el, id, { modal = false } = {}) {
   <div class="dhead">${poster(t, { mine: false })}
     <div><h1 id="dtitle">${esc(t.name)}</h1><div class="meta">${esc(t.year)} · ${t.type === 'tv' ? 'Series' : 'Movie'}${len ? ' · ' + len : ''}</div><div class="meta">${esc(t.genres.join(' · '))}</div>
     <button class="btn big rate-main" id="rateBtn">${mine ? `★ ${mine.overall} · Edit my rating` : '💖 Rate it'} <kbd class="kbd">R</kbd></button>
-    ${cloud.ready ? `<div class="dbtns"><button class="btn ghost writebtn" id="writeBtn">✍️ Write a review</button><button class="btn ghost writebtn" id="recBtn" aria-label="Recommend to friends">🎁 Recommend</button></div>` : ''}</div>
+    ${cloud.ready ? `<div class="dbtns"><button class="btn ghost writebtn" id="writeBtn">✍️ Write a review</button><button class="btn ghost writebtn" id="recBtn" aria-label="Recommend to friends">🎁 Recommend</button></div><div id="hbfans" class="hbfans" aria-live="polite"></div>` : ''}</div>
   </div>
   <div class="dgrid"><div class="dmain">
   <p class="overview">${esc(t.overview)}</p>
@@ -123,6 +123,7 @@ function wire(el, t, k, s, modal) {
   const wb = $('#writeBtn', el); if (wb) wb.onclick = () => openEditor(t);
   const sc = $('#sendchat', el); if (sc) sc.onclick = () => sendTitleToChat(t);
   const rb = $('#recBtn', el); if (rb) rb.onclick = () => recommendSheet(t);
+  fillFans(el, t);
   setReviewsChanged(() => rerender());
   loadReviews(el, t);
   $('#wl', el).onclick = e => { const r = toggleSave(k); buzz(); if (r.saved) { const b = e.currentTarget.getBoundingClientRect(); hearts(b.x + 23, b.y + 23, 8); toast('Saved to your watchlist'); } celebrate(r); rerender(); };
@@ -183,4 +184,15 @@ export function openRate(t, onDone) {
     if (/^[1-5]$/.test(e.key)) { e.preventDefault(); set('end', +e.key); }
     else if (e.key === 'Enter' && cur.end) { e.preventDefault(); doSave(); }
   });
+}
+
+/* Heartbeat members' score for this title (held ratings and banned accounts are left out on the server). */
+async function fillFans(el, t) {
+  const box = $('#hbfans', el), k = keyOf(t.id);
+  if (!box || !cloud.sb || !k) return;
+  const { data: d } = await cloud.sb.rpc('title_scores', { p_title: k }).then(x => x, () => ({}));
+  if (!box.isConnected || !d || !d.n) return;
+  box.innerHTML = `<span class="hbf1">💓 Heartbeat fans <b>★ ${(+d.overall).toFixed(1)}</b> <span class="meta">from ${d.n} ${d.n === 1 ? 'rating' : 'ratings'}</span></span>
+    <span class="meta">Start ${(+d.start).toFixed(1)} · Middle ${(+d.middle).toFixed(1)} · Ending ${(+d.end).toFixed(1)}</span>
+    ${d.held ? `<span class="meta">🛡️ ${d.held} new ${d.held === 1 ? 'rating is' : 'ratings are'} being checked before they count.</span>` : ''}`;
 }

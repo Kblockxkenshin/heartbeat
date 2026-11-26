@@ -30,6 +30,7 @@ export function renderMe(app) {
   <header class="top"><h1 class="logo" style="font-size:26px;margin:0">Me</h1><a class="icon-btn" href="#/about" aria-label="Settings and about">⚙️</a></header>
 
   <div class="me-grid">
+  ${cloud.sec?.paused ? `<a class="card linkcard pausedcard" href="#/security" role="alert"><span style="font-size:30px" aria-hidden="true">⏸️</span><div style="flex:1"><h2 class="h3">Your account is ${cloud.sec.status === 'banned' ? 'banned' : 'paused'}</h2><div class="sub">${esc(cloud.sec.reason || 'Community rules')}. Tap to learn more.</div></div></a>` : ''}
   ${cloud.user && cloud.stats ? accountCard() : guestCard(L)}
 
   <section class="card"><div class="flame"><span class="f" aria-hidden="true">🔥</span><div><b>${streak}</b> <span style="font-weight:900">day streak</span><div class="sub">${streak ? 'Rate one thing today to keep it alive.' : 'Rate one title to start a streak.'}</div></div></div>
@@ -48,6 +49,9 @@ export function renderMe(app) {
     <ul class="badges">${BADGES.map(b => `<li class="bdg ${U.badges[b.id] ? 'got' : ''}"><span class="e" aria-hidden="true">${b.e}</span>${b.name}<span class="sr-only">${U.badges[b.id] ? ' (unlocked)' : ' (locked)'}</span></li>`).join('')}</ul></section>
 
   ${m ? `<a class="card linkcard" href="#/match"><span style="font-size:34px" aria-hidden="true">💞</span><div style="flex:1"><h2 class="h3">${m.m.pct}% with @${esc(m.p.h)}</h2><div class="sub">Your closest movie twin so far</div></div><span class="btn sm" aria-hidden="true">Match</span></a>` : ''}
+
+  ${cloud.user ? `<a class="card linkcard" href="#/security"><span style="font-size:30px" aria-hidden="true">🔐</span><div style="flex:1"><h2 class="h3">Security</h2><div class="sub">${cloud.sec?.mfa ? '2-step sign-in is on.' : 'Turn on 2-step sign-in to keep your account safe.'}</div></div><span class="btn sm ghost" aria-hidden="true">Open</span></a>` : ''}
+  ${cloud.sec?.admin ? `<a class="card linkcard" href="#/admin"><span style="font-size:30px" aria-hidden="true">🛡️</span><div style="flex:1"><h2 class="h3">Admin panel</h2><div class="sub">Reports, flags, held ratings and users.</div></div><span class="btn sm ghost" aria-hidden="true">Open</span></a>` : ''}
 
   ${cloud.user && cloud.stats ? `<a class="card linkcard" href="#/play"><span style="font-size:30px" aria-hidden="true">🏆</span><div style="flex:1"><h2 class="h3">Leagues, challenges & badges</h2><div class="sub">Your league, today's challenges, Streak Shields and badges.</div></div><span class="btn sm ghost" aria-hidden="true">Play</span></a>` : ''}
 

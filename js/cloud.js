@@ -15,6 +15,9 @@ export const cloud = {
   chatRequests: 0,   // message requests from non-friends
   stats: null,       // { xp, rank, streak_count, streak_best, is_minor, plus_until }
   needsBirthdate: false,
+  needsCode: false,  // 2-step sign-in is on, and this session still needs the code
+  sec: null,         // { admin, aal, status, until, reason, paused, mfa, needs_code } from the server
+  turnstile: '',     // Cloudflare Turnstile site key (public), if bot protection is turned on
   remote: null,      // { ratings, swipes, watchlist } loaded from the server
   error: null,
 };
@@ -43,6 +46,7 @@ export function startCloud() {
     try {
       const cfg = await fetch('/api/config').then(r => r.ok ? r.json() : null).catch(() => null);
       if (!cfg?.ready) { cloud.error = cfg?.error || 'not-configured'; emit(); return; }
+      cloud.turnstile = cfg.turnstileSiteKey || '';
       const { createClient } = await import(SB_LIB);
       cloud.sb = createClient(cfg.url, cfg.anonKey, {
         auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
@@ -78,7 +82,9 @@ export function startCloud() {
 /* ---------- my account data ---------- */
 async function loadMe(first) {
   const sb = cloud.sb, uid = cloud.user?.id; if (!sb || !uid) return;
-  const [p, s, priv, r, sw, w, mine] = await Promise.all([
+  await checkAal();
+  if (first) sb.rpc('register_device', { p_device: deviceId() }).then(() => {}, () => {});
+  const [p, s, priv, r, sw, w, mine, sec] = await Promise.all([
     sb.from('profiles').select('username,display_name,avatar_url').eq('id', uid).maybeSingle(),
     sb.from('user_stats').select('xp,rank,streak_count,streak_best,streak_last,is_minor,plus_until').eq('user_id', uid).maybeSingle(),
     sb.from('private_profiles').select('birthdate').eq('id', uid).maybeSingle(),
@@ -86,7 +92,9 @@ async function loadMe(first) {
     sb.from('swipes').select('title_key,kind'),
     sb.from('watchlist').select('title_key,added_at'),
     sb.rpc('my_profile').then(x => x, () => ({ data: null })),
+    sb.rpc('my_security').then(x => x, () => ({ data: null })),
   ]);
+  cloud.sec = sec.data || null;
   cloud.profile = p.data ? { ...p.data, ...(mine.data || {}) } : null;
   cloud.requests = +(mine.data?.requests || 0);
   cloud.unreadChats = +(mine.data?.unread_chats || 0);
@@ -94,7 +102,7 @@ async function loadMe(first) {
   cloud.stats = s.data || null;
   cloud.needsBirthdate = !priv.data?.birthdate;
   cloud.remote = { ratings: r.data || [], swipes: sw.data || [], watchlist: w.data || [] };
-  if (first && !cloud.needsBirthdate) {
+  if (first && !cloud.needsBirthdate && !cloud.needsCode && !cloud.sec?.paused) {
     const c = await sb.rpc('daily_checkin');
     if (c.data) { cloud.stats = { ...cloud.stats, xp: c.data.xp, rank: c.data.rank }; cloud.checkin = c.data; }
   }
@@ -162,6 +170,45 @@ export async function importLocal(U) {
   return data || 0;
 }
 
+/* ---------- device id (random, stays on this device; the server only keeps a hash) ---------- */
+function deviceId() {
+  try {
+    let d = localStorage.getItem('hb_device');
+    if (!d || !/^[A-Za-z0-9-]{16,64}$/.test(d)) { d = (crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36) + 'xxxxxxxx'); localStorage.setItem('hb_device', d); }
+    return d;
+  } catch (e) { return 'no-storage-device-id'; }
+}
+
+/* ---------- 2-step sign-in (an authenticator app code) ---------- */
+async function checkAal() {
+  try {
+    const { data } = await cloud.sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    cloud.needsCode = data?.nextLevel === 'aal2' && data?.currentLevel !== 'aal2';
+  } catch (e) { cloud.needsCode = false; }
+}
+export async function mfaList() {
+  const { data, error } = await cloud.sb.auth.mfa.listFactors();
+  if (error) throw error;
+  return (data?.all || []).filter(f => f.factor_type === 'totp');
+}
+export async function mfaStart() {
+  for (const f of await mfaList()) if (f.status !== 'verified') await cloud.sb.auth.mfa.unenroll({ factorId: f.id }).catch(() => {});
+  const { data, error } = await cloud.sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Heartbeat ' + new Date().toISOString().slice(0, 10) });
+  if (error) throw error;
+  return data;   // { id, totp: { qr_code, secret, uri } }
+}
+export async function mfaVerify(factorId, code) {
+  const { error } = await cloud.sb.auth.mfa.challengeAndVerify({ factorId, code: String(code).replace(/\D/g, '') });
+  if (error) throw new Error(/invalid|code/i.test(error.message || '') ? 'That code didn\'t work. Check the newest code in your app and try again.' : error.message);
+  cloud.needsCode = false;
+  await loadMe(false);
+}
+export async function mfaOff(factorId) {
+  const { error } = await cloud.sb.auth.mfa.unenroll({ factorId });
+  if (error) throw error;
+  await loadMe(false);
+}
+
 /* ---------- auth actions ---------- */
 const site = () => location.origin + '/';
 export async function signUp({ email, password, username, birthdate, captchaToken }) {
@@ -172,8 +219,8 @@ export async function signUp({ email, password, username, birthdate, captchaToke
   if (error) throw error;
   return data;
 }
-export async function signIn(email, password) {
-  const { error } = await cloud.sb.auth.signInWithPassword({ email, password });
+export async function signIn(email, password, captchaToken) {
+  const { error } = await cloud.sb.auth.signInWithPassword({ email, password, options: captchaToken ? { captchaToken } : undefined });
   if (error) throw error;
 }
 export async function signInGoogle() {
@@ -184,8 +231,8 @@ export async function resendEmail(email) {
   const { error } = await cloud.sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: site() } });
   if (error) throw error;
 }
-export async function sendReset(email) {
-  const { error } = await cloud.sb.auth.resetPasswordForEmail(email, { redirectTo: site() });
+export async function sendReset(email, captchaToken) {
+  const { error } = await cloud.sb.auth.resetPasswordForEmail(email, { redirectTo: site(), captchaToken });
   if (error) throw error;
 }
 export async function setNewPassword(password) {
@@ -217,6 +264,7 @@ export function plain(e) {
   if (m.includes('email not confirmed')) return 'Please confirm your email first. Check your inbox.';
   if (m.includes('already registered') || m.includes('already been registered')) return 'That email already has an account. Try signing in.';
   if (m.includes('password') && m.includes('characters')) return 'Your password needs at least 8 characters.';
+  if (m.includes('captcha')) return 'Please finish the "I\'m not a robot" check and try again.';
   if (m.includes('rate limit') || m.includes('too many')) return 'Too many tries. Please wait a minute.';
   if (m.includes('profiles_username') || m.includes('duplicate key')) return 'That username is taken. Try another one.';
   if (m.includes('fetch') || m.includes('network')) return 'You seem to be offline. Try again.';

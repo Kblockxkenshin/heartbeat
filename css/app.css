@@ -1087,3 +1087,28 @@ body.inroom #app{padding-bottom:0}
 .hplay{margin:0 16px 8px}
 @media (min-width:768px){.hplay{margin:0 0 8px}}
 @media (prefers-reduced-motion:reduce){.chal.ready,.boxbtn,.boxopen,.rvold,.rvnew,.boxprize{animation:none!important;opacity:1}.rvold{display:none}}
+
+/* ===== Part 6: Security ===== */
+.linkbtn{background:none;border:0;padding:0;font:inherit;cursor:pointer}
+.botcheck{min-height:66px;margin:6px 0 10px;display:flex;justify-content:center}
+.hbfans{display:flex;flex-direction:column;gap:2px;margin-top:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.04);font-size:14px}
+.hbfans:empty{display:none}
+.hbf1 b{color:var(--pink);font-size:16px}
+.pausedcard{border-color:rgba(255,122,138,.6)!important;background:rgba(255,122,138,.1)!important}
+.sec .card,.admin .card{margin-bottom:12px}
+.secrow{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.secic{font-size:30px}
+.safelist{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px;font-size:14px;line-height:1.45}
+.steps{margin:6px 0 10px;padding-left:20px;line-height:1.6}
+.qrbox{display:flex;justify-content:center}
+.qrbox img{background:#fff;border-radius:14px;padding:8px;width:180px;height:180px}
+.totpkey{font-size:13px;word-break:break-all;background:var(--card2);padding:2px 6px;border-radius:6px}
+.atiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.atile{display:flex;flex-direction:column;gap:2px;color:var(--text);margin:0!important}
+.atile b{font-size:32px;line-height:1}
+.atile span{color:var(--muted);font-weight:800;font-size:13px}
+.arep{display:grid;gap:6px}
+.arep a{color:var(--text)}
+.heldppl{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:13px}
+.alog{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px;font-size:13px}
+.alog li{padding:6px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
