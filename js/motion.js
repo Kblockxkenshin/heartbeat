@@ -26,7 +26,7 @@ export async function reveal(items) {
 /** Count a number up from zero. fmt turns the number into text. */
 export async function countUp(el, value, fmt) {
   if (!el || value == null || isNaN(value)) return;
-  if (reduced()) { el.textContent = fmt(value); return; }
+  if (reduced() || document.hidden) { el.textContent = fmt(value); return; }
   const A = await anime();
   if (!A) { el.textContent = fmt(value); return; }
   const o = { v: 0 };
