@@ -92,6 +92,21 @@ Upload the app code first, then run `supabase/007_game.sql`. Everything is decid
   After the show: set each `winner` (the nominee's `k`) and run `select finish_event('oscars-2027');`
 - Recommendations a friend loves now give **+15 XP** (was +5).
 
+## AI review check (Part 7)
+Upload the app code first, then run `supabase/009_ai_reviews.sql`.
+- **Two checks.** The fast rule check runs first, the moment you press Post. Then Claude reads the review on the
+  server (`/api/review-check`) before it goes public or earns XP.
+- **Claude decides:** approve, block (spam, ads, gibberish, copied text, machine-made filler, hate, harassment,
+  sexual content, off topic) or "not sure". It also gives a quality score (0–100), finds spoiler sentences
+  (hidden behind "Tap to reveal"), checks that the words match the rating, and spots paid or fake reviews.
+- **XP by quality:** 60+ gets 20 XP, 35+ gets 10 XP, lower gets 3 XP. The writer gets one friendly tip, like
+  "Add why you felt that way to earn full XP!"
+- **People decide the hard ones.** "Not sure", likely paid reviews and reviews on a title being review-bombed wait in
+  Admin → 🤖 AI queue. Blocked writers can change their review or press "Ask a person" (an appeal).
+- **Turn it on:** add `ANTHROPIC_API_KEY` in Vercel (and `SUPABASE_SERVICE_ROLE_KEY`, already used for payments),
+  then Redeploy. Optional: `AI_MODEL` (default `claude-haiku-5-5`). Without the key, only the rule check runs.
+  If Claude can't be reached, the rule check decides, so reviews never get stuck.
+
 ## Security & anti-cheat (Part 6)
 Upload the app code first, then run `supabase/008_security.sql`.
 - **Server decides everything:** XP, ranks, streaks, leagues and Plus are only changed by the database.

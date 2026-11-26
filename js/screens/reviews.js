@@ -9,6 +9,7 @@ import { $, $$, esc, sheet, closeSheet, toast, hearts, confetti, buzz, mascot, w
 import {
   TAG_LIST, MIN, MAX, PRIVACY, listReviews, precheck, postReview, editReview, deleteReview, vote, listComments, addComment,
   deleteComment, report, myReviews, saveDraft, loadDraft, dropDraft, allDrafts, fmt, countChars, miniGraph, ordinal, ago, shareReviewImage,
+  appealReview, syncReviews, aiCheck,
 } from '../reviews.js';
 
 const state = {};          // per title: { sort, min, max, items, loading, error }
@@ -225,15 +226,105 @@ export async function openEditor(t, existing = null) {
         if (!existing && !U.ratings[t.id]) saveRating(t.id, { start: d.start_h, middle: d.middle_h, end: d.end_h });
         await dropDraft(t.id).catch(() => {});
         const r = b.getBoundingClientRect(); hearts(r.x + r.width / 2, r.y, 14); buzz([15, 30, 15]);
-        if (!existing && out.xp >= 20) confetti(60);
-        toast(existing ? 'Review updated! ✏️' : out.xp ? `Posted! +${out.xp} XP 💓` : 'Posted! 💓');
         if (out.privacy === 'private' && read().privacy !== 'private') toast('Only you can see it until you confirm your email.');
-        delete state[t.id]; await close(true); onChange();
+        delete state[t.id]; await close(true);
+        if (out.status === 'pending' || out.status === 'held') await showCheck(out, t, !!existing);
+        else {
+          if (!existing && out.xp >= 20) confetti(60);
+          toast(existing ? 'Review updated! ✏️' : out.xp ? `Posted! +${out.xp} XP 💓` : 'Posted! 💓');
+          aiCheck(out.id).catch(() => {});   // the server may also check it in the background
+        }
+        onChange();
       } catch (x) { b.disabled = false; b.textContent = existing ? 'Save changes' : 'Post it'; showErr(x.message); }
     };
   };
   $('#edPost', el).onclick = go;
   setTimeout(() => (ratedAlready ? body : $('[data-hk]', el)).focus(), 60);
+}
+
+/* =====================================================================
+   AI check: result after posting, and the status on my own review cards
+   ===================================================================== */
+const checkingHTML = () => `<div class="aibig spin" aria-hidden="true">🤖</div><h2 class="h3">Checking your review…</h2>
+  <p class="sub">This takes a few seconds. We check that it's kind, real and about the movie or show.</p>`;
+function resultHTML(r, edited) {
+  const tips = (r.tips || []).filter(Boolean);
+  const tipsHTML = tips.length ? `<ul class="tips">${tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
+  if (r.status === 'ok' || r.status === 'tips') {
+    const q = r.score ?? null;
+    return `<div class="aibig" aria-hidden="true">${q >= 60 ? '🌟' : '💓'}</div><h2 class="h3">${edited ? 'Review updated!' : 'Posted!'}${r.xp ? ` +${r.xp} XP` : ''}</h2>
+      ${q != null ? `<div class="qbar" aria-label="Quality ${q} out of 100"><i style="width:${q}%"></i></div>
+      <div class="sub">Quality ${q}/100${!edited && r.xp && r.xp < 20 ? ' · Great reviews earn up to +20 XP' : ''}</div>` : ''}
+      ${tipsHTML}${r.hidden_spoilers ? `<div class="spohid">🙈 We hid ${r.hidden_spoilers} spoiler sentence${r.hidden_spoilers > 1 ? 's' : ''} behind "Tap to reveal". Edit your review to change it.</div>` : ''}
+      <button class="btn big" id="aiDone">Nice!</button>`;
+  }
+  if (r.status === 'held') return `<div class="aibig" aria-hidden="true">👀</div><h2 class="h3">A person will check it soon</h2>
+      ${r.note ? `<p class="sub">${esc(r.note)}</p>` : ''}<p class="sub">Only you can see it until then. You'll get your XP when it's approved.</p>
+      <button class="btn big" id="aiDone">OK</button>`;
+  if (r.status === 'blocked') return `<div class="aibig" aria-hidden="true">🚫</div><h2 class="h3">Not posted yet</h2>
+      <p class="sub"><b>${esc(r.note || 'It breaks the community rules.')}</b></p>
+      <p class="sub">You can change it and post again. If you think our robot made a mistake, ask a person to look.</p>
+      <div class="aibtns"><button class="btn" id="aiEdit">✏️ Change it</button><button class="btn ghost" id="aiAppeal">🙋 Ask a person</button></div>`;
+  return `<div class="aibig" aria-hidden="true">⏳</div><h2 class="h3">Saved! Still checking</h2>
+      <p class="sub">Our robot is busy right now. Your review will be checked soon. Only you can see it until then.</p>
+      <button class="btn big" id="aiDone">OK</button>`;
+}
+async function reviewById(id) {
+  const { data } = await cloud.sb.from('reviews').select('id,title_key,headline,body,start_note,middle_note,ending_note,tags,has_spoilers,is_rewatch,watch_no,watched_on,privacy,start_h,middle_h,end_h,overall')
+    .eq('id', id).maybeSingle();
+  return data ? { ...data, mine: true } : null;
+}
+async function showCheck(out, t, edited) {
+  sheet(`<div class="aichk" id="aiChk" role="status" aria-live="polite">${checkingHTML()}</div>`);
+  let res = out;
+  if (out.status === 'pending') {
+    try {
+      const d = await aiCheck(out.id);
+      if (d.ai === false) { await syncReviews().catch(() => {}); res = { ...out, status: 'ok', xp: edited ? 0 : out.xp_later }; }
+      else res = { ...out, ...d.result };
+      if (res.status === 'unchanged') res.status = 'pending';
+    } catch (e) { res = { ...out, status: 'pending' }; }
+  }
+  const box = $('#aiChk'); if (!box) return;
+  box.innerHTML = resultHTML(res, edited);
+  if (res.xp >= 20) confetti(60);
+  const done = $('#aiDone', box); if (done) { done.onclick = () => closeSheet(); done.focus(); }
+  const ed = $('#aiEdit', box);
+  if (ed) ed.onclick = async () => { const rv = await reviewById(res.id); closeSheet(); if (rv) openEditor(t, rv); };
+  const ap = $('#aiAppeal', box); if (ap) ap.onclick = () => openAppeal({ id: res.id }, () => { delete state[t.id]; onChange(); });
+  onChange();
+}
+function statusStrip(r) {
+  const st = r.ai_status;
+  if (!st || st === 'ok') return '';
+  if (st === 'tips') return r.ai_tips?.length ? `<div class="aistrip tip">💡 ${esc(r.ai_tips[0])}</div>` : '';
+  if (st === 'pending') return `<div class="aistrip wait" role="status">🤖 Checking your review… Only you can see it for now.</div>`;
+  if (st === 'held') return `<div class="aistrip wait" role="status">👀 A person will check it soon. Only you can see it.${r.ai_note ? `<div class="sub">${esc(r.ai_note)}</div>` : ''}</div>`;
+  const ap = r.appeal;
+  return `<div class="aistrip no" role="note"><b>🚫 Not posted.</b> ${esc(r.ai_note || 'It breaks the community rules.')}
+    <div class="aibtns"><button type="button" class="btn sm" data-act="edit">✏️ Change it</button>${ap === 'open' ? '<span class="sub">🙋 A person will look at it again.</span>'
+      : ap === 'upheld' ? '<span class="sub">A person checked it again and kept it hidden.</span>' : '<button type="button" class="btn sm ghost" data-act="appeal">🙋 Ask a person</button>'}</div></div>`;
+}
+function openAppeal(r, after) {
+  const sh = sheet(`<h2 class="h3" style="font-size:20px;margin:0 0 6px">🙋 Ask a person to look</h2>
+    <p class="sub">Tell us why it should be posted. A moderator will read your review again.</p>
+    <label class="fld"><span>Why? (you can skip this)</span><textarea id="apN" maxlength="300" rows="3" placeholder="Like: I meant the villain in the movie, not a real person."></textarea></label>
+    <p class="errmsg" id="apE" role="alert" hidden></p>
+    <button class="btn big" id="apGo">Send</button>`);
+  $('#apGo', sh).onclick = async () => {
+    try { await appealReview(r.id, $('#apN', sh).value.trim()); closeSheet(); toast('Sent! A person will look at it. 🙋'); r.appeal = 'open'; after?.(); }
+    catch (e) { const x = $('#apE', sh); x.textContent = e.message; x.hidden = false; }
+  };
+}
+/* My reviews that still wait for the AI: ask for the check again (once per page visit). */
+const kicked = new Set();
+async function kickPending(items, after) {
+  const p = (items || []).filter(r => r.ai_status === 'pending' && !kicked.has(r.id)).slice(0, 2);
+  if (!p.length || !cloud.user) return;
+  p.forEach(r => kicked.add(r.id));
+  await syncReviews().catch(() => {});
+  for (const r of p) await aiCheck(r.id).catch(() => {});
+  after();
 }
 
 /* =====================================================================
@@ -252,6 +343,7 @@ export function reviewCardHTML(r, { preview = false, showTitle = false } = {}) {
         <div class="meta">${esc(r.rank || 'Popcorn')} · ${r.created_at ? ago(r.created_at) : ''}${r.edited ? ' · Edited' : ''}${r.mine && r.privacy && r.privacy !== 'public' ? ` · ${PRIVACY[r.privacy][0]} ${PRIVACY[r.privacy][1]}` : ''}</div></div>
       <div class="rscore">${r.start_h ? miniGraph(r.start_h, r.middle_h, r.end_h) : ''}<b>★ ${r.overall || '–'}</b></div>
     </header>
+    ${r.mine ? statusStrip(r) : ''}
     ${t ? `<a class="rtitle" href="#/t/${esc(t.id)}">${esc(t.name)}</a>` : r.title_key && showTitle ? `<a class="rtitle" href="#/t/${esc(idOf(r.title_key))}">Open title</a>` : ''}
     <div class="rlabels">${r.is_rewatch ? `<span class="pill2">🔁 ${ordinal(r.watch_no || 2)} watch</span>` : ''}${r.watched_on ? `<span class="pill2">📅 ${esc(new Date(r.watched_on + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }))}</span>` : ''}${(r.tags || []).map(x => `<span class="pill2 tag">${esc(x)}</span>`).join('')}</div>
     ${r.headline ? `<h3 class="rhead">${esc(r.headline)}</h3>` : ''}
@@ -305,6 +397,7 @@ export async function loadReviews(root, t, force = false) {
   try {
     const items = await listReviews(t.id, s.sort, s.min, s.max, 0);
     s.items = items; s.more = items.length >= 20; s.error = null;
+    kickPending(items.filter(r => r.mine), () => loadReviews(root, t, true));
   } catch (e) { s.items = s.items || []; s.error = e.message; }
   const list = $('#revlist', root); if (!list) return;
   list.innerHTML = listHTML(t, s);
@@ -344,6 +437,8 @@ async function cardAction(act, r, t, btn, redraw, reload) {
     return;
   }
   if (act === 'more') return moreMenu(r, t, redraw, reload);
+  if (act === 'edit') return openEditor(t || BYID[idOf(r.title_key)] || { id: idOf(r.title_key), name: 'this title' }, r);
+  if (act === 'appeal') return openAppeal(r, reload);
   if (act === 'comments') return openComments(r, redraw);
   if (needAccount(act === 'helpful' ? 'Mark reviews helpful' : 'Like reviews')) return;
   try {
@@ -470,7 +565,7 @@ export async function renderMyReviews(app) {
         ${rs.map(r => reviewCardHTML({ ...r, mine: true, username: cloud.profile?.username, avatar_url: cloud.profile?.avatar_url, rank: cloud.stats?.rank, helpful: r.helpful_count, likes: r.like_count, comments: r.comment_count })).join('')}</div>`;
     }).join('') : `<div class="mascot">${mascot('happy')}<div>${items.length ? 'Nothing matches.' : 'No reviews yet. Rate a title, then tell people why!'}</div></div>`;
   };
-  const load = async () => { try { items = await myReviews(st.q, st.sort); } catch (e) { items = []; toast(e.message, 'sad'); } draw(); };
+  const load = async () => { try { items = await myReviews(st.q, st.sort); } catch (e) { items = []; toast(e.message, 'sad'); } draw(); kickPending(items, load); };
   let tm; $('#mrq').oninput = e => { st.q = e.target.value; clearTimeout(tm); tm = setTimeout(load, 250); };
   $('#mrs').onchange = e => { st.sort = e.target.value; load(); };
   $$('[data-pv]').forEach(b => b.onclick = () => { st.priv = b.dataset.pv; $$('[data-pv]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); }); draw(); });

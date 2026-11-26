@@ -9,7 +9,7 @@ async function rpc(fn, args = {}) {
   if (error) throw new Error(error.message || 'Something went wrong.');
   return data;
 }
-const TABS = [['overview', '📊 Overview'], ['reports', '🚩 Reports'], ['flags', '🤖 Flags'], ['held', '⏸️ Held ratings'], ['users', '👤 Users'], ['log', '📜 Log']];
+const TABS = [['overview', '📊 Overview'], ['ai', '🤖 AI queue'], ['reports', '🚩 Reports'], ['flags', '🤖 Flags'], ['held', '⏸️ Held ratings'], ['users', '👤 Users'], ['log', '📜 Log']];
 const who = p => p ? (p.hidden ? esc(p.display_name) : `<a href="${profileHref(p)}">${avatar(p, 'xs')} <b>${esc(p.display_name || p.username)}</b> <span class="meta">@${esc(p.username || '')}</span></a>`) : '<span class="meta">—</span>';
 const day = s => s ? new Date(s).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
 
@@ -29,7 +29,7 @@ export async function renderAdmin(app, tab = 'overview') {
     <nav class="ftabs" aria-label="Admin sections">${TABS.map(([k, l]) => `<a href="#/admin/${k}" class="chip ${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
     <div id="ab" class="fbody"><div class="card"><div class="rskel"></div><div class="rskel"></div></div></div></div>`;
   const box = $('#ab', app);
-  try { await ({ overview, reports, flags, held, users, log })[tab](box, app); }
+  try { await ({ overview, ai, reports, flags, held, users, log })[tab](box, app); }
   catch (e) { box.innerHTML = `<div class="card">${empty(esc(plain(e)), 'sad')}</div>`; }
 }
 
@@ -37,11 +37,12 @@ async function overview(box) {
   const o = await rpc('admin_overview');
   const tile = (n, l, h) => `<a class="card atile" href="${h}"><b>${n}</b><span>${l}</span></a>`;
   box.innerHTML = `<div class="atiles">
-    ${tile(o.reports, 'open reports', '#/admin/reports')}${tile(o.flags, 'open flags', '#/admin/flags')}
+    ${tile(o.ai_queue ?? 0, 'reviews to check', '#/admin/ai')}${tile(o.reports, 'open reports', '#/admin/reports')}${tile(o.flags, 'open flags', '#/admin/flags')}
     ${tile(o.held, 'held ratings', '#/admin/held')}${tile(o.paused, 'paused accounts', '#/admin/users')}
     ${tile(o.users, 'members', '#/admin/users')}${tile(o.new_today, 'new today', '#/admin/users')}
     ${tile(o.events_today, 'security events today', '#/admin/log')}</div>
-    <div class="sub" style="text-align:center;margin-top:8px">Everything you do here is saved in the admin log.</div>`;
+    <div class="sub" style="text-align:center;margin-top:8px">🤖 AI review check: <b>${o.ai_on ? 'on' : 'off (rule check only)'}</b>${o.ai_on ? ` · ${o.ai_today ?? 0} checked today` : ''}</div>
+    <div class="sub" style="text-align:center;margin-top:4px">Everything you do here is saved in the admin log.</div>`;
 }
 
 async function reports(box) {
@@ -61,6 +62,37 @@ async function reports(box) {
       b.onclick = async () => {
         b.disabled = true;
         try { await rpc('admin_resolve_report', { p_kind: kind, p_id: +b.closest('[data-id]').dataset.id, p_action: b.dataset.a }); toast('Done.'); draw(); }
+        catch (e) { toast(plain(e), 'sad'); b.disabled = false; }
+      };
+    });
+    wirePause(box, draw);
+  };
+  await draw();
+}
+
+const AIKIND = { appeal: ['🙋', 'Appeal: the writer asks for a second look'], held: ['👀', 'The robot wasn\'t sure'], check: ['⚖️', 'Words don\'t match the rating'] };
+const CAT = { none: 'no rule broken', spam: 'spam / ad', gibberish: 'gibberish', copied: 'copied text', ai_filler: 'machine-made filler', hate: 'hate', harassment: 'harassment', sexual: 'sexual', off_topic: 'off topic' };
+async function ai(box) {
+  const draw = async () => {
+    const Q = await rpc('admin_ai_queue');
+    const ts = Object.fromEntries((await titlesFor(Q.map(x => x.title_key))).map(t => [keyOf(t.id), t]));
+    box.innerHTML = Q.length ? `<div class="sub" style="margin:0 2px 10px">Reviews here are hidden until you decide (rating mismatches stay public). The writer sees your note.</div>` + Q.map(x => {
+      const [ic, lab] = AIKIND[x.kind] || ['🤖', x.kind], a = x.ai || {}, t = ts[x.title_key];
+      return `<article class="card arep" data-id="${x.id}">
+        <div><b>${ic} ${lab}</b> <span class="meta">· ${day(x.at)}</span></div>
+        <div>${who(x.author)} on <a href="#/t/${esc(t?.id || '')}">${esc(t?.name || x.title_key)}</a> · ★${x.overall} <span class="meta">(Start ${x.start_h} · Middle ${x.middle_h} · End ${x.end_h})</span></div>
+        <blockquote class="rnote">${x.headline ? `<b>${esc(x.headline)}</b><br>` : ''}${esc((x.text || '').replace(/\|\|/g, ''))}${x.notes ? `<br><span class="meta">${esc(x.notes)}</span>` : ''}</blockquote>
+        ${a.verdict ? `<div class="meta">🤖 ${esc(a.verdict)} · ${esc(CAT[a.category] || a.category || '')} · sure ${Math.round((a.confidence || 0) * 100)}% · quality ${a.quality ?? x.score}/100${a.paid_fake_risk >= 0.5 ? ` · paid/fake risk ${Math.round(a.paid_fake_risk * 100)}%` : ''}${a.why ? ` · "${esc(a.why)}"` : ''}</div>` : `<div class="meta">Quality ${x.score}/100</div>`}
+        ${x.note ? `<div class="sub">Writer sees: ${esc(x.note)}</div>` : ''}${x.appeal_note ? `<div class="sub">🙋 Writer says: "${esc(x.appeal_note)}"</div>` : ''}
+        <label class="fld" style="margin-top:6px"><span>Note for the writer if you hide it (optional)</span><input class="ainote" maxlength="300" placeholder="like: Please don't attack other people."></label>
+        <div class="rbtns">${x.kind === 'check' ? `<button class="btn sm ghost" data-a="clear">👍 Looks fine</button>` : `<button class="btn sm" data-a="approve">✅ Post it</button>`}
+          <button class="btn sm ghost" data-a="block">🚫 ${x.kind === 'check' ? 'Hide it' : 'Keep it hidden'}</button>
+          ${x.author?.id ? `<button class="btn sm ghost" data-u="${esc(x.author.id)}" data-n="${esc(x.author.username || '')}">⏸️ Pause person</button>` : ''}</div></article>`;
+    }).join('') : `<div class="card">${empty('No reviews waiting. 🎉', 'happy')}</div>`;
+    box.querySelectorAll('[data-a]').forEach(b => {
+      b.onclick = async () => {
+        const card = b.closest('[data-id]'); b.disabled = true;
+        try { await rpc('admin_ai_decide', { p_review: +card.dataset.id, p_action: b.dataset.a, p_note: card.querySelector('.ainote')?.value.trim() || null }); toast('Done.'); draw(); }
         catch (e) { toast(plain(e), 'sad'); b.disabled = false; }
       };
     });

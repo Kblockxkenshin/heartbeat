@@ -28,6 +28,19 @@ export const addComment = (id, body, parent = null) => rpc('add_comment', { p_re
 export const deleteComment = id => rpc('delete_comment', { p_id: id });
 export const report = (reviewId, commentId, reason, note) => rpc('report_review', { p_review: reviewId, p_comment: commentId, p_reason: reason, p_note: note || null });
 export const myReviews = (q = '', sort = 'new') => rpc('my_reviews', { p_q: q, p_sort: sort });
+export const appealReview = (id, note) => rpc('appeal_review', { p_id: id, p_note: note || null });
+export const syncReviews = () => rpc('review_status_sync');
+/** Ask the server to run the AI check on my review. Returns { ai, result } (ai:false = rule check only). */
+export async function aiCheck(id) {
+  const { data } = await cloud.sb.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) throw new Error('Please sign in first.');
+  const r = await fetch('/api/review-check', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ id }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Could not check it right now.');
+  return d;
+}
+export const isPublic = r => !r.ai_status || r.ai_status === 'ok' || r.ai_status === 'tips';
 
 /* ---------- drafts: on the server when signed in, on this device as a backup ---------- */
 const LK = 'heartbeat_drafts';

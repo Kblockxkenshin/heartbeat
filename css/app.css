@@ -1112,3 +1112,20 @@ body.inroom #app{padding-bottom:0}
 .heldppl{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:13px}
 .alog{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px;font-size:13px}
 .alog li{padding:6px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+/* ===== Part 7: AI review check ===== */
+.aistrip{margin:8px 0 2px;padding:9px 12px;border-radius:12px;font-size:14px;line-height:1.45;background:rgba(255,255,255,.05);border:1px solid var(--line)}
+.aistrip.wait{border-color:rgba(176,132,255,.5);background:rgba(176,132,255,.1)}
+.aistrip.tip{border-color:rgba(255,200,87,.45);background:rgba(255,200,87,.08)}
+.aistrip.no{border-color:rgba(255,122,138,.6);background:rgba(255,122,138,.1)}
+.aistrip .sub{margin-top:2px}
+.aibtns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.aichk{text-align:center;padding:6px 2px}
+.aichk .h3{font-size:21px;margin:4px 0 6px;text-align:center}
+.aichk .tips{text-align:left}
+.aichk .qbar{margin:10px auto 4px;max-width:320px}
+.aichk .btn.big{margin-top:12px}
+.aichk .aibtns{justify-content:center}
+.aibig{font-size:52px;line-height:1.1}
+.aibig.spin{animation:aibob 1s ease-in-out infinite}
+@keyframes aibob{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-6px) rotate(6deg)}}
+@media (prefers-reduced-motion:reduce){.aibig.spin{animation:none}}
