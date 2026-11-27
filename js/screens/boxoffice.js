@@ -79,6 +79,8 @@ export async function renderBoxOffice(app, id) {
   // Reported totals that are not already tracked day by day.
   const reported = rep.filter(r => !all.some(m => m.lang === r.lang && Math.abs(m.year - r.year) <= 1 && same(m.title, r.title)))
     .map(r => ({ ...r, kind: 'r', worldwide: +r.low, high: n(r.high), year: +r.year }));
+  // Tracked day by day but with no overseas numbers (India only): use the reported worldwide total when there is one.
+  all.forEach(m => { if (m.overseas > 0) return; const r = rep.find(r => r.lang === m.lang && Math.abs(+r.year - m.year) <= 1 && same(m.title, r.title)); if (r && +r.low > m.worldwide) m.worldwide = +r.low; });
   const ranked = [...all, ...reported];
   const year = new Date().getFullYear();
   const thisYear = ranked.filter(m => m.year === year);
@@ -183,11 +185,18 @@ async function renderMovie(app, id) {
   const m = D.movie, days = D.days.map(d => ({ ...d, net: +d.net, gross: +d.gross, overseas: +d.overseas }));
   document.title = `${m.title} box office — Heartbeat`;
   const sum = k => days.reduce((a, d) => a + d[k], 0);
-  const net = sum('net'), gross = sum('gross'), overseas = sum('overseas'), ww = gross + overseas;
+  const net = sum('net'), gross = sum('gross'), overseas = sum('overseas');
+  // No overseas numbers (India only): the worldwide figure is the reported total if there is one, never India alone.
+  const indiaOnly = overseas === 0;
+  const rp = indiaOnly ? (await reportedAll()).find(r => r.lang === m.lang && Math.abs(+r.year - +String(m.release_date).slice(0, 4)) <= 1 && same(r.title, m.title)) : null;
+  const ww = indiaOnly ? (rp ? +rp.low : null) : gross + overseas;
+  if (indiaOnly && st.metric === 'ww') { st.metric = 'net'; st.wwOff = true; }
+  else if (!indiaOnly && st.wwOff) { st.metric = 'ww'; st.wwOff = false; }
+  if (!document.body.contains(app) || !$('#bom', app)) return;
   const budget = n(m.budget_cr), be = n(m.breakeven);
   const first = k => days.filter(d => d.day <= k).reduce((a, d) => a + d.net, 0);
   const wkEnd = (() => { const r = dt(m.release_date).getDay(); return Math.max(1, r === 0 ? 1 : 8 - r); })(); // through the first Sunday
-  const roi = budget ? Math.round((ww / 2 - budget) / budget * 100) : null;   // producer share ≈ half of gross
+  const roi = budget && ww ? Math.round((ww / 2 - budget) / budget * 100) : null;   // producer share ≈ half of gross
   const inTheaters = m.running ? daysSince(m.release_date) : (days.length ? days[days.length - 1].day : 0);
   const card = (l, v, s = '', raw = null) => `<div class="card kn"><span class="eyebrow">${l}</span><span class="num big" ${raw != null ? `data-count="${raw}"` : ''}>${v}</span>${s ? `<span class="meta">${s}</span>` : ''}</div>`;
   $('#bom', app).innerHTML = `
@@ -197,7 +206,7 @@ async function renderMovie(app, id) {
         <p class="eyebrow">${esc(lang(m.lang))} · ${esc(fmtDate(m.release_date))}</p>
         <h1 class="display sm">${esc(m.title)}</h1>
         <div class="meta">${[m.certificate, m.runtime ? `${Math.floor(m.runtime / 60)}h ${m.runtime % 60}m` : '', budget != null ? `Budget ${cr(budget)}` : ''].filter(Boolean).map(esc).join(' · ')}</div>
-        <div class="bigverdict ${m.verdict ? (GOOD.has(m.verdict) ? 'up' : m.verdict === 'Average' ? '' : 'down') : 'run'}">${esc(m.verdict || 'Running')}</div>
+        <div class="bigverdict ${m.verdict ? (GOOD.has(m.verdict) ? 'up' : m.verdict === 'Average' ? '' : 'down') : 'run'}">${esc(m.verdict || (m.running ? 'Running' : 'Out of theaters'))}</div>
         ${m.tmdb_id ? `<a class="see" href="#/t/tmdb-movie-${m.tmdb_id}">Ratings &amp; journey ${ic('arrow-right')}</a>` : ''}
       </div>
     </section>
@@ -206,7 +215,7 @@ async function renderMovie(app, id) {
         <div><span class="eyebrow" id="chlabel"></span><div class="num huge" id="chtotal"></div></div>
         <div class="chctl">
           <div class="seg" role="group" aria-label="Total or daily">${[['cum', 'Cumulative total'], ['daily', 'Daily collection']].map(([k, l]) => `<button data-mode="${k}" class="${st.mode === k ? 'on' : ''}" aria-pressed="${st.mode === k}">${l}</button>`).join('')}</div>
-          <div class="seg" role="group" aria-label="Which number">${[['net', 'India Net'], ['gross', 'India Gross'], ['ww', 'Worldwide Gross']].map(([k, l]) => `<button data-metric="${k}" class="${st.metric === k ? 'on' : ''}" aria-pressed="${st.metric === k}">${l}</button>`).join('')}</div>
+          <div class="seg" role="group" aria-label="Which number">${[['net', 'India Net'], ['gross', 'India Gross'], ['ww', 'Worldwide Gross']].filter(([k]) => !(indiaOnly && k === 'ww')).map(([k, l]) => `<button data-metric="${k}" class="${st.metric === k ? 'on' : ''}" aria-pressed="${st.metric === k}">${l}</button>`).join('')}</div>
         </div>
       </div>
       <div class="chwrap" id="chwrap"></div>
@@ -215,8 +224,8 @@ async function renderMovie(app, id) {
     </section>
     <section class="kgrid">
       ${card('Budget', cr(budget))}${card('Opening day', cr(first(1)), 'India net', first(1))}${card('Opening weekend', cr(first(wkEnd)), `First ${wkEnd} day${wkEnd > 1 ? 's' : ''}`, first(wkEnd))}
-      ${card('First week', cr(first(7)), 'India net', first(7))}${card('Lifetime India net', cr(net), m.running ? 'So far' : '', net)}${card('Worldwide gross', cr(ww), '', ww)}
-      ${card('Overseas', cr(overseas), '', overseas)}${card('ROI', roi == null ? '—' : `${roi > 0 ? '+' : ''}${roi}%`, 'Producer share ≈ 50% of gross')}
+      ${card('First week', cr(first(7)), 'India net', first(7))}${card('Lifetime India net', cr(net), m.running ? 'So far' : '', net)}${indiaOnly ? card('Worldwide gross', ww ? cr(ww) : '—', ww ? 'Reported total' : 'Overseas not reported') : card('Worldwide gross', cr(ww), '', ww)}
+      ${card('Overseas', indiaOnly ? '—' : cr(overseas), indiaOnly ? 'Not reported' : '', indiaOnly ? null : overseas)}${card('ROI', roi == null ? '—' : `${roi > 0 ? '+' : ''}${roi}%`, 'Producer share ≈ 50% of gross')}
       ${card('Days in theaters', inTheaters || '—')}${card('Screens', m.screens ? Number(m.screens).toLocaleString('en-IN') : '—', 'Opening count')}
     </section>
     ${runHTML(m, days)}
@@ -248,6 +257,12 @@ function runHTML(m, days) {
 
 /* ---------------- the stock-style chart (Apache ECharts, with a plain SVG fallback) ---------------- */
 let chartInst = null;
+/** Line colour: green for a hit, red for a flop, grey when we can't tell (no verdict and no break-even). */
+function lineTone(m, ww, be) {
+  if (m.verdict) return GOOD.has(m.verdict) ? 'up' : (m.verdict === 'Flop' || m.verdict === 'Disaster') ? 'down' : '';
+  if (!be || ww == null) return '';
+  return ww >= be ? 'up' : !m.running ? 'down' : '';
+}
 function series(m, days, { ww, be, budget }) {
   const key = st.metric === 'net' ? 'net' : st.metric === 'gross' ? 'gross' : 'ww';
   const daily = days.map(d => key === 'ww' ? d.gross + d.overseas : d[key]);
@@ -256,7 +271,7 @@ function series(m, days, { ww, be, budget }) {
   const D = days.slice(0, lim), V = (st.mode === 'cum' ? cum : daily).slice(0, lim);
   const label = { net: 'India net', gross: 'India gross', ww: 'Worldwide gross' }[key] + (st.mode === 'cum' ? ' · total' : ' · per day');
   const refs = st.mode === 'cum' ? [budget != null && { v: budget, c: 'Budget' }, key === 'ww' && be && { v: be, c: 'Break-even (est.)' }].filter(Boolean) : [];
-  const color = ww >= (be || Infinity) ? '#C6F432' : !m.running ? '#E5484D' : '#8A8A8A';
+  const color = lineTone(m, ww, be) === 'up' ? '#C6F432' : lineTone(m, ww, be) === 'down' ? '#E5484D' : '#8A8A8A';
   return { key, daily, cum, lim, D, V, label, refs, color };
 }
 async function drawChart(wrap, m, days, info) {
@@ -323,7 +338,7 @@ function drawSvgChart(wrap, m, days, { ww, be, budget }) {
   const max = Math.max(...V, ...refs.map(r => r.v)) * 1.08 || 1;
   const x = i => L + (D.length > 1 ? i * (W - L - R) / (D.length - 1) : (W - L - R) / 2);
   const y = v => T + (1 - v / max) * (H - T - B);
-  const color = ww >= (be || Infinity) ? 'var(--accent)' : !m.running ? 'var(--red)' : '#8A8A8A';
+  const color = lineTone(m, ww, be) === 'up' ? 'var(--accent)' : lineTone(m, ww, be) === 'down' ? 'var(--red)' : '#8A8A8A';
   const path = V.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
   const ticks = [0, .25, .5, .75, 1].map(f => max / 1.08 * f);
   const every = Math.max(1, Math.ceil(D.length / 8));
