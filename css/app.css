@@ -1596,3 +1596,11 @@ div.trow{cursor:default}
 
 /* Box Office: coming soon */
 .soonin{color:var(--accent);white-space:nowrap;font-size:13px}
+
+/* Upcoming: sections (new releases, then a row per language) */
+.upsec{margin-top:6px}
+.upsec .sec h2 .meta{font-size:13px;margin-left:6px;font-weight:400}
+.uprow{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(272px,86%);gap:12px;overflow-x:auto;padding:0 20px 8px;scroll-padding-inline:20px;scroll-snap-type:x mandatory;scrollbar-width:thin;overscroll-behavior-x:contain}
+.uprow .upc{scroll-snap-align:start;min-width:0}
+.uprow .upc-k{flex-wrap:wrap;gap:2px 10px}
+@media (min-width:768px){.uprow{grid-auto-columns:minmax(320px,380px);gap:16px}}

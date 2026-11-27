@@ -1,5 +1,5 @@
 // Upcoming: Indian movies releasing in the next six months (TMDB discover, region IN).
-//   #/upcoming   List on phone; list or month calendar on desktop.
+//   #/upcoming   Sections (new releases, then one row per language), a list, or a month calendar on desktop.
 // "Notify me" saves a reminder (server for members, this device for guests) that shows in the app on release day.
 import { cloud, plain } from '../cloud.js';
 import { U, toggleSave } from '../store.js';
@@ -8,7 +8,7 @@ import { reveal } from '../motion.js';
 
 export const LANGS = { hi: 'Hindi', te: 'Telugu', ta: 'Tamil', ml: 'Malayalam', kn: 'Kannada', bn: 'Bengali', mr: 'Marathi', pa: 'Punjabi', gu: 'Gujarati', or: 'Odia', as: 'Assamese' };
 const LOCAL = 'hb_reminders';
-const st = { list: null, hype: {}, lang: '', month: '', genre: '', sort: 'date', view: 'list', cal: null, mine: new Set(), loading: null };
+const st = { list: null, hype: {}, lang: '', month: '', genre: '', sort: 'date', view: 'sec', recent: [], cal: null, mine: new Set(), loading: null };
 
 const idOfM = m => `tmdb-movie-${m.id}`;
 const keyOfM = m => `movie:${m.id}`;
@@ -29,14 +29,19 @@ async function load() {
   if (st.list) return st.list;
   if (st.loading) return st.loading;
   st.loading = (async () => {
-    try { const c = JSON.parse(sessionStorage.getItem('hb_upcoming') || 'null'); if (c && Date.now() - c.at < 3 * 3600e3) return (st.list = c.list); } catch (e) { /* ignore */ }
+    try { const c = JSON.parse(sessionStorage.getItem('hb_upcoming2') || 'null'); if (c && Date.now() - c.at < 3 * 3600e3) { st.recent = c.recent || []; return (st.list = c.list); } } catch (e) { /* ignore */ }
+    // New releases: Indian movies that came out in theaters in the last 7 days (India dates).
+    const recentP = Promise.all([1, 2].map(p => fetch(`/api/tmdb?playing=1&page=${p}`).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))))
+      .then(rs => { const seen = new Set(); return rs.flatMap(x => x.results || []).filter(m => m.date && daysTo(m.date) < 0 && daysTo(m.date) >= -7 && !seen.has(m.id) && seen.add(m.id))
+        .map(m => ({ director: [], cast: [], genres: [], ...m })).sort((a, b) => b.date.localeCompare(a.date)); });
     const get = p => fetch(`/api/tmdb?upcoming=1&page=${p}`).then(r => r.ok ? r.json() : Promise.reject(new Error('Could not load upcoming movies.')));
     const first = await get(1);
     const rest = await Promise.all(Array.from({ length: Math.max(0, (first.total_pages || 1) - 1) }, (_, i) => get(i + 2).catch(() => ({ results: [] }))));
     const seen = new Set(), list = [];
     for (const m of [first, ...rest].flatMap(x => x.results || [])) if (m.date && !seen.has(m.id)) { seen.add(m.id); list.push(m); }
     list.sort((a, b) => a.date.localeCompare(b.date));
-    try { sessionStorage.setItem('hb_upcoming', JSON.stringify({ at: Date.now(), list })); } catch (e) { /* ignore */ }
+    st.recent = await recentP;
+    try { sessionStorage.setItem('hb_upcoming2', JSON.stringify({ at: Date.now(), list, recent: st.recent })); } catch (e) { /* ignore */ }
     return (st.list = list);
   })();
   try { return await st.loading; } finally { st.loading = null; }
@@ -72,7 +77,7 @@ function cardHTML(m) {
       ${m.cast.length ? `<div class="meta clamp1">Cast · ${esc(m.cast.join(', '))}</div>` : ''}
       ${n >= 3 ? `<div class="meta">${n} people want to watch</div>` : ''}
       <div class="upc-a">
-        <button class="btn sm ${on ? '' : 'ghost'}" data-notify="${m.id}" aria-pressed="${on}">${ic(on ? 'bell-off' : 'bell')} ${on ? 'Reminder on' : 'Notify me'}</button>
+        ${daysTo(m.date) > 0 ? `<button class="btn sm ${on ? '' : 'ghost'}" data-notify="${m.id}" aria-pressed="${on}">${ic(on ? 'bell-off' : 'bell')} ${on ? 'Reminder on' : 'Notify me'}</button>` : ''}
         <button class="btn sm ghost" data-wl="${m.id}" aria-pressed="${saved}">${ic(saved ? 'bookmark-check' : 'bookmark')} ${saved ? 'Saved' : 'Watchlist'}</button>
       </div>
     </div></article>`;
@@ -97,14 +102,31 @@ function calendarHTML(L) {
     <div class="cal-g">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `<div class="cal-w">${d}</div>`).join('')}${cells.join('')}</div></div>`;
 }
 
+/** Sections: New releases (out in the last week or today), then one row per language. */
+function sectionsHTML() {
+  const L = st.list || [];
+  const fresh = [...L.filter(m => daysTo(m.date) === 0), ...st.recent];
+  const row = (id, title, sub, ms, lang) => `<section class="upsec" id="${id}">
+      <div class="sec"><h2>${esc(title)} <span class="meta">${ms.length}</span></h2>${lang ? `<button class="btn sm ghost" data-all="${lang}">See all</button>` : `<span class="meta">${esc(sub)}</span>`}</div>
+      <div class="uprow">${ms.map(cardHTML).join('')}</div></section>`;
+  const later = L.filter(m => daysTo(m.date) > 0);
+  const langs = Object.keys(LANGS).filter(k => later.some(m => m.lang === k));
+  return (fresh.length ? row('up-new', 'New releases', 'Out now in theaters', fresh) : '')
+    + langs.map(k => row(`up-${k}`, LANGS[k], '', later.filter(m => m.lang === k), k)).join('');
+}
+
 function draw(app) {
   const body = $('#upbody', app); if (!body) return;
   const L = filtered();
   const showCal = st.view === 'cal' && wide();
-  body.innerHTML = !L.length ? `<div class="card"><div class="mascot"><div>No movies match these filters yet.</div></div></div>`
+  const showSec = st.view === 'sec' && !st.lang && !st.month && !st.genre && st.sort === 'date';
+  $('#uphead', app).style.display = showSec ? 'none' : '';
+  body.innerHTML = showSec ? sectionsHTML()
+    : !L.length ? `<div class="card"><div class="mascot"><div>No movies match these filters yet.</div></div></div>`
     : showCal ? calendarHTML(L) : `<div class="upgrid">${L.map(cardHTML).join('')}</div>`;
   hydratePosters(body);
-  if (!showCal) reveal($$('.upc', body).slice(0, 12));
+  if (showSec) $$('.uprow', body).forEach(r => reveal($$('.upc', r).slice(0, 4)));
+  else if (!showCal) reveal($$('.upc', body).slice(0, 12));
   $('#upcount', app).textContent = `${L.length} film${L.length === 1 ? '' : 's'}`;
 }
 
@@ -121,9 +143,10 @@ function controls() {
     <div class="seg" role="group" aria-label="Sort">
       <button class="${st.sort === 'date' ? 'on' : ''}" data-sort="date" aria-pressed="${st.sort === 'date'}">Release date</button>
       <button class="${st.sort === 'hype' ? 'on' : ''}" data-sort="hype" aria-pressed="${st.sort === 'hype'}">Most anticipated</button></div>
-    <div class="seg wide-flex" role="group" aria-label="View">
+    <div class="seg" role="group" aria-label="View">
+      <button class="${st.view === 'sec' ? 'on' : ''}" data-view="sec" aria-pressed="${st.view === 'sec'}">${ic('clapperboard')} Sections</button>
       <button class="${st.view === 'list' ? 'on' : ''}" data-view="list" aria-pressed="${st.view === 'list'}">${ic('list')} List</button>
-      <button class="${st.view === 'cal' ? 'on' : ''}" data-view="cal" aria-pressed="${st.view === 'cal'}">${ic('calendar-days')} Calendar</button></div>
+      ${wide() ? `<button class="${st.view === 'cal' ? 'on' : ''}" data-view="cal" aria-pressed="${st.view === 'cal'}">${ic('calendar-days')} Calendar</button>` : ''}</div>
   </div>`;
 }
 
@@ -133,7 +156,7 @@ export async function renderUpcoming(app) {
     <header class="hhead"><p class="eyebrow">Indian cinema</p><h1 class="display">Coming <em>soon.</em></h1>
       <p class="sub uplead">Hindi, Telugu, Tamil, Malayalam, Kannada, Bengali, Marathi, Punjabi and more, in the next six months.</p></header>
     <div id="upctlbox"></div>
-    <div class="sec"><h2>Releases</h2><span class="meta" id="upcount"></span></div>
+    <div class="sec" id="uphead"><h2>Releases</h2><span class="meta" id="upcount"></span></div>
     <div id="upbody"><div class="upgrid">${'<div class="upc skel"></div>'.repeat(6)}</div></div>
     <p class="meta upnote">Dates come from TMDB and can change. Reminders show up in Heartbeat on release day.</p>
   </div>`;
@@ -157,10 +180,12 @@ export async function renderUpcoming(app) {
   }
   redraw();
   $('#upbody', app).onclick = async e => {
+    const all = e.target.closest('[data-all]');
+    if (all) { st.lang = all.dataset.all; st.view = 'list'; redraw(); $('#upctlbox', app).scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     const cal = e.target.closest('[data-cal]');
     if (cal) { const months = [...new Set(st.list.map(m => monthKey(m.date)))]; st.cal = months[months.indexOf(st.cal) + +cal.dataset.cal] || st.cal; draw(app); return; }
     const wl = e.target.closest('[data-wl]');
-    if (wl) { const m = st.list.find(x => x.id === +wl.dataset.wl); const r = toggleSave(idOfM(m)); buzz(); toast(r.saved ? 'Added to your watchlist' : 'Removed from your watchlist'); draw(app); return; }
+    if (wl) { const m = [...st.list, ...st.recent].find(x => x.id === +wl.dataset.wl); const r = toggleSave(idOfM(m)); buzz(); toast(r.saved ? 'Added to your watchlist' : 'Removed from your watchlist'); draw(app); return; }
     const nb = e.target.closest('[data-notify]');
     if (nb) {
       const m = st.list.find(x => x.id === +nb.dataset.notify), key = keyOfM(m);
