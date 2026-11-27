@@ -5,6 +5,8 @@
 //   /api/tmdb?type=movie&id=27205     -> one movie
 //   /api/tmdb?type=tv&id=1396         -> one series
 //   /api/tmdb?upcoming=1&page=1[&lang=hi] -> upcoming Indian movies (next 6 months) with director + main cast
+//   /api/tmdb?bo=123 -> one movie's box office details (TMDB budget/revenue in US$, people, countries)
+//   /api/tmdb?playing=1&page=1[&lang=hi] -> Indian movies in theaters now (released in the last 6 weeks)
 //   /api/tmdb?released=2026&page=1[&lang=hi][&sort=pop] -> Indian movies already released that year (newest first, or most popular)
 // Images are built in the browser from poster_path/backdrop_path:
 //   https://image.tmdb.org/t/p/w500{poster_path}
@@ -68,9 +70,46 @@ async function released(query) {
   };
 }
 
+async function boDetails(id) {
+  const d = await tmdb(`movie/${id}`, { language: 'en-US', append_to_response: 'credits,release_dates' });
+  const inRel = (d.release_dates?.results || []).find(r => r.iso_3166_1 === 'IN');
+  return {
+    id: d.id, name: d.title, original_name: d.original_title, lang: d.original_language, status: d.status,
+    release_date: d.release_date || null, india_release: (inRel?.release_dates || []).map(r => r.release_date?.slice(0, 10)).filter(Boolean).sort()[0] || null,
+    certificate: (inRel?.release_dates || []).map(r => r.certification).find(Boolean) || null,
+    runtime: d.runtime || null, genres: (d.genres || []).map(g => g.name), overview: (d.overview || '').slice(0, 900), tagline: d.tagline || '',
+    poster_path: d.poster_path || null, backdrop_path: d.backdrop_path || null,
+    budget_usd: d.budget > 0 ? d.budget : null, revenue_usd: d.revenue > 0 ? d.revenue : null,
+    countries: (d.production_countries || []).map(c => c.name).slice(0, 4), companies: (d.production_companies || []).map(c => c.name).slice(0, 4),
+    director: (d.credits?.crew || []).filter(c => c.job === 'Director').map(c => c.name).slice(0, 2),
+    music: (d.credits?.crew || []).filter(c => c.job === 'Original Music Composer').map(c => c.name).slice(0, 2),
+    cast: (d.credits?.cast || []).slice(0, 6).map(c => c.name),
+  };
+}
+async function playing(query) {
+  const lang = IN_LANGS.includes(String(query.lang)) ? String(query.lang) : IN_LANGS.join('|');
+  const page = Math.min(Math.max(parseInt(query.page, 10) || 1, 1), 20);
+  const d = await tmdb('discover/movie', {
+    region: 'IN', with_original_language: lang, 'release_date.gte': iso(new Date(Date.now() - 42 * 864e5)), 'release_date.lte': iso(new Date()),
+    with_release_type: '2|3', sort_by: 'popularity.desc', include_adult: 'false', include_video: 'false', language: 'en-US', page: String(page),
+  });
+  return { page, total_pages: Math.min(d.total_pages || 1, 20), total: d.total_results || 0,
+    results: (d.results || []).map(m => ({ id: m.id, name: m.title, lang: m.original_language, date: m.release_date || null, poster_path: m.poster_path || null })) };
+}
+
 export default async function handler(req, res) {
   try {
     const { q, type, id } = req.query;
+    if (/^\d{1,9}$/.test(String(req.query.bo || ''))) {
+      const out = await boDetails(req.query.bo);
+      res.setHeader('Cache-Control', 's-maxage=43200, stale-while-revalidate=604800');
+      return res.status(200).json(out);
+    }
+    if (req.query.playing) {
+      const out = await playing(req.query);
+      res.setHeader('Cache-Control', 's-maxage=10800, stale-while-revalidate=86400');
+      return res.status(200).json(out);
+    }
     if (req.query.released) {
       const out = await released(req.query);
       res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');

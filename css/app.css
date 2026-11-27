@@ -1586,3 +1586,10 @@ div.trow{cursor:default}
 .qr-top h1 .i{display:none}
 .btn{white-space:nowrap}
 @media (hover:none),(max-width:767px){.qhint{display:none}}
+/* Box office page for any TMDB movie */
+.chmodel{margin:6px 0 0;font-size:12px}
+.bom-tag{font-size:22px;color:var(--text);margin:0 0 10px}
+.bofacts{grid-template-columns:1fr 1fr}
+.bofacts b{font-size:14px;line-height:1.45}
+.bolink{width:100%;margin-top:10px;justify-content:center}
+@media (min-width:768px){.bofacts{grid-template-columns:repeat(3,1fr)}}

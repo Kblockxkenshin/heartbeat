@@ -17,7 +17,8 @@ export const cr = v => v == null || isNaN(v) ? '—' : '₹' + (v >= 1000 ? Math
 const dt = s => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
 const fmtDate = s => dt(s).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 const daysSince = s => Math.floor((Date.now() - dt(s)) / dayMs) + 1;
-const lang = c => LANGS[c] || (c || '').toUpperCase();
+const langName = (() => { try { return new Intl.DisplayNames(['en'], { type: 'language' }); } catch (e) { return null; } })();
+const lang = c => LANGS[c] || (c && langName ? (() => { try { return langName.of(c); } catch (e) { return c.toUpperCase(); } })() : (c || '').toUpperCase());
 const img = (p, size = 'w185') => p ? `${CONFIG.imageBase}${size}${p}` : '';
 const verdictPill = v => v ? `<span class="vpill ${GOOD.has(v) ? 'up' : v === 'Average' ? '' : 'down'}">${esc(v)}</span>` : `<span class="vpill run">Running</span>`;
 function change(m) {
@@ -58,6 +59,7 @@ async function findPoster(r) {
 
 export async function renderBoxOffice(app, id) {
   if (id && /^\d+$/.test(id)) return renderMovie(app, +id);
+  if (id && /^tmdb-\d{1,9}$/.test(id)) return renderTmdbMovie(app, id.slice(5));
   document.title = 'Box Office — Heartbeat';
   app.innerHTML = `<div class="screen boxoffice">
     <header class="hhead"><p class="eyebrow">Indian box office</p><h1 class="display">The <em>numbers.</em></h1>
@@ -102,7 +104,7 @@ export async function renderBoxOffice(app, id) {
   };
   const rowHTML = (m, i) => {
     const t = m.kind === 't';
-    const href = t ? `#/boxoffice/${m.id}` : m.tmdb ? `#/t/tmdb-movie-${m.tmdb}` : null;
+    const href = t ? `#/boxoffice/${m.id}` : m.tmdb ? `#/boxoffice/tmdb-${m.tmdb}` : null;
     const tag = href ? 'a' : 'div', when = t && m.running ? `Day ${daysSince(m.release_date)}` : m.year;
     return `<${tag} class="trow" role="row" ${href ? `href="${href}"` : ''} data-rk="${t ? '' : esc(`${m.lang}|${m.year}|${m.title}`)}">
       <span class="tm" role="cell"><span class="rk num">${i + 1}</span>${thumb(m)}<span><b>${esc(m.title)}</b><span class="meta">${esc(lang(m.lang))} · ${when}${m.note ? ` · ${esc(m.note)}` : ''}${t ? '' : '<span class="show-s"> · Reported total</span>'}</span></span></span>
@@ -131,7 +133,7 @@ export async function renderBoxOffice(app, id) {
     if (st.verdict) L = L.filter(m => (m.kind === 'r' ? 'Reported' : m.verdict || 'Running') === st.verdict);
     L = L.slice().sort((a, b) => st.tab === 'theaters' ? (n(b.last) || 0) - (n(a.last) || 0) : b.worldwide - a.worldwide);
     const box = $('#bolist', app);
-    box.innerHTML = !L.length ? `<div class="card"><div class="mascot"><div>No movies with numbers match these filters.</div></div></div>`
+    box.innerHTML = !L.length ? (st.tab === 'theaters' ? '' : `<div class="card"><div class="mascot"><div>No movies with numbers match these filters.</div></div></div>`)
       : `<div class="ticker" role="table" aria-label="Box office">
         <div class="trow thead" role="row"><span role="columnheader">Movie</span><span role="columnheader" class="r">${st.tab === 'theaters' ? 'India net' : 'Worldwide'}</span><span role="columnheader" class="r">Today</span><span role="columnheader" class="r hide-s">Status</span></div>
         ${L.map(rowHTML).join('')}</div>`;
@@ -143,22 +145,24 @@ export async function renderBoxOffice(app, id) {
   let otherSeq = 0;
   async function drawOthers(L) {
     const box = $('#boall', app), seq = ++otherSeq;
-    if (st.tab !== 'year' || st.verdict) { box.innerHTML = ''; return; }
-    box.innerHTML = `<div class="sec"><h2>Every other ${year} release</h2><span class="meta" id="bocount"></span></div><div class="ticker others" id="bolist2"></div>
+    if (st.tab === 'all' || st.verdict) { box.innerHTML = ''; return; }
+    const now = st.tab === 'theaters';
+    box.innerHTML = `<div class="sec"><h2>${now ? 'Also in theaters now' : `Every other ${year} release`}</h2><span class="meta" id="bocount"></span></div><div class="ticker others" id="bolist2"></div>
       <div class="bomore"><button class="btn ghost sm" id="bomore" hidden>Show more</button></div>`;
     let page = 0, pages = 1, shown = 0;
     const list = $('#bolist2', box), more = $('#bomore', box);
     const load = async () => {
       more.disabled = true;
       try {
-        const d = await tmdbGet(`/api/tmdb?released=${year}&page=${++page}${st.lang ? `&lang=${st.lang}` : ''}`);
+        const d = await tmdbGet(`/api/tmdb?${now ? 'playing=1' : `released=${year}`}&page=${++page}${st.lang ? `&lang=${st.lang}` : ''}`);
         if (seq !== otherSeq) return;
         pages = d.total_pages || 1;
-        $('#bocount', box).textContent = `${(d.total || 0).toLocaleString('en-IN')} films on TMDB`;
+        $('#bocount', box).textContent = `${(d.total || 0).toLocaleString('en-IN')} ${now ? 'playing, from TMDB' : 'films on TMDB'}`;
         const rows = (d.results || []).filter(x => !L.some(m => m.lang === x.lang && same(m.title, x.name)));
-        list.insertAdjacentHTML('beforeend', rows.map(x => `<a class="trow" href="#/t/tmdb-movie-${x.id}">
+        const hit = x => reported.find(r => r.lang === x.lang && Math.abs(r.year - +String(x.date || '').slice(0, 4)) <= 1 && same(r.title, x.name));
+        list.insertAdjacentHTML('beforeend', rows.map(x => `<a class="trow" href="#/boxoffice/tmdb-${x.id}">
           <span class="tm"><span class="rk num"></span>${thumb(x)}<span><b>${esc(x.name)}</b><span class="meta">${esc(lang(x.lang))}${x.date ? ` · ${esc(fmtDate(x.date))}` : ''}</span></span></span>
-          <span class="r meta nonum">No numbers reported</span></a>`).join(''));
+          <span class="r ${hit(x) ? 'num' : 'meta nonum'}">${hit(x) ? range(hit(x)) : now ? 'No numbers yet' : 'No numbers reported'}</span></a>`).join(''));
         shown += rows.length;
       } catch (e) { if (!list.children.length) list.innerHTML = `<div class="meta" style="padding:14px 4px">Could not load the full list right now.</div>`; }
       more.hidden = page >= pages; more.disabled = false;
@@ -353,4 +357,118 @@ function drawSvgChart(wrap, m, days, { ww, be, budget }) {
   const hide = () => { xh.style.display = 'none'; tip.hidden = true; };
   hit.addEventListener('pointermove', show); hit.addEventListener('pointerdown', show);
   hit.addEventListener('pointerleave', hide); hit.addEventListener('pointercancel', hide);
+}
+
+/* ---------------- any movie in TMDB: details + a line graph modeled from its reported total ---------------- */
+let sumP = null, repP = null;
+const tracked = () => (sumP ||= rpc('box_office_summary').catch(() => { sumP = null; return []; }));
+const reportedAll = () => (repP ||= rpc('box_office_reported').catch(() => { repP = null; return []; }));
+const usd = v => v == null ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(v >= 1e8 ? 0 : 1)}M` : `$${Math.round(v).toLocaleString('en-US')}`;
+const WEEKDAY = [1.55, 0.75, 0.75, 0.75, 0.75, 1.0, 1.35];   // Sun..Sat: weekends earn more
+
+/** Spread a total over the run: each day earns a bit less than the day before, weekends more. Returns daily amounts. */
+export function modelRun(total, startISO, nDays) {
+  const start = dt(startISO), w = [];
+  for (let d = 0; d < nDays; d++) w.push(Math.pow(0.93, d) * WEEKDAY[(start.getDay() + d) % 7]);
+  const sum = w.reduce((a, b) => a + b, 0);
+  return w.map(x => x / sum * total);
+}
+const verdictFrom = (total, budget, running) => {
+  if (!total || !budget) return null;
+  const r = total / (budget * 2);
+  return r >= 3 ? 'Blockbuster' : r >= 2 ? 'Superhit' : r >= 1.25 ? 'Hit' : r >= 1 ? 'Average' : running ? null : r >= 0.6 ? 'Flop' : 'Disaster';
+};
+
+async function renderTmdbMovie(app, tid) {
+  app.innerHTML = `<div class="screen boxoffice"><header class="top"><a class="icon-btn" href="#/boxoffice" aria-label="Back to Box Office">${ic('arrow-left')}</a><span></span></header><div id="bom"><div class="card"><div class="rskel"></div></div></div></div>`;
+  let d, T, R;
+  try { [d, T, R] = await Promise.all([tmdbGet(`/api/tmdb?bo=${tid}`), tracked(), reportedAll()]); }
+  catch (e) { $('#bom', app).innerHTML = `<div class="card"><div class="mascot"><div>We couldn't load this movie right now.</div></div></div>`; return; }
+  if (!document.body.contains(app) || !$('#bom', app)) return;
+  const date = d.india_release || d.release_date, year = date ? +date.slice(0, 4) : null;
+  // Movies we track day by day open their full page instead.
+  const tr = T.find(m => m.tmdb_id === d.id || (m.lang === d.lang && Math.abs(dt(m.release_date).getFullYear() - (year || 0)) <= 1 && (same(m.title, d.name) || same(m.title, d.original_name))));
+  if (tr) { location.replace(`#/boxoffice/${tr.id}`); return; }
+  const rp = R.find(r => r.lang === d.lang && Math.abs(+r.year - (year || 0)) <= 1 && (same(r.title, d.name) || same(r.title, d.original_name)));
+  document.title = `${d.name} box office — Heartbeat`;
+  // Pick the total: the Indian trade figure (₹) first, then TMDB's worldwide figure (US$).
+  const cur = rp ? '₹' : d.revenue_usd ? '$' : null;
+  const total = rp ? +rp.low : d.revenue_usd;
+  const fmt = cur === '₹' ? cr : usd;
+  const budget = cur === '$' ? d.budget_usd : null;
+  const age = date ? daysSince(date) : null, running = age != null && age >= 1 && age <= 42 && d.status === 'Released';
+  const verdict = verdictFrom(total, budget, running);
+  const nDays = !total || !date ? 0 : running ? Math.max(1, age) : 56;
+  const daily = nDays ? modelRun(total, date, nDays) : [];
+  const card = (l, v, s = '') => `<div class="card kn"><span class="eyebrow">${l}</span><span class="num big">${v}</span>${s ? `<span class="meta">${s}</span>` : ''}</div>`;
+  const fact = (l, v) => v ? `<div><span class="eyebrow">${l}</span><b>${esc(v)}</b></div>` : '';
+  const srcNote = rp ? `Total: ${esc(rp.source)}.` : d.revenue_usd ? 'Total and budget: TMDB (worldwide, US dollars).' : '';
+  $('#bom', app).innerHTML = `
+    <section class="bohead">
+      <div class="bopost">${poster({ id: 'tm' + d.id, name: d.name, year: String(year || ''), type: 'movie', posterPath: d.poster_path, colors: ['#171717', '#171717'] }, { mine: false })}</div>
+      <div class="bohinfo">
+        <p class="eyebrow">${esc(lang(d.lang))}${date ? ` · ${esc(fmtDate(date))}` : ''}</p>
+        <h1 class="display sm">${esc(d.name)}</h1>
+        <div class="meta">${[d.certificate, d.runtime ? `${Math.floor(d.runtime / 60)}h ${d.runtime % 60}m` : '', d.genres.slice(0, 3).join(', ')].filter(Boolean).map(esc).join(' · ')}</div>
+        <div class="bigverdict ${verdict ? (GOOD.has(verdict) ? 'up' : verdict === 'Average' ? '' : 'down') : 'run'}">${esc(verdict || (running ? 'In theaters' : total ? 'Reported' : 'Not reported'))}</div>
+        <a class="see" href="#/t/tmdb-movie-${d.id}">Ratings &amp; journey ${ic('arrow-right')}</a>
+      </div>
+    </section>
+    ${total ? `<section class="card chartcard">
+      <div class="chtop"><div><span class="eyebrow" id="chlabel"></span><div class="num huge" id="chtotal">${fmt(total)}</div></div>
+        <div class="chctl"><div class="seg" role="group" aria-label="Total or daily">${[['cum', 'Cumulative total'], ['daily', 'Daily (modeled)']].map(([k, l]) => `<button data-mode="${k}" class="${st.mode === k ? 'on' : ''}" aria-pressed="${st.mode === k}">${l}</button>`).join('')}</div></div></div>
+      <div class="chwrap" id="chwrap"></div>
+      <p class="meta chmodel">Modeled line: the total is reported, but the day-by-day shape is our estimate (big opening, slow drop, weekend bumps).</p>
+    </section>` : `<section class="card"><div class="mascot"><div>No box office numbers have been reported for this movie.<br>We only show numbers that come from a real source.</div></div></section>`}
+    <section class="kgrid">
+      ${card('Worldwide gross', total ? fmt(total) : '—', rp && rp.high != null && +rp.high > +rp.low ? `Reports go up to ${fmt(+rp.high)}` : cur === '$' ? 'US dollars' : '')}
+      ${card('Budget', d.budget_usd ? usd(d.budget_usd) : '—', d.budget_usd ? 'TMDB' : '')}
+      ${card('ROI', budget && total ? `${Math.round((total / 2 - budget) / budget * 100)}%` : '—', 'Producer share ≈ 50% of gross')}
+      ${card('Release', date ? esc(fmtDate(date)) : '—', d.india_release ? 'India' : '')}
+      ${card('Runtime', d.runtime ? `${d.runtime} min` : '—')}
+    </section>
+    <section class="card run"><h2 class="h3">Details</h2>
+      ${d.tagline ? `<p class="serif bom-tag">“${esc(d.tagline)}”</p>` : ''}${d.overview ? `<p class="sub">${esc(d.overview)}</p>` : ''}
+      <div class="runfacts bofacts">${fact('Director', d.director.join(', '))}${fact('Cast', d.cast.join(', '))}${fact('Music', d.music.join(', '))}${fact('Studios', d.companies.join(', '))}${fact('Countries', d.countries.join(', '))}${fact('Original title', d.original_name !== d.name ? d.original_name : '')}</div>
+    </section>
+    <p class="meta upnote">${srcNote} Movie details from TMDB. Verdicts are worked out from budget and gross when both are known.</p>`;
+  hydratePosters($('#bom', app));
+  reveal($$('#bom .kgrid .card, #bom .run', app));
+  if (!total) return;
+  const wrap = $('#chwrap', app);
+  const color = verdict && GOOD.has(verdict) ? '#C6F432' : verdict === 'Flop' || verdict === 'Disaster' ? '#E5484D' : '#8A8A8A';
+  const draw = () => { drawModeled(wrap, date, daily, fmt, d.name, color); $$('#bom [data-mode]').forEach(b => { const on = st.mode === b.dataset.mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); };
+  $$('[data-mode]', app).forEach(b => b.onclick = () => { st.mode = b.dataset.mode; draw(); });
+  draw();
+}
+
+async function drawModeled(wrap, date, daily, fmt, name, color = '#8A8A8A') {
+  let run = 0; const cum = daily.map(v => (run += v)), V = st.mode === 'cum' ? cum : daily;
+  $('#chlabel').textContent = st.mode === 'cum' ? 'Worldwide gross · total' : 'Worldwide gross · per day (modeled)';
+  const days = daily.map((_, i) => { const x = dt(date); x.setDate(x.getDate() + i); return x; });
+  const E = await echarts();
+  if (!document.body.contains(wrap)) return;
+  if (!E) {   // simple fallback: plain SVG line
+    const W = 800, H = 260, max = Math.max(...V) * 1.08 || 1, x = i => 40 + i * (W - 56) / Math.max(1, V.length - 1), y = v => 14 + (1 - v / max) * (H - 40);
+    wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${esc(name)}: ${esc(fmt(cum[cum.length - 1]))} over ${V.length} days (modeled)"><path d="${V.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('')}" fill="none" stroke="#8A8A8A" stroke-width="2"/></svg>`;
+    return;
+  }
+  if (!chartInst || chartInst.getDom() !== wrap) {
+    if (chartInst) chartInst.dispose();
+    wrap.innerHTML = ''; wrap.classList.add('ec');
+    chartInst = E.init(wrap, null, { renderer: 'svg' });
+    new ResizeObserver(() => chartInst && !chartInst.isDisposed() && chartInst.resize()).observe(wrap);
+  }
+  const mono = '"Geist Mono", ui-monospace, monospace';
+  chartInst.setOption({
+    animationDuration: 900, animationEasing: 'cubicOut', grid: { left: 8, right: 16, top: 24, bottom: 8, containLabel: true }, textStyle: { fontFamily: mono },
+    xAxis: { type: 'category', boundaryGap: false, data: V.map((_, i) => 'D' + (i + 1)), axisLine: { lineStyle: { color: '#1F1F1F' } }, axisTick: { show: false }, axisLabel: { color: '#5E5E5E', fontSize: 11, hideOverlap: true } },
+    yAxis: { type: 'value', splitLine: { lineStyle: { color: '#1A1A1A' } }, axisLabel: { color: '#5E5E5E', fontSize: 11, formatter: v => fmt(v).replace(' Cr', '') } },
+    tooltip: { trigger: 'axis', backgroundColor: '#0A0A0A', borderColor: '#1F1F1F', borderWidth: 1, textStyle: { color: '#F5F5F5', fontSize: 12, fontFamily: mono },
+      axisPointer: { type: 'cross', lineStyle: { color: '#3A3A3A' }, crossStyle: { color: '#3A3A3A' }, label: { backgroundColor: '#1F1F1F', color: '#F5F5F5', fontFamily: mono } },
+      formatter: p => { const i = p[0].dataIndex; return `<b>Day ${i + 1}</b> · ${esc(days[i].toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }))}<br><span style="color:#8A8A8A">Daily</span> ${fmt(daily[i])}<br><span style="color:#8A8A8A">Total</span> ${fmt(cum[i])}<br><span style="color:#8A8A8A">Modeled from the reported total</span>`; } },
+    series: [{ type: 'line', data: V.map(v => +v.toFixed(4)), showSymbol: false, smooth: 0.15, lineStyle: { width: 2, color, type: 'solid' } }],
+  }, { notMerge: true });
+  wrap.setAttribute('role', 'img');
+  wrap.setAttribute('aria-label', `${name}: ${fmt(cum[cum.length - 1])} worldwide, modeled over ${V.length} days`);
 }

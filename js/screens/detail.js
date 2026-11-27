@@ -48,6 +48,7 @@ export function renderDetail(el, id, { modal = false } = {}) {
   <div class="dhead">${poster(t, { mine: false })}
     <div><h1 id="dtitle">${esc(t.name)}</h1><div class="meta">${esc(t.year)} · ${t.type === 'tv' ? 'Series' : 'Movie'}${len ? ' · ' + len : ''}</div><div class="meta">${esc(t.genres.join(' · '))}</div>
     <button class="btn big rate-main" id="rateBtn">${mine ? `★ ${mine.overall} · Edit my rating` : 'Rate it'} <kbd class="kbd">R</kbd></button>
+    ${t.type === 'movie' && t.tmdb ? `<a class="btn ghost writebtn bolink" href="#/boxoffice/tmdb-${t.tmdb}"><i class="i i-chart-line" aria-hidden="true"></i> Box office &amp; details</a>` : ''}
     <div id="trbox" class="trbox"></div>
     ${cloud.ready ? `<div class="dbtns"><button class="btn ghost writebtn" id="writeBtn"><i class="i i-pen-line" aria-hidden="true"></i> Write a review</button><button class="btn ghost writebtn" id="recBtn" aria-label="Recommend to friends"><i class="i i-gift" aria-hidden="true"></i> Recommend</button></div><div id="hbfans" class="hbfans" aria-live="polite"></div>` : ''}</div>
   </div>
