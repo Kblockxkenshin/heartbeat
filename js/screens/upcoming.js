@@ -16,7 +16,7 @@ const dayMs = 864e5;
 const today = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
 const dateOf = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const daysTo = s => Math.round((dateOf(s) - today()) / dayMs);
-export const countdown = s => { const n = daysTo(s); return n <= 0 ? 'Out now' : n === 1 ? 'Releases tomorrow' : `Releases in ${n} days`; };
+export const countdown = s => { const n = daysTo(s); return n < 0 ? 'Out now' : n === 0 ? 'Out today' : n === 1 ? 'Releases tomorrow' : `Releases in ${n} days`; };
 const fmtDay = s => dateOf(s).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 const monthKey = s => s.slice(0, 7);
 const monthName = k => { const [y, m] = k.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }); };
@@ -60,13 +60,14 @@ function filtered() {
 
 function cardHTML(m) {
   const id = idOfM(m), saved = !!U.watchlist[id], on = st.mine.has(keyOfM(m)), n = st.hype[keyOfM(m)] || 0;
-  const p = poster({ id, name: m.name, year: m.date.slice(0, 4), type: 'movie', posterPath: m.poster_path, colors: ['#171717', '#171717'] }, { mine: false, small: true });
+  const p = poster({ id, name: m.name, year: (m.first_date || m.date).slice(0, 4), type: 'movie', posterPath: m.poster_path, colors: ['#171717', '#171717'] }, { mine: false, small: true });
   return `<article class="upc">
     <a class="upc-p" href="#/t/${id}" aria-label="${esc(m.name)}">${p}</a>
     <div class="upc-b">
       <div class="upc-k"><span>${esc(LANGS[m.lang] || m.lang.toUpperCase())}</span><span class="num">${esc(fmtDay(m.date))}</span></div>
       <h3><a href="#/t/${id}">${esc(m.name)}</a></h3>
       <div class="upc-cd ${daysTo(m.date) <= 7 ? 'soon' : ''}">${countdown(m.date)}</div>
+      ${m.rerelease ? `<div class="meta rerel">Re-release · first came out in ${esc(m.first_date.slice(0, 4))}</div>` : ''}
       ${m.director.length ? `<div class="meta">Director · ${esc(m.director.join(', '))}</div>` : ''}
       ${m.cast.length ? `<div class="meta clamp1">Cast · ${esc(m.cast.join(', '))}</div>` : ''}
       ${n >= 3 ? `<div class="meta">${n} people want to watch</div>` : ''}

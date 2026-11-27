@@ -164,7 +164,7 @@ export async function renderBoxOffice(app, id) {
         const rows = (d.results || []).filter(x => !L.some(m => m.lang === x.lang && same(m.title, x.name)));
         const hit = x => reported.find(r => r.lang === x.lang && Math.abs(r.year - +String(x.date || '').slice(0, 4)) <= 1 && same(r.title, x.name));
         list.insertAdjacentHTML('beforeend', rows.map(x => `<a class="trow" href="#/boxoffice/tmdb-${x.id}">
-          <span class="tm"><span class="rk num"></span>${thumb(x)}<span><b>${esc(x.name)}</b><span class="meta">${esc(lang(x.lang))}${x.date ? ` · ${esc(fmtDate(x.date))}` : ''}</span></span></span>
+          <span class="tm"><span class="rk num"></span>${thumb(x)}<span><b>${esc(x.name)}</b><span class="meta">${esc(lang(x.lang))}${x.date ? ` · ${esc(fmtDate(x.date))}` : ''}${x.rerelease ? ` · Re-release (${esc(x.first_date.slice(0, 4))})` : ''}</span></span></span>
           <span class="r ${hit(x) ? 'num' : 'meta nonum'}">${hit(x) ? range(hit(x)) : now ? 'No numbers yet' : 'No numbers reported'}</span></a>`).join(''));
         shown += rows.length;
       } catch (e) { if (!list.children.length) list.innerHTML = `<div class="meta" style="padding:14px 4px">Could not load the full list right now.</div>`; }
@@ -188,7 +188,7 @@ export async function renderBoxOffice(app, id) {
         const d = await tmdbGet(`/api/tmdb?upcoming=1&page=${++page}${st.lang ? `&lang=${st.lang}` : ''}`);
         if (seq !== otherSeq || st.tab !== 'soon') return;
         pages = d.total_pages || 1;
-        // Only movies whose own release date is today or later (old films re-released in India are left out), soonest first.
+        // India release dates from today on, soonest first (re-releases are labelled).
         const fresh = (d.results || []).filter(x => x.date && daysSince(x.date) <= 1 && !got.some(y => y.id === x.id));
         got.push(...fresh); got.sort((p, q) => String(p.date).localeCompare(String(q.date)));
         const rows = got; count = got.length;
@@ -198,7 +198,7 @@ export async function renderBoxOffice(app, id) {
           const when = to <= 0 ? 'Out today' : to === 1 ? 'Tomorrow' : `In ${to} days`;
           const who = [x.director?.[0] && `Dir. ${x.director[0]}`, (x.cast || []).slice(0, 2).join(', ')].filter(Boolean).join(' · ');
           return `<a class="trow" href="#/boxoffice/tmdb-${x.id}">
-          <span class="tm"><span class="rk num"></span>${thumb(x)}<span><b>${esc(x.name)}</b><span class="meta">${esc(lang(x.lang))} · ${esc(fmtDate(x.date))}${who ? `<span class="hide-s"> · ${esc(who)}</span>` : ''}</span></span></span>
+          <span class="tm"><span class="rk num"></span>${thumb(x)}<span><b>${esc(x.name)}</b><span class="meta">${esc(lang(x.lang))} · ${esc(fmtDate(x.date))}${x.rerelease ? ` · Re-release (${esc(x.first_date.slice(0, 4))})` : ''}${who ? `<span class="hide-s"> · ${esc(who)}</span>` : ''}</span></span></span>
           <span class="r num soonin">${esc(when)}</span></a>`;
         }).join('');
         if (!list.children.length) list.innerHTML = `<div class="meta" style="padding:14px 4px">No upcoming releases found for this language.</div>`;

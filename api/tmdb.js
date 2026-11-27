@@ -32,27 +32,50 @@ async function genres() {
   return genreCache;
 }
 const iso = d => d.toISOString().slice(0, 10);
+// Today's date in India (the dates we compare against are Indian release dates).
+const istToday = () => iso(new Date(Date.now() + 330 * 6e4));
+const addDays = (s, n) => iso(new Date(Date.parse(s + 'T00:00:00Z') + n * 864e5));
+
+// One movie's details + its theatrical release dates IN INDIA (TMDB types 2 = limited, 3 = theatrical).
+// Discover lists give each movie's FIRST-EVER release date, which is wrong for re-releases (e.g. a 1993 film back in theaters).
+async function withIndia(id) {
+  const d = await tmdb(`movie/${id}`, { language: 'en-US', append_to_response: 'credits,release_dates' });
+  const IN = (d.release_dates?.results || []).find(r => r.iso_3166_1 === 'IN');
+  const dates = (IN?.release_dates || []).filter(r => r.type === 2 || r.type === 3).map(r => String(r.release_date || '').slice(0, 10)).filter(Boolean).sort();
+  return { d, dates };
+}
+// first = the movie's first-ever release; a re-release is an Indian date more than a year after it.
+function relInfo(date, first) {
+  const f = [first].filter(Boolean).sort()[0] || null;
+  const re = !!(f && date && Date.parse(date) - Date.parse(f) > 365 * 864e5);
+  return { date, first_date: f, rerelease: re };
+}
 async function upcoming(query) {
   const lang = IN_LANGS.includes(String(query.lang)) ? String(query.lang) : IN_LANGS.join('|');
   const page = Math.min(Math.max(parseInt(query.page, 10) || 1, 1), 5);
-  const today = new Date(), until = new Date(Date.now() + 183 * 864e5);
+  const today = istToday(), until = addDays(today, 183);
   const [d, G] = await Promise.all([tmdb('discover/movie', {
-    region: 'IN', with_original_language: lang, 'release_date.gte': iso(today), 'release_date.lte': iso(until),
+    region: 'IN', with_original_language: lang, 'release_date.gte': today, 'release_date.lte': until,
     with_release_type: '2|3', sort_by: 'primary_release_date.asc', include_adult: 'false', include_video: 'false', language: 'en-US', page: String(page),
   }), genres()]);
   const list = (d.results || []).slice(0, 20);
-  // Director + 3 main actors for each film (cached by Vercel for 6 hours).
-  const credits = await Promise.all(list.map(m => tmdb(`movie/${m.id}/credits`, { language: 'en-US' }).catch(() => null)));
-  return {
-    page, total_pages: Math.min(d.total_pages || 1, 5),
-    results: list.map((m, i) => ({
+  // India release date + director + 3 main actors for each film (cached by Vercel for 6 hours).
+  const info = await Promise.all(list.map(m => withIndia(m.id).catch(() => null)));
+  const results = list.map((m, i) => {
+    const x = info[i], cr = x?.d.credits;
+    // The next Indian theatrical date from today; if TMDB has none, the discover date (only when it is not in the past).
+    const date = (x?.dates || []).find(t => t >= today) || (m.release_date >= today ? m.release_date : null);
+    if (!date) return null;
+    return {
       id: m.id, name: m.title, original_name: m.original_title !== m.title ? m.original_title : null, lang: m.original_language,
-      date: m.release_date || null, poster_path: m.poster_path || null, overview: (m.overview || '').slice(0, 400),
+      ...relInfo(date, [m.release_date, x?.d.release_date, ...(x?.dates || [])].filter(Boolean).sort()[0]),
+      poster_path: m.poster_path || null, overview: (m.overview || '').slice(0, 400),
       genres: (m.genre_ids || []).map(g => G[g]).filter(Boolean),
-      director: (credits[i]?.crew || []).filter(c => c.job === 'Director').map(c => c.name).slice(0, 2),
-      cast: (credits[i]?.cast || []).slice(0, 3).map(c => c.name),
-    })),
-  };
+      director: (cr?.crew || []).filter(c => c.job === 'Director').map(c => c.name).slice(0, 2),
+      cast: (cr?.cast || []).slice(0, 3).map(c => c.name),
+    };
+  }).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
+  return { page, total_pages: Math.min(d.total_pages || 1, 5), results };
 }
 
 async function released(query) {
@@ -89,12 +112,22 @@ async function boDetails(id) {
 async function playing(query) {
   const lang = IN_LANGS.includes(String(query.lang)) ? String(query.lang) : IN_LANGS.join('|');
   const page = Math.min(Math.max(parseInt(query.page, 10) || 1, 1), 20);
+  const today = istToday(), from = addDays(today, -42);
   const d = await tmdb('discover/movie', {
-    region: 'IN', with_original_language: lang, 'release_date.gte': iso(new Date(Date.now() - 42 * 864e5)), 'release_date.lte': iso(new Date()),
+    region: 'IN', with_original_language: lang, 'release_date.gte': from, 'release_date.lte': today,
     with_release_type: '2|3', sort_by: 'popularity.desc', include_adult: 'false', include_video: 'false', language: 'en-US', page: String(page),
   });
-  return { page, total_pages: Math.min(d.total_pages || 1, 20), total: d.total_results || 0,
-    results: (d.results || []).map(m => ({ id: m.id, name: m.title, lang: m.original_language, date: m.release_date || null, poster_path: m.poster_path || null })) };
+  const list = d.results || [];
+  const info = await Promise.all(list.map(m => withIndia(m.id).catch(() => null)));
+  const results = list.map((m, i) => {
+    const x = info[i];
+    // The latest Indian theatrical date in the last 6 weeks (a re-release counts from its new date).
+    const date = (x?.dates || []).filter(t => t >= from && t <= today).pop() || (m.release_date >= from && m.release_date <= today ? m.release_date : null);
+    if (!date) return null;
+    return { id: m.id, name: m.title, lang: m.original_language, poster_path: m.poster_path || null,
+      ...relInfo(date, [m.release_date, x?.d.release_date, ...(x?.dates || [])].filter(Boolean).sort()[0]) };
+  }).filter(Boolean);
+  return { page, total_pages: Math.min(d.total_pages || 1, 20), total: d.total_results || 0, results };
 }
 
 export default async function handler(req, res) {
