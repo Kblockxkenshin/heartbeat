@@ -40,12 +40,12 @@ const thumb = m => {
 };
 /* ---------- Budgets for any movie: our research first, then Wikipedia / Wikidata / TMDB (looked up on our server) ---------- */
 const FX = 85;   // ₹ per US$, only used to compare a budget and a gross reported in different currencies
-const BKEY = 'hb_bo_budget1';
+const BKEY = 'hb_bo_budget2';
 let budCache = (() => { try { return JSON.parse(localStorage.getItem(BKEY) || '{}'); } catch (e) { return {}; } })();
 export async function budgetOf(tid) {
   if (!tid) return null;
   if (tid in budCache) return budCache[tid];
-  try { const d = await tmdbGet(`/api/tmdb?budget=${tid}`); budCache[tid] = d.budget || null; } catch (e) { return null; }
+  try { const d = await tmdbGet(`/api/tmdb?budget=${tid}`); budCache[tid] = d.budget ? { ...d.budget, rev: d.revenue_usd || null, lang: d.lang || null } : null; } catch (e) { return null; }
   try { localStorage.setItem(BKEY, JSON.stringify(budCache)); } catch (e) { /* ignore */ }
   return budCache[tid];
 }
@@ -213,7 +213,7 @@ export async function renderBoxOffice(app, id) {
   };
   // Fill in links, posters and the final verdict (from the budget) for rows that need them, a few at a time.
   const rowKey = m => `${m.lang}|${m.year}|${m.title}`;
-  const VK = 'hb_bo_verdicts1';
+  const VK = 'hb_bo_verdicts2';
   let vCache = (() => { try { return JSON.parse(localStorage.getItem(VK) || '{}'); } catch (e) { return {}; } })();
   [...reported, ...all].forEach(m => { const v = vCache[rowKey(m)]; if (v && !m.verdict) { m.verdict = v.v || null; m.vdone = true; if (v.t && m.kind === 'r') m.tmdb = v.t; } });
   async function posters(box) {
@@ -224,8 +224,12 @@ export async function renderBoxOffice(app, id) {
         if (m.kind === 'r' && !m.tmdb) { const hit = await findPoster(m); if (hit) { m.tmdb = hit.tmdb; m.poster_path = m.poster_path || hit.poster_path; } }
         const tid = m.kind === 'r' ? m.tmdb : m.tmdb_id || (await findPoster(m))?.tmdb;
         if (!m.verdict && !(m.kind === 't' && m.running)) {
-          const b = m.budget != null ? { cur: '₹', low: m.budget } : await budgetOf(tid);
-          m.verdict = verdictFrom(m.worldwide, inCr(b), false) || null; m.vdone = true;
+          // Budget: saved with the movie, then our own research, then Wikipedia / Wikidata / TMDB.
+          const mine = (await budgetAll()).find(x => x.tmdb_id === tid);
+          const b = m.budget != null ? { cur: '₹', low: m.budget } : mine ? { cur: '₹', low: +mine.low } : await budgetOf(tid);
+          // Hollywood/foreign films in this list only have an India gross here: judge them on TMDB's worldwide gross in US$.
+          const foreign = !LANGS[m.lang];
+          m.verdict = (foreign ? (b?.rev ? verdictFrom(b.rev, inUsd(b), false) : null) : verdictFrom(m.worldwide, inCr(b), false)) || null; m.vdone = true;
           vCache[rowKey(m)] = { v: m.verdict, t: tid || null }; try { localStorage.setItem(VK, JSON.stringify(vCache)); } catch (e) { /* ignore */ }
         }
         if (!document.body.contains(row)) return;

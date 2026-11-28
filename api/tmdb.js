@@ -149,11 +149,20 @@ export function parseBudget(raw) {
   if (cur === '₹' && !unit && lo < 1) return null;
   return { cur, low: lo, high: hi && hi > lo ? hi : null, text: t.replace(/\s+/g, ' ').trim().slice(0, 80) };
 }
-async function wikiBudget(title, year) {
+const LANG_NAME = { hi: 'Hindi', ta: 'Tamil', te: 'Telugu', ml: 'Malayalam', kn: 'Kannada', bn: 'Bengali', mr: 'Marathi', pa: 'Punjabi', gu: 'Gujarati', or: 'Odia', as: 'Assamese', en: 'English' };
+const skel = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\([^)]*\)/g, '').replace(/[^a-z0-9]/g, '').replace(/[aeiouy]/g, '').replace(/(.)\1+/g, '$1');
+/** strict = found by searching (not a direct link): the page must be about a film with the same title and language. */
+async function wikiBudget(title, year, strict = null) {
   const w = await wget(`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(title)}&prop=wikitext&section=0&format=json&redirects=1`);
   const txt = w?.parse?.wikitext?.['*'] || '';
   if (!/\{\{\s*Infobox film/i.test(txt)) return null;
   if (year && !new RegExp(`\\b(${+year - 1}|${year}|${+year + 1})\\b`).test(txt)) return null;
+  if (strict) {
+    const pt = skel(w.parse.title), want = [strict.title, strict.original].map(skel).filter(Boolean);
+    if (!want.some(k => k && (pt === k || pt.startsWith(k) && k.length >= 4))) return null;
+    const ln = LANG_NAME[strict.lang], lm = txt.match(/\|\s*language\s*=([^\n]*)/i);
+    if (ln && !(lm && new RegExp(ln, 'i').test(lm[1]))) return null;
+  }
   const m = txt.match(/\|\s*budget\s*=([^\n]*(?:\n(?!\s*\||\}\})[^\n]*)*)/i);
   const b = parseBudget(m && m[1]);
   return b ? { ...b, source: 'Wikipedia', url: `https://en.wikipedia.org/wiki/${encodeURIComponent(w.parse.title.replace(/ /g, '_'))}` } : null;
@@ -176,10 +185,10 @@ async function budgetFor(id) {
   }
   if (!out) {   // search Wikipedia: "<title> <year> film"
     const s = await wget(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(`${d.title} ${year} film`)}&srlimit=3&format=json`);
-    for (const hit of (s?.query?.search || [])) { if (hit.title === enTitle) continue; out = await wikiBudget(hit.title, year); if (out) break; }
+    for (const hit of (s?.query?.search || [])) { if (hit.title === enTitle) continue; out = await wikiBudget(hit.title, year, { title: d.title, original: d.original_title, lang: d.original_language }); if (out) break; }
   }
   if (!out && d.budget > 0) out = { cur: '$', low: d.budget, high: null, text: `$${(d.budget / 1e6).toFixed(0)} million`, source: 'TMDB', url: `https://www.themoviedb.org/movie/${d.id}` };
-  return { id: d.id, budget: out };
+  return { id: d.id, lang: d.original_language, revenue_usd: d.revenue > 0 ? d.revenue : null, budget: out };
 }
 // Hollywood (English-language) lists.
 async function hollywood(query) {
