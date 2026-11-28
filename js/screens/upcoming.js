@@ -1,4 +1,4 @@
-// Upcoming: Indian movies releasing in the next six months (TMDB discover, region IN).
+// Upcoming: Indian movies (India dates) and Hollywood movies (US dates) releasing in the next six months.
 //   #/upcoming   Sections (new releases, then one row per language), a list, or a month calendar on desktop.
 // "Notify me" saves a reminder (server for members, this device for guests) that shows in the app on release day.
 import { cloud, plain } from '../cloud.js';
@@ -7,6 +7,8 @@ import { $, $$, esc, ic, toast, poster, hydratePosters, wide, buzz } from '../ui
 import { reveal } from '../motion.js';
 
 export const LANGS = { hi: 'Hindi', te: 'Telugu', ta: 'Tamil', ml: 'Malayalam', kn: 'Kannada', bn: 'Bengali', mr: 'Marathi', pa: 'Punjabi', gu: 'Gujarati', or: 'Odia', as: 'Assamese' };
+/** Upcoming also shows Hollywood (English, US release dates). Hindi first, then Hollywood, then the rest. */
+const ULANGS = { hi: 'Hindi', en: 'Hollywood', ...LANGS };
 const LOCAL = 'hb_reminders';
 const st = { list: null, hype: {}, lang: '', month: '', genre: '', sort: 'date', view: 'sec', recent: [], cal: null, mine: new Set(), loading: null };
 
@@ -29,19 +31,21 @@ async function load() {
   if (st.list) return st.list;
   if (st.loading) return st.loading;
   st.loading = (async () => {
-    try { const c = JSON.parse(sessionStorage.getItem('hb_upcoming2') || 'null'); if (c && Date.now() - c.at < 3 * 3600e3) { st.recent = c.recent || []; return (st.list = c.list); } } catch (e) { /* ignore */ }
+    try { const c = JSON.parse(sessionStorage.getItem('hb_upcoming3') || 'null'); if (c && Date.now() - c.at < 3 * 3600e3) { st.recent = c.recent || []; return (st.list = c.list); } } catch (e) { /* ignore */ }
     // New releases: Indian movies that came out in theaters in the last 7 days (India dates).
     const recentP = Promise.all([1, 2].map(p => fetch(`/api/tmdb?playing=1&page=${p}`).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))))
       .then(rs => { const seen = new Set(); return rs.flatMap(x => x.results || []).filter(m => m.date && daysTo(m.date) < 0 && daysTo(m.date) >= -7 && !seen.has(m.id) && seen.add(m.id))
         .map(m => ({ director: [], cast: [], genres: [], ...m })).sort((a, b) => b.date.localeCompare(a.date)); });
     const get = p => fetch(`/api/tmdb?upcoming=1&page=${p}`).then(r => r.ok ? r.json() : Promise.reject(new Error('Could not load upcoming movies.')));
+    // Hollywood (US dates), up to 3 pages.
+    const hwP = Promise.all([1, 2, 3].map(p => fetch(`/api/tmdb?upcoming=1&lang=en&page=${p}`).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))));
     const first = await get(1);
-    const rest = await Promise.all(Array.from({ length: Math.max(0, (first.total_pages || 1) - 1) }, (_, i) => get(i + 2).catch(() => ({ results: [] }))));
+    const rest = [...await Promise.all(Array.from({ length: Math.max(0, (first.total_pages || 1) - 1) }, (_, i) => get(i + 2).catch(() => ({ results: [] })))), ...await hwP];
     const seen = new Set(), list = [];
     for (const m of [first, ...rest].flatMap(x => x.results || [])) if (m.date && !seen.has(m.id)) { seen.add(m.id); list.push(m); }
     list.sort((a, b) => a.date.localeCompare(b.date));
     st.recent = await recentP;
-    try { sessionStorage.setItem('hb_upcoming2', JSON.stringify({ at: Date.now(), list, recent: st.recent })); } catch (e) { /* ignore */ }
+    try { sessionStorage.setItem('hb_upcoming3', JSON.stringify({ at: Date.now(), list, recent: st.recent })); } catch (e) { /* ignore */ }
     return (st.list = list);
   })();
   try { return await st.loading; } finally { st.loading = null; }
@@ -69,7 +73,7 @@ function cardHTML(m) {
   return `<article class="upc">
     <a class="upc-p" href="#/t/${id}" aria-label="${esc(m.name)}">${p}</a>
     <div class="upc-b">
-      <div class="upc-k"><span>${esc(LANGS[m.lang] || m.lang.toUpperCase())}</span><span class="num">${esc(fmtDay(m.date))}</span></div>
+      <div class="upc-k"><span>${esc(ULANGS[m.lang] || m.lang.toUpperCase())}</span><span class="num">${esc(fmtDay(m.date))}</span></div>
       <h3><a href="#/t/${id}">${esc(m.name)}</a></h3>
       <div class="upc-cd ${daysTo(m.date) <= 7 ? 'soon' : ''}">${countdown(m.date)}</div>
       ${m.rerelease ? `<div class="meta rerel">Re-release · first came out in ${esc(m.first_date.slice(0, 4))}</div>` : ''}
@@ -93,7 +97,7 @@ function calendarHTML(L) {
   const i = months.indexOf(st.cal), t = today();
   const cells = Array.from({ length: lead }, () => '<div class="cal-d empty"></div>').concat(Array.from({ length: days }, (_, k) => {
     const d = k + 1, ms = byDay[d] || [], isToday = t.getFullYear() === y && t.getMonth() === mo - 1 && t.getDate() === d;
-    return `<div class="cal-d ${ms.length ? 'has' : ''} ${isToday ? 'today' : ''}"><span class="num">${d}</span>${ms.slice(0, 2).map(m => `<a href="#/t/${idOfM(m)}" class="cal-m" title="${esc(m.name)} · ${esc(LANGS[m.lang] || '')}">${esc(m.name)}</a>`).join('')}${ms.length > 2 ? `<span class="meta">+${ms.length - 2} more</span>` : ''}</div>`;
+    return `<div class="cal-d ${ms.length ? 'has' : ''} ${isToday ? 'today' : ''}"><span class="num">${d}</span>${ms.slice(0, 2).map(m => `<a href="#/t/${idOfM(m)}" class="cal-m" title="${esc(m.name)} · ${esc(ULANGS[m.lang] || '')}">${esc(m.name)}</a>`).join('')}${ms.length > 2 ? `<span class="meta">+${ms.length - 2} more</span>` : ''}</div>`;
   }));
   return `<div class="cal">
     <div class="cal-h"><button class="icon-btn" data-cal="-1" ${i <= 0 ? 'disabled' : ''} aria-label="Previous month">${ic('chevron-left')}</button>
@@ -110,9 +114,9 @@ function sectionsHTML() {
       <div class="sec"><h2>${esc(title)} <span class="meta">${ms.length}</span></h2>${lang ? `<button class="btn sm ghost" data-all="${lang}">See all</button>` : `<span class="meta">${esc(sub)}</span>`}</div>
       <div class="uprow">${ms.map(cardHTML).join('')}</div></section>`;
   const later = L.filter(m => daysTo(m.date) > 0);
-  const langs = Object.keys(LANGS).filter(k => later.some(m => m.lang === k));
+  const langs = Object.keys(ULANGS).filter(k => later.some(m => m.lang === k));
   return (fresh.length ? row('up-new', 'New releases', 'Out now in theaters', fresh) : '')
-    + langs.map(k => row(`up-${k}`, LANGS[k], '', later.filter(m => m.lang === k), k)).join('');
+    + langs.map(k => row(`up-${k}`, ULANGS[k], '', later.filter(m => m.lang === k), k)).join('');
 }
 
 function draw(app) {
@@ -134,10 +138,10 @@ function controls() {
   const L = st.list || [];
   const months = [...new Set(L.map(m => monthKey(m.date)))];
   const genres = [...new Set(L.flatMap(m => m.genres))].sort();
-  const langs = Object.keys(LANGS).filter(k => L.some(m => m.lang === k));
+  const langs = Object.keys(ULANGS).filter(k => L.some(m => m.lang === k));
   const sel = (id, label, all, opts, v) => `<label class="upsel"><span class="sr">${label}</span><select id="${id}">${[`<option value="">${all}</option>`, ...opts.map(([k, l]) => `<option value="${esc(k)}" ${k === v ? 'selected' : ''}>${esc(l)}</option>`)].join('')}</select></label>`;
   return `<div class="upctl">
-    ${sel('uplang', 'Language', 'All languages', langs.map(k => [k, LANGS[k]]), st.lang)}
+    ${sel('uplang', 'Language', 'All languages', langs.map(k => [k, ULANGS[k]]), st.lang)}
     ${sel('upmonth', 'Month', 'Any month', months.map(k => [k, monthName(k)]), st.month)}
     ${sel('upgenre', 'Genre', 'All genres', genres.map(g => [g, g]), st.genre)}
     <div class="seg" role="group" aria-label="Sort">
@@ -153,8 +157,8 @@ function controls() {
 export async function renderUpcoming(app) {
   document.title = 'Upcoming — Heartbeat';
   app.innerHTML = `<div class="screen upcoming">
-    <header class="hhead"><p class="eyebrow">Indian cinema</p><h1 class="display">Coming <em>soon.</em></h1>
-      <p class="sub uplead">Hindi, Telugu, Tamil, Malayalam, Kannada, Bengali, Marathi, Punjabi and more, in the next six months.</p></header>
+    <header class="hhead"><p class="eyebrow">Indian cinema + Hollywood</p><h1 class="display">Coming <em>soon.</em></h1>
+      <p class="sub uplead">Hindi, Hollywood, Telugu, Tamil, Malayalam, Kannada and more, in the next six months.</p></header>
     <div id="upctlbox"></div>
     <div class="sec" id="uphead"><h2>Releases</h2><span class="meta" id="upcount"></span></div>
     <div id="upbody"><div class="upgrid">${'<div class="upc skel"></div>'.repeat(6)}</div></div>

@@ -40,9 +40,9 @@ const addDays = (s, n) => iso(new Date(Date.parse(s + 'T00:00:00Z') + n * 864e5)
 
 // One movie's details + its theatrical release dates IN INDIA (TMDB types 2 = limited, 3 = theatrical).
 // Discover lists give each movie's FIRST-EVER release date, which is wrong for re-releases (e.g. a 1993 film back in theaters).
-async function withIndia(id) {
+async function withIndia(id, region = 'IN') {
   const d = await tmdb(`movie/${id}`, { language: 'en-US', append_to_response: 'credits,release_dates' });
-  const IN = (d.release_dates?.results || []).find(r => r.iso_3166_1 === 'IN');
+  const IN = (d.release_dates?.results || []).find(r => r.iso_3166_1 === region);
   const dates = (IN?.release_dates || []).filter(r => r.type === 2 || r.type === 3).map(r => String(r.release_date || '').slice(0, 10)).filter(Boolean).sort();
   return { d, dates };
 }
@@ -53,16 +53,18 @@ function relInfo(date, first) {
   return { date, first_date: f, rerelease: re };
 }
 async function upcoming(query) {
-  const lang = IN_LANGS.includes(String(query.lang)) ? String(query.lang) : IN_LANGS.join('|');
+  // lang=en → Hollywood (US theatrical dates); otherwise Indian languages (India dates).
+  const hw = String(query.lang) === 'en', region = hw ? 'US' : 'IN';
+  const lang = hw ? 'en' : IN_LANGS.includes(String(query.lang)) ? String(query.lang) : IN_LANGS.join('|');
   const page = Math.min(Math.max(parseInt(query.page, 10) || 1, 1), 5);
   const today = istToday(), until = addDays(today, 183);
   const [d, G] = await Promise.all([tmdb('discover/movie', {
-    region: 'IN', with_original_language: lang, 'release_date.gte': today, 'release_date.lte': until,
+    region, with_original_language: lang, 'release_date.gte': today, 'release_date.lte': until,
     with_release_type: '2|3', sort_by: 'primary_release_date.asc', include_adult: 'false', include_video: 'false', language: 'en-US', page: String(page),
   }), genres()]);
   const list = (d.results || []).slice(0, 20);
   // India release date + director + 3 main actors for each film (cached by Vercel for 6 hours).
-  const info = await Promise.all(list.map(m => withIndia(m.id).catch(() => null)));
+  const info = await Promise.all(list.map(m => withIndia(m.id, region).catch(() => null)));
   const results = list.map((m, i) => {
     const x = info[i], cr = x?.d.credits;
     // The next Indian theatrical date from today; if TMDB has none, the discover date (only when it is not in the past).
@@ -124,6 +126,60 @@ async function boDetails(id) {
     reviews: (d.reviews?.results || []).slice(0, 3).map(r => ({ author: String(r.author || 'TMDB user').slice(0, 60), rating: r.author_details?.rating ?? null,
       text: String(r.content || '').replace(/\s+/g, ' ').slice(0, 220), url: /^https:\/\/www\.themoviedb\.org\//.test(r.url || '') ? r.url : null, date: (r.created_at || '').slice(0, 10) })),
   };
+}
+// ---------- Budgets from Wikipedia / Wikidata (any movie in history) ----------
+const WIKI_UA = { 'user-agent': 'HeartbeatApp/1.0 (https://heartbt.vercel.app; box office budgets)', accept: 'application/json' };
+const wget = u => fetch(u, { headers: WIKI_UA }).then(r => r.ok ? r.json() : null).catch(() => null);
+/** Turn an infobox "budget = ..." value into numbers. ₹ amounts come back in crore, $ amounts in US dollars. */
+export function parseBudget(raw) {
+  if (!raw) return null;
+  let t = String(raw).replace(/<!--[\s\S]*?-->/g, '');
+  t = t.split(/<ref|\{\{\s*(?:efn|sfn|refn|r\||cite)/i)[0];
+  t = t.replace(/\{\{\s*(?:INR|Indian Rupee)\s*\|\s*link=yes\s*\}\}/gi, '₹').replace(/\{\{\s*(?:INR|Indian Rupee)\s*\|([^{}|]*?)(?:\|[^{}]*)?\}\}/gi, '₹$1').replace(/\{\{\s*(?:INR|Indian Rupee)\s*\}\}/gi, '₹')
+    .replace(/\{\{\s*(?:USD|US\$)\s*\|([^{}|]*)(?:\|[^{}]*)?\}\}/gi, '$$$1').replace(/\{\{\s*(?:en dash|ndash)\s*\}\}/gi, '–')
+    .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, '$1').replace(/\{\{[^{}]*\}\}/g, ' ').replace(/&nbsp;/g, ' ').replace(/Rs\.?|INR/gi, '₹').replace(/US\$/g, '$');
+  const m = t.match(/([₹$])\s*([\d.,]+)(?:\s*(?:–|-|—|to)\s*\$?₹?\s*([\d.,]+))?\s*(crore|cr\b|lakh|million|billion)?/i);
+  if (!m) return null;
+  const num = x => x == null ? null : parseFloat(String(x).replace(/,/g, ''));
+  let lo = num(m[2]), hi = num(m[3]); const unit = (m[4] || '').toLowerCase(), cur = m[1];
+  if (!lo || isNaN(lo)) return null;
+  const f = cur === '₹' ? (unit === 'lakh' ? 0.01 : unit === 'million' ? 0.1 : unit === 'billion' ? 100 : unit ? 1 : (lo > 1e5 ? 1e-7 : 1))
+    : (unit === 'million' ? 1e6 : unit === 'billion' ? 1e9 : unit.startsWith('cr') ? 1e7 / 85 : 1);
+  lo *= f; hi = hi ? hi * f : null;
+  if (cur === '₹' && !unit && lo < 1) return null;
+  return { cur, low: lo, high: hi && hi > lo ? hi : null, text: t.replace(/\s+/g, ' ').trim().slice(0, 80) };
+}
+async function wikiBudget(title, year) {
+  const w = await wget(`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(title)}&prop=wikitext&section=0&format=json&redirects=1`);
+  const txt = w?.parse?.wikitext?.['*'] || '';
+  if (!/\{\{\s*Infobox film/i.test(txt)) return null;
+  if (year && !new RegExp(`\\b(${+year - 1}|${year}|${+year + 1})\\b`).test(txt)) return null;
+  const m = txt.match(/\|\s*budget\s*=([^\n]*(?:\n(?!\s*\||\}\})[^\n]*)*)/i);
+  const b = parseBudget(m && m[1]);
+  return b ? { ...b, source: 'Wikipedia', url: `https://en.wikipedia.org/wiki/${encodeURIComponent(w.parse.title.replace(/ /g, '_'))}` } : null;
+}
+async function budgetFor(id) {
+  const d = await tmdb(`movie/${id}`, { language: 'en-US', append_to_response: 'external_ids' });
+  const year = (d.release_date || '').slice(0, 4);
+  let out = null, enTitle = null;
+  const q = d.external_ids?.wikidata_id;
+  if (q && /^Q\d+$/.test(q)) {
+    const e = (await wget(`https://www.wikidata.org/wiki/Special:EntityData/${q}.json`))?.entities?.[q];
+    enTitle = e?.sitelinks?.enwiki?.title || null;
+    if (enTitle) out = await wikiBudget(enTitle, year);
+    const c = !out && e?.claims?.P2130?.[0]?.mainsnak?.datavalue?.value;
+    if (c && c.amount) {
+      const unit = String(c.unit || '').split('/').pop(), amt = Math.abs(parseFloat(c.amount));
+      if (unit === 'Q4917') out = { cur: '$', low: amt, high: null, text: `$${Math.round(amt / 1e6)} million`, source: 'Wikidata', url: `https://www.wikidata.org/wiki/${q}` };
+      if (unit === 'Q80524') out = { cur: '₹', low: amt / 1e7, high: null, text: `₹${(amt / 1e7).toFixed(0)} crore`, source: 'Wikidata', url: `https://www.wikidata.org/wiki/${q}` };
+    }
+  }
+  if (!out) {   // search Wikipedia: "<title> <year> film"
+    const s = await wget(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(`${d.title} ${year} film`)}&srlimit=3&format=json`);
+    for (const hit of (s?.query?.search || [])) { if (hit.title === enTitle) continue; out = await wikiBudget(hit.title, year); if (out) break; }
+  }
+  if (!out && d.budget > 0) out = { cur: '$', low: d.budget, high: null, text: `$${(d.budget / 1e6).toFixed(0)} million`, source: 'TMDB', url: `https://www.themoviedb.org/movie/${d.id}` };
+  return { id: d.id, budget: out };
 }
 // Hollywood (English-language) lists.
 async function hollywood(query) {
@@ -201,6 +257,11 @@ export default async function handler(req, res) {
       }));
       res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
       return res.status(200).json({ results });
+    }
+    if (/^\d{1,9}$/.test(String(req.query.budget || ''))) {
+      const out = await budgetFor(req.query.budget);
+      res.setHeader('Cache-Control', 's-maxage=604800, stale-while-revalidate=2592000');
+      return res.status(200).json(out);
     }
     // Find one movie by title (+ year, language): /api/tmdb?find=KGF Chapter 2&year=2022
     if (req.query.find) {

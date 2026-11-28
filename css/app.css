@@ -1643,3 +1643,26 @@ div.trow{cursor:default}
 .boxoffice .upctl .seg{max-width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .boxoffice .upctl .seg::-webkit-scrollbar{display:none}
 .boxoffice .upctl .seg button{flex:none}
+/* Poster hover: Rate = solid brand green with dark bold text (high contrast); Save = dark glass */
+.hov button:first-child{background:var(--accent);color:#0A0A0A;font-weight:600;letter-spacing:.01em;border:0;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.hov button:first-child .i{color:#0A0A0A}
+.hov button:first-child:hover{filter:none;background:#D4FF4A}
+.hov button:not(:first-child){background:rgba(10,10,10,.82);border:1px solid rgba(255,255,255,.22);font-weight:500}
+/* Box office navigation: India / Hollywood switch, underline tabs, pill filters */
+.bonav{display:grid;gap:14px;margin:4px 20px 18px}
+.regsw{display:inline-flex;gap:4px;width:max-content;padding:4px;border-radius:14px;background:#0F0F0F;border:1px solid var(--line)}
+.regsw button{min-height:42px;padding:0 22px;border-radius:10px;font-size:15px;font-weight:600;color:var(--muted);background:transparent;transition:background .2s,color .2s}
+.regsw button:hover{color:var(--text)}
+.regsw button.on{background:var(--accent);color:#0A0A0A}
+.subtabs{display:flex;gap:26px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.subtabs::-webkit-scrollbar{display:none}
+.subtabs button{position:relative;flex:none;padding:10px 0 13px;background:none;border:0;border-radius:0;font-size:15px;color:var(--muted);white-space:nowrap;min-height:0}
+.subtabs button:hover{color:var(--text)}
+.subtabs button.on{color:var(--text);font-weight:600}
+.subtabs button.on::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--accent)}
+.bofilters{display:flex;flex-wrap:wrap;gap:8px}
+.bofilters:empty{display:none}
+.bofilters .upsel select{min-height:38px;border-radius:999px;padding:0 36px 0 16px;font-size:14px;background-color:#0F0F0F}
+.vpill.vwait{opacity:.6}
+.bomore .btn[hidden]{display:none}
+.boxoffice #bolist > .sec:first-child{margin-top:4px;border-top:0;padding-top:0}
