@@ -28,6 +28,7 @@ import { renderAdmin } from './screens/admin.js';
 import { renderStudios, renderStudio, renderScreeners } from './screens/studio.js';
 import { renderLegalDoc, renderLegalHub, renderContact, checkTerms } from './screens/legal.js';
 import { renderUpcoming, checkReminders } from './screens/upcoming.js';
+import { renderTaste, wantsTaste } from './screens/taste.js';
 import { renderBoxOffice } from './screens/boxoffice.js';
 import { startTilt } from './motion.js';
 
@@ -54,9 +55,37 @@ const dot = k => {
   const what = k === 'friends' ? `new friend update${n === 1 ? '' : 's'}` : `new chat${n === 1 ? '' : 's'}`;
   return `<span class="ndot" aria-label="${n} ${what}">${n > 9 ? '9+' : n}</span>`;
 };
+let pillAt = -1;
+/** Slide a finger along the bar: the highlight follows it, and letting go opens that tab. */
+function dragPill(bar, tabs) {
+  if (!bar) return;
+  const pill = bar.querySelector('.pill'); let x0 = null, moved = false;
+  const at = x => { const r = bar.getBoundingClientRect(); return Math.min(tabs.length - 1, Math.max(0, Math.floor((x - r.left) / (r.width / tabs.length)))); };
+  bar.addEventListener('dragstart', e => e.preventDefault());   // links would otherwise start a native drag and cancel the slide
+  bar.addEventListener('pointerdown', e => { x0 = e.clientX; moved = false; });
+  bar.addEventListener('pointermove', e => {
+    if (x0 === null) return;
+    if (!moved && Math.abs(e.clientX - x0) > 10) { moved = true; bar.classList.add('drag'); pill.style.opacity = 1; try { bar.setPointerCapture(e.pointerId); } catch (er) { /* ignore */ } }
+    if (moved) { const i = at(e.clientX); if (+pill.style.getPropertyValue('--i') !== i) { pill.style.setProperty('--i', i); buzz(6); } }
+  });
+  const end = e => {
+    if (x0 === null) return; x0 = null; bar.classList.remove('drag');
+    if (!moved) return;
+    const i = at(e.clientX), go = tabs[i];
+    const eat = ev => ev.preventDefault(); bar.addEventListener('click', eat, true); setTimeout(() => bar.removeEventListener('click', eat, true), 350);
+    pillAt = i; if (go && location.hash !== go.h) location.hash = go.h;
+  };
+  bar.addEventListener('pointerup', end); bar.addEventListener('pointercancel', () => { x0 = null; bar.classList.remove('drag'); if (pillAt >= 0) pill.style.setProperty('--i', pillAt); });
+}
 function chrome(active) {
-  // Phone: five plain tabs
-  $('#tabs').innerHTML = `<div class="bar">${NAV.filter(n => n.tab).map(n => { const on = active === n.k; return `<a href="${n.h}" class="${on ? 'on' : ''}" ${on ? 'aria-current="page"' : ''}><span class="ic">${ic(n.i)}${dot(n.k)}</span><span class="lb">${n.l}</span></a>`; }).join('')}</div>`;
+  // Phone: floating glass pill. The light highlight slides to the open tab; you can also drag across it.
+  const tabs = NAV.filter(n => n.tab), idx = tabs.findIndex(n => n.k === active);
+  const meIc = cloud.profile ? `<span class="tav">${avatar(cloud.profile, 'sm')}</span>` : ic('user');
+  $('#tabs').innerHTML = `<nav class="bar pillbar" aria-label="Main" style="--n:${tabs.length}"><span class="pill" aria-hidden="true" style="--i:${pillAt >= 0 ? pillAt : Math.max(idx, 0)};opacity:${idx >= 0 ? 1 : 0}"></span>${tabs.map(n => { const on = active === n.k; return `<a href="${n.h}" draggable="false" class="${on ? 'on' : ''}" ${on ? 'aria-current="page"' : ''} aria-label="${n.l}"><span class="ic">${n.k === 'me' ? meIc : ic(n.i)}${dot(n.k)}</span><span class="lb">${n.l}</span></a>`; }).join('')}</nav>`;
+  const pill = $('#tabs .pill');
+  if (idx >= 0 && pillAt !== idx) requestAnimationFrame(() => requestAnimationFrame(() => pill && pill.style.setProperty('--i', idx)));
+  pillAt = idx;
+  dragPill($('#tabs .bar'), tabs);
   $('#tabs').hidden = active === 'none' || document.body.classList.contains('inroom');
   // Top bar links (desktop) + profile
   $('#tnav').innerHTML = NAV.filter(n => n.top !== false).map(n => { const on = active === n.k; return `<a href="${n.h}" class="${on ? 'on' : ''}" ${on ? 'aria-current="page"' : ''}>${n.l}${dot(n.k)}</a>`; }).join('');
@@ -109,7 +138,7 @@ function topbar() {
 /* ---------------- router ---------------- */
 const route = () => { const p = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent); return { p: p[0] || '', a: p[1] || '', b: p[2] || '' }; };
 let baseHash = null, baseRendered = null, modalFromBase = false, lastKey = '';
-const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight], play: ['play', null], security: ['me', renderSecurity], admin: ['me', null], studios: ['me', renderStudios], studio: ['me', null], screeners: ['me', renderScreeners], legal: ['me', renderLegalHub], terms: ['me', a => renderLegalDoc($('#app'), 'terms')], privacy: ['me', a => renderLegalDoc($('#app'), 'privacy')], guidelines: ['me', a => renderLegalDoc($('#app'), 'guidelines')], contact: ['me', renderContact], upcoming: ['upcoming', renderUpcoming], boxoffice: ['boxoffice', null] };
+const PAGES = { '': ['home', renderHome], rate: ['rate', renderQuickRate], me: ['me', renderMe], search: ['search', a => renderSearch($('#app'), a)], match: ['friends', renderMatch], friends: ['friends', null], u: ['friends', null], invite: ['friends', null], chat: ['chat', null], list: ['home', null], feed: ['none', null], about: ['me', renderAbout], signin: ['none', null], welcome: ['none', renderWelcome], myreviews: ['me', renderMyReviews], plus: ['me', null], wrapped: ['none', renderWrapped], movienight: ['friends', renderMovieNight], play: ['play', null], security: ['me', renderSecurity], admin: ['me', null], studios: ['me', renderStudios], studio: ['me', null], screeners: ['me', renderScreeners], legal: ['me', renderLegalHub], terms: ['me', a => renderLegalDoc($('#app'), 'terms')], privacy: ['me', a => renderLegalDoc($('#app'), 'privacy')], guidelines: ['me', a => renderLegalDoc($('#app'), 'guidelines')], contact: ['me', renderContact], upcoming: ['upcoming', renderUpcoming], taste: ['none', renderTaste], boxoffice: ['boxoffice', null] };
 
 function renderBase(r, keepScroll) {
   const app = $('#app'), y = scrollY, key = location.hash || '#/';
@@ -319,6 +348,8 @@ onCloud(async c => {
   if (uid && c.needsCode && route().a !== '2fa') { location.hash = '#/signin/2fa'; return; }
   if (uid && needsSetup() && c.profile !== undefined && !/^#\/(welcome|signin)/.test(location.hash) && (c.profile || c.stats)) location.hash = '#/welcome';
   const becameReady = c.ready && !lastReady; lastReady = c.ready;
+  // New visitor, not signed in: ask for their top 10 first (once).
+  if (becameReady && !uid && route().p === '' && wantsTaste()) { location.hash = '#/taste'; return; }
   if (becameReady || (uid && uid !== lastReminderUser)) { lastReminderUser = uid; if (!c.needsCode) checkReminders(); }
   if (c.user && c.profile?.username) { watchInbox(); checkTerms(); } else unwatchInbox();
   // Opened an invite link before signing in? Finish it now.

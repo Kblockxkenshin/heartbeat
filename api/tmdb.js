@@ -237,6 +237,14 @@ export default async function handler(req, res) {
       res.setHeader('Cache-Control', 's-maxage=43200, stale-while-revalidate=604800');
       return res.status(200).json(out);
     }
+    // Trending movies + shows this week (for the "pick your top 10" screen).
+    if (req.query.trending) {
+      const page = Math.min(Math.max(parseInt(req.query.page, 10) || 1, 1), 5);
+      const d = await tmdb('trending/all/week', { language: 'en-US', page: String(page) });
+      res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
+      return res.status(200).json({ page, total_pages: Math.min(d.total_pages || 1, 5), results: (d.results || []).filter(r => (r.media_type === 'movie' || r.media_type === 'tv') && r.poster_path)
+        .map(r => ({ id: r.id, type: r.media_type, name: r.title || r.name, year: (r.release_date || r.first_air_date || '').slice(0, 4), poster_path: r.poster_path })) });
+    }
     if (req.query.hw === 'now' || req.query.hw === 'top') {
       const out = await hollywood(req.query);
       res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');

@@ -31,7 +31,7 @@ export function renderHome(app) {
   </header>
   <nav class="incine" aria-label="Indian cinema">
     <a class="card linkcard" href="#/boxoffice"><i class="i i-chart-line" aria-hidden="true"></i><span><b>Box office</b><span class="meta">Hits, flops, ₹ crore</span></span></a>
-    <a class="card linkcard" href="#/upcoming"><i class="i i-calendar-days" aria-hidden="true"></i><span><b>Upcoming</b><span class="meta">Indian releases</span></span></a>
+    <a class="card linkcard" href="#/upcoming"><i class="i i-calendar-days" aria-hidden="true"></i><span><b>Upcoming</b><span class="meta">India + Hollywood</span></span></a>
   </nav>
 
   <div class="hero-grid">
