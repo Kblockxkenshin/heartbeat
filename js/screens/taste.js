@@ -19,19 +19,28 @@ const device = () => {
 export const wantsTaste = () => { try { return !cloud.user && !localStorage.getItem(DONE); } catch (e) { return false; } };
 const finish = () => { try { localStorage.setItem(DONE, '1'); } catch (e) { /* ignore */ } };
 
-const st = { picks: [], pool: [], q: '', seq: 0, res: null };
+const st = { picks: [], list: [], q: '', seq: 0, res: null, type: 'movie', svc: '' };
+
+const SVCS = [['', 'Popular'], ['netflix', 'Netflix'], ['prime', 'Prime Video'], ['disney', 'Disney+'], ['max', 'Max'], ['hulu', 'Hulu'], ['apple', 'Apple TV+'], ['peacock', 'Peacock'], ['paramount', 'Paramount+'], ['hotstar', 'JioHotstar'], ['indian', 'Indian']];
+const today = () => new Date().toISOString().slice(0, 10);
 
 export async function renderTaste(app) {
   document.title = 'Your top 10 — Heartbeat';
   try { st.picks = JSON.parse(localStorage.getItem(PICKS) || '[]').slice(0, MAX); } catch (e) { st.picks = []; }
   if (st.res) return drawResults(app);   // the page got redrawn (sign-in state changed): keep showing the results
+  st.type ||= 'movie'; st.svc ??= '';
   app.innerHTML = `<div class="screen taste">
     <header class="hhead"><p class="eyebrow">Welcome to Heartbeat</p><h1 class="display">Your <em>top 10.</em></h1>
       <p class="sub uplead">Pick the movies and shows you love most. We'll show you how many people share your taste.</p></header>
     <div class="bosearch"><label class="bsearch">${ic('search')}<input id="tq" type="search" placeholder="Search any movie or show…" aria-label="Search movies and shows" autocomplete="off"></label></div>
     <div class="tpicked" id="tpicked" aria-live="polite"></div>
-    <div class="sec"><h2 id="tgh">Trending this week</h2></div>
-    <div class="tgrid" id="tgrid"><div class="card"><div class="rskel"></div></div></div>
+    <div id="tbrowse">
+      <div class="regsw ttype" role="tablist" aria-label="Movies or shows">${[['movie', 'Movies'], ['tv', 'Shows']].map(([k, l]) => `<button role="tab" data-type="${k}" aria-selected="${st.type === k}" class="${st.type === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="tsvcs" role="tablist" aria-label="Where it streams">${SVCS.map(([k, l]) => `<button role="tab" data-svc="${k}" aria-selected="${st.svc === k}" class="${st.svc === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+    </div>
+    <div class="sec"><h2 id="tgh"></h2></div>
+    <div class="tgrid" id="tgrid"></div>
+    <div class="tmore" id="tmore"></div>
   </div>
   <div class="tbarb"><div class="tbarin"><span class="meta" id="tcount"></span>
       <button class="btn" id="tgo" disabled>See who shares my taste</button></div>
@@ -40,51 +49,89 @@ export async function renderTaste(app) {
   $('#tgo', app).onclick = () => showResults(app);
   let qt = 0;
   $('#tq', app).oninput = e => { clearTimeout(qt); const v = e.target.value.trim(); qt = setTimeout(() => search(app, v), 250); };
+  $$('[data-type]', app).forEach(b => b.onclick = () => { st.type = b.dataset.type; $$('[data-type]', app).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); browse(app, true); });
+  $$('[data-svc]', app).forEach(b => b.onclick = () => { st.svc = b.dataset.svc; $$('[data-svc]', app).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); b.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); browse(app, true); });
   drawPicked(app);
-  try {
-    const pages = await Promise.all([1, 2].map(p => fetch(`/api/tmdb?trending=1&page=${p}`).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))));
-    const seen = new Set(); st.pool = pages.flatMap(x => x.results || []).filter(x => !seen.has(keyOf(x)) && seen.add(keyOf(x)));
-  } catch (e) { st.pool = []; }
-  if (!document.body.contains(app) || !$('#tgrid', app)) return;
-  drawGrid(app, st.pool);
+  // Load the next page by itself when you scroll near the bottom.
+  st.io?.disconnect();
+  if ('IntersectionObserver' in window) { st.io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting) && !st.q) browse(app, false); }, { rootMargin: '800px' }); st.io.observe($('#tmore', app)); }
+  browse(app, true);
+}
+
+/** Every movie / show that is already out (optionally on one service), most popular first, page by page. */
+async function browse(app, fresh) {
+  if (fresh) { st.list = []; st.page = 0; st.pages = 1; st.bseq = (st.bseq || 0) + 1; st.busy = false; }
+  if (st.busy || st.page >= st.pages) return;
+  const my = st.bseq; st.busy = true;
+  const label = SVCS.find(x => x[0] === st.svc)?.[1] || 'Popular', what = st.type === 'tv' ? 'shows' : 'movies';
+  $('#tgh', app).textContent = st.svc === '' ? `Popular ${what}` : st.svc === 'indian' ? `Indian ${what}` : `${what[0].toUpperCase() + what.slice(1)} on ${label}`;
+  if (fresh) $('#tgrid', app).innerHTML = Array.from({ length: 9 }, () => '<span class="tcard"><span class="tpost tsk"></span></span>').join('');
+  $('#tmore', app).innerHTML = '<span class="meta">Loading…</span>';
+  let d = null;
+  try { d = await fetch(`/api/tmdb?pick=${st.type}&svc=${encodeURIComponent(st.svc)}&page=${st.page + 1}`).then(r => r.ok ? r.json() : null); } catch (e) { d = null; }
+  if (my !== st.bseq || !$('#tgrid', app)) return;
+  st.busy = false;
+  if (!d) { $('#tmore', app).innerHTML = '<button class="btn ghost" id="tretry">Couldn’t load. Try again</button>'; $('#tretry', app).onclick = () => browse(app, false); if (fresh) $('#tgrid', app).innerHTML = ''; return; }
+  st.page = d.page || st.page + 1; st.pages = d.total_pages || 0;
+  const seen = new Set(st.list.map(keyOf)), add = (d.results || []).filter(x => !seen.has(keyOf(x)));
+  st.list = st.list.concat(add);
+  if (!st.q) { if (fresh) drawGrid(app, st.list); else appendGrid(app, add, st.list); }
+  $('#tmore', app).innerHTML = st.page < st.pages ? `<button class="btn ghost" id="tload">Show more</button><span class="meta">${d.total ? `${d.total.toLocaleString('en-US')} ${what}` : ''}</span>` : (st.list.length ? '<span class="meta">That’s all of them. Search for anything else.</span>' : '<span class="meta">Nothing here right now.</span>');
+  $('#tload', app)?.addEventListener('click', () => browse(app, false));
 }
 
 async function search(app, v) {
-  const my = ++st.seq;
-  if (v.length < 2) { $('#tgh', app).textContent = 'Trending this week'; return drawGrid(app, st.pool); }
+  const my = ++st.seq; st.q = v.length >= 2 ? v : '';
+  $('#tbrowse', app).hidden = !!st.q; $('#tmore', app).hidden = !!st.q;
+  if (!st.q) { browse(app, true); return; }
   $('#tgh', app).textContent = `Results for “${v}”`;
   try {
     const d = await fetch(`/api/tmdb?q=${encodeURIComponent(v)}`).then(r => r.json());
     if (my !== st.seq) return;
-    drawGrid(app, (d.results || []).filter(x => x.type === 'movie' || x.type === 'tv'));
+    // Only things that are already out (no upcoming movies).
+    const t = today();
+    drawGrid(app, (d.results || []).filter(x => (x.type === 'movie' || x.type === 'tv') && (x.date ? x.date <= t : x.year && x.year < t.slice(0, 4))));
   } catch (e) { $('#tgrid', app).innerHTML = '<div class="meta" style="padding:12px">Search is not working right now.</div>'; }
 }
 
-function drawGrid(app, list) {
-  const g = $('#tgrid', app); if (!g) return;
-  g.innerHTML = list.length ? list.map(x => { const k = keyOf(x), i = st.picks.findIndex(p => p.key === k);
-    return `<button class="tcard ${i >= 0 ? 'on' : ''}" data-k="${esc(k)}" aria-pressed="${i >= 0}" aria-label="${esc(x.name)}${x.year ? ` (${esc(x.year)})` : ''}${i >= 0 ? `, pick number ${i + 1}` : ''}">
+const cardHtml = x => { const k = keyOf(x), i = st.picks.findIndex(p => p.key === k);
+  return `<button class="tcard ${i >= 0 ? 'on' : ''}" data-k="${esc(k)}" aria-pressed="${i >= 0}" aria-label="${esc(x.name)}${x.year ? ` (${esc(x.year)})` : ''}${i >= 0 ? `, pick number ${i + 1}` : ''}">
       <span class="tpost">${x.poster_path ? `<img src="${esc(img(x.poster_path))}" alt="" loading="lazy">` : `<i>${esc(x.name.slice(0, 2).toUpperCase())}</i>`}${i >= 0 ? `<b class="tnum">${i + 1}</b>` : ''}</span>
-      <span class="tname">${esc(x.name)}</span><span class="meta">${esc([x.type === 'tv' ? 'Show' : 'Movie', x.year].filter(Boolean).join(' · '))}</span></button>`; }).join('')
-    : '<div class="meta" style="padding:12px">Nothing found. Try another name.</div>';
-  $$('.tcard', g).forEach(b => b.onclick = () => toggle(app, list.find(x => keyOf(x) === b.dataset.k), list));
+      <span class="tname">${esc(x.name)}</span><span class="meta">${esc([x.type === 'tv' ? 'Show' : 'Movie', x.year].filter(Boolean).join(' · '))}</span></button>`; };
+function wire(app, cards, list) { cards.forEach(b => b.onclick = () => toggle(app, list.find(x => keyOf(x) === b.dataset.k))); }
+function drawGrid(app, list) {
+  const g = $('#tgrid', app); if (!g) return; st.shown = list;
+  g.innerHTML = list.length ? list.map(cardHtml).join('') : '<div class="meta" style="padding:12px">Nothing found. Try another name.</div>';
+  wire(app, $$('.tcard', g), list);
   reveal($$('.tcard', g).slice(0, 12));
 }
+function appendGrid(app, add, list) {
+  const g = $('#tgrid', app); if (!g || !add.length) return; st.shown = list;
+  g.insertAdjacentHTML('beforeend', add.map(cardHtml).join(''));
+  wire(app, $$('.tcard', g).slice(-add.length), list);
+}
+/** Re-number the picked cards without redrawing the grid. */
+function markGrid(app) {
+  $$('.tcard[data-k]', app).forEach(b => { const i = st.picks.findIndex(p => p.key === b.dataset.k), on = i >= 0;
+    b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+    const post = b.querySelector('.tpost'); let n = post.querySelector('.tnum');
+    if (on) { if (!n) { n = document.createElement('b'); n.className = 'tnum'; post.appendChild(n); } n.textContent = i + 1; } else n?.remove(); });
+}
 
-function toggle(app, x, list) {
+function toggle(app, x) {
   if (!x) return;
   const k = keyOf(x), i = st.picks.findIndex(p => p.key === k);
   if (i >= 0) st.picks.splice(i, 1);
   else if (st.picks.length >= MAX) { toast('That\'s 10! Remove one to swap it.', 'think'); return; }
   else st.picks.push({ key: k, id: x.id, type: x.type, name: x.name, year: x.year, poster_path: x.poster_path });
   try { localStorage.setItem(PICKS, JSON.stringify(st.picks)); } catch (e) { /* ignore */ }
-  drawPicked(app); drawGrid(app, list);
+  drawPicked(app); markGrid(app);
 }
 
 function drawPicked(app) {
   const n = st.picks.length, box = $('#tpicked', app);
   box.innerHTML = n ? st.picks.map((p, i) => `<button class="tchip" data-i="${i}" aria-label="Remove ${esc(p.name)}"><b>${i + 1}</b>${esc(p.name)} ${ic('x')}</button>`).join('') : '';
-  $$('.tchip', box).forEach(b => b.onclick = () => { st.picks.splice(+b.dataset.i, 1); try { localStorage.setItem(PICKS, JSON.stringify(st.picks)); } catch (e) { /* ignore */ } drawPicked(app); drawGrid(app, $('#tq', app).value.trim().length >= 2 ? [] : st.pool); if ($('#tq', app).value.trim().length >= 2) search(app, $('#tq', app).value.trim()); });
+  $$('.tchip', box).forEach(b => b.onclick = () => { st.picks.splice(+b.dataset.i, 1); try { localStorage.setItem(PICKS, JSON.stringify(st.picks)); } catch (e) { /* ignore */ } drawPicked(app); markGrid(app); });
   $('#tcount', app).textContent = n < MIN ? `Pick at least ${MIN} (${n}/${MAX})` : `${n} of ${MAX} picked`;
   $('#tgo', app).disabled = n < MIN;
 }

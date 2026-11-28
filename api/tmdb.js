@@ -229,6 +229,41 @@ async function playing(query) {
   return { page, total_pages: Math.min(d.total_pages || 1, 20), total: d.total_results || 0, results };
 }
 
+/* ---------- "Pick your top 10" lists ---------- */
+// Streaming services by name. TMDB's ids for them change sometimes, so we look them up by name (cached).
+const SERVICES = { netflix: ['Netflix'], prime: ['Amazon Prime Video', 'Amazon Prime Video with Ads'], disney: ['Disney Plus'], max: ['HBO Max', 'Max'], hulu: ['Hulu'], apple: ['Apple TV+', 'Apple TV Plus', 'Apple TV'], peacock: ['Peacock Premium', 'Peacock'], paramount: ['Paramount Plus', 'Paramount+', 'Paramount Plus Premium'], hotstar: ['JioHotstar', 'Jio Hotstar', 'Hotstar'] };
+let provCache = null, provAt = 0;
+async function providerIds(type, svc) {
+  if (!provCache || Date.now() - provAt > 864e5) {
+    const [m, t, mi, ti] = await Promise.all([tmdb('watch/providers/movie', { watch_region: 'US' }), tmdb('watch/providers/tv', { watch_region: 'US' }),
+      tmdb('watch/providers/movie', { watch_region: 'IN' }).catch(() => ({ results: [] })), tmdb('watch/providers/tv', { watch_region: 'IN' }).catch(() => ({ results: [] }))]);
+    provCache = { movie: m.results || [], tv: t.results || [], movieIN: mi.results || [], tvIN: ti.results || [] }; provAt = Date.now();
+  }
+  const region = svc === 'hotstar' ? 'IN' : 'US';
+  const list = provCache[type + (region === 'IN' ? 'IN' : '')] || [];
+  const names = SERVICES[svc].map(n => n.toLowerCase());
+  return { region, ids: list.filter(p => names.includes(String(p.provider_name).toLowerCase())).map(p => p.provider_id) };
+}
+async function pickList(q) {
+  const type = q.pick === 'tv' ? 'tv' : 'movie';
+  const page = Math.min(Math.max(parseInt(q.page, 10) || 1, 1), 500);
+  const today = new Date().toISOString().slice(0, 10);
+  const dateKey = type === 'tv' ? 'first_air_date' : 'primary_release_date';
+  const params = { language: 'en-US', page: String(page), include_adult: 'false', sort_by: 'popularity.desc', [dateKey + '.lte']: today, 'vote_count.gte': '20' };
+  const svc = String(q.svc || '');
+  if (svc === 'indian') { params.with_original_language = 'hi|te|ta|ml|kn|bn|mr|pa'; params['vote_count.gte'] = '5'; }
+  else if (SERVICES[svc]) {
+    const { region, ids } = await providerIds(type, svc);
+    if (!ids.length) return { page, total_pages: 0, results: [], note: 'service not found' };
+    params.watch_region = region; params.with_watch_providers = ids.join('|'); params.with_watch_monetization_types = 'flatrate|free|ads';
+    params['vote_count.gte'] = '5';
+  }
+  const d = await tmdb('discover/' + type, params);
+  return { page, total_pages: Math.min(d.total_pages || 1, 500), total: d.total_results || 0,
+    results: (d.results || []).filter(r => r.poster_path && (r.release_date || r.first_air_date) && (r.release_date || r.first_air_date) <= today)
+      .map(r => ({ id: r.id, type, name: r.title || r.name, year: (r.release_date || r.first_air_date || '').slice(0, 4), poster_path: r.poster_path })) };
+}
+
 export default async function handler(req, res) {
   try {
     const { q, type, id } = req.query;
@@ -237,13 +272,11 @@ export default async function handler(req, res) {
       res.setHeader('Cache-Control', 's-maxage=43200, stale-while-revalidate=604800');
       return res.status(200).json(out);
     }
-    // Trending movies + shows this week (for the "pick your top 10" screen).
-    if (req.query.trending) {
-      const page = Math.min(Math.max(parseInt(req.query.page, 10) || 1, 1), 5);
-      const d = await tmdb('trending/all/week', { language: 'en-US', page: String(page) });
+    // "Pick your top 10": every movie or show that is already out, optionally only what's on one streaming service.
+    if (req.query.pick === 'movie' || req.query.pick === 'tv') {
+      const out = await pickList(req.query);
       res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
-      return res.status(200).json({ page, total_pages: Math.min(d.total_pages || 1, 5), results: (d.results || []).filter(r => (r.media_type === 'movie' || r.media_type === 'tv') && r.poster_path)
-        .map(r => ({ id: r.id, type: r.media_type, name: r.title || r.name, year: (r.release_date || r.first_air_date || '').slice(0, 4), poster_path: r.poster_path })) });
+      return res.status(200).json(out);
     }
     if (req.query.hw === 'now' || req.query.hw === 'top') {
       const out = await hollywood(req.query);
@@ -270,6 +303,7 @@ export default async function handler(req, res) {
       const results = (data.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv').slice(0, 12).map(r => ({
         id: r.id, type: r.media_type, name: r.title || r.name,
         year: (r.release_date || r.first_air_date || '').slice(0, 4),
+        date: r.release_date || r.first_air_date || null,
         poster_path: r.poster_path || null,
       }));
       res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
