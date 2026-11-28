@@ -2,14 +2,14 @@
 //  - App shell: cached on install, updated in the background.
 //  - TMDB data (/api/tmdb): network first, saved copy when offline.
 //  - Posters & backdrops: not touched here (the browser loads and caches them itself).
-const VERSION = 'v42';
+const VERSION = 'v43';
 const SHELL = `hb-shell-${VERSION}`, API = 'hb-api', IMG = 'hb-img', IMG_MAX = 200;
 const FILES = ['/', '/index.html', '/manifest.json', '/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png',
   '/css/app.css', '/css/icons.css', '/js/app.js', '/js/config.js', '/js/data.js', '/js/store.js', '/js/tmdb.js', '/js/ui.js', '/js/journey.js',
   '/js/screens/home.js', '/js/screens/detail.js', '/js/screens/quickrate.js', '/js/screens/me.js', '/js/screens/search.js',
   '/js/screens/match.js', '/js/screens/list.js', '/js/screens/feed.js', '/js/screens/about.js',
   '/js/cloud.js', '/js/screens/auth.js', '/js/reviews.js', '/js/screens/reviews.js',
-  '/js/social.js', '/js/screens/people.js', '/js/vendor/qrcode.js', '/js/screens/chat.js', '/js/screens/recs.js', '/js/screens/plus.js', '/js/screens/wrapped.js', '/js/screens/play.js', '/js/screens/security.js', '/js/screens/admin.js', '/js/screens/studio.js', '/js/legal.js', '/js/screens/legal.js', '/js/screens/upcoming.js', '/js/screens/boxoffice.js', '/js/screens/taste.js', '/js/motion.js', '/icons/tmdb.svg'];
+  '/js/social.js', '/js/screens/people.js', '/js/vendor/qrcode.js', '/js/screens/chat.js', '/js/screens/recs.js', '/js/screens/plus.js', '/js/screens/wrapped.js', '/js/screens/play.js', '/js/screens/security.js', '/js/screens/admin.js', '/js/screens/studio.js', '/js/legal.js', '/js/screens/legal.js', '/js/screens/upcoming.js', '/js/screens/boxoffice.js', '/js/screens/taste.js', '/js/tour.js', '/js/motion.js', '/icons/tmdb.svg'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

@@ -6,6 +6,7 @@ import { rerender } from '../app.js';
 import { SVCS } from './taste.js';
 import { BYID } from '../data.js';
 import { idOf } from '../cloud.js';
+import { qrCoach } from '../tour.js';
 
 let session = 0;
 /* ---------- The deck: every released movie and show, shuffled with a taste-aware algorithm ----------
@@ -115,6 +116,7 @@ export function renderQuickRate(app) {
   if (!matchMedia('(min-width: 768px)').matches) app.querySelector('.qfilt .on[data-qsvc]')?.scrollIntoView({ inline: 'center', block: 'nearest' });
   hydratePosters(app);
   fit(app); requestAnimationFrame(() => fit(app)); setTimeout(() => fit(app), 400);
+  qrCoach(app);
   if (!q.length) return;
   // Warm up the next posters so swiping feels instant
   q.slice(2, 5).forEach(t => { if (t.posterPath) { const im = new Image(); im.src = `https://image.tmdb.org/t/p/w500${t.posterPath}`; } });

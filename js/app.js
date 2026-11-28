@@ -29,6 +29,7 @@ import { renderStudios, renderStudio, renderScreeners } from './screens/studio.j
 import { renderLegalDoc, renderLegalHub, renderContact, checkTerms } from './screens/legal.js';
 import { renderUpcoming, checkReminders } from './screens/upcoming.js';
 import { renderTaste, wantsTaste } from './screens/taste.js';
+import { maybeTour, startTour } from './tour.js';
 import { renderBoxOffice } from './screens/boxoffice.js';
 import { startTilt } from './motion.js';
 
@@ -163,6 +164,7 @@ function renderBase(r, keepScroll) {
   else if (r.p === 'chat') { if (inRoom) renderRoom(app, r.a); else renderChats(app, r.a); }
   else (PAGES[r.p] || PAGES[''])[1](app);
   baseHash = key; baseRendered = key;
+  if (r.p === '') tryTour();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
   afterRender(app);
 }
@@ -362,6 +364,14 @@ onCloud(async c => {
 });
 let lastReminderUser = null;
 function confettiSafe() { import('./ui.js').then(m => m.confetti()); }
+
+/* ---------------- first-run tutorial ----------------
+   Once the account state is known: signed-in people, or visitors who already did (or skipped) their top 10. */
+function tryTour() {
+  setTimeout(() => { if (cloud.ready && route().p === '' && (cloud.user ? !cloud.needsCode && !cloud.needsBirthdate : !wantsTaste())) maybeTour(); }, 600);
+}
+onCloud(c => { if (c.ready && route().p === '') tryTour(); });
+document.addEventListener('click', e => { if (e.target.closest?.('[data-tour]')) startTour(); });
 
 /* ---------------- visit counter (for the owner's Stats page) ----------------
    One random id per browser, no names or IP addresses. Counts one visit per device per day + pages viewed. */

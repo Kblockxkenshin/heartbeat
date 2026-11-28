@@ -70,7 +70,7 @@ export function renderMe(app) {
 
   <div class="sec"><h2><i class="i i-bookmark" aria-hidden="true"></i> Watchlist</h2></div>
   ${saved.length ? row(saved.map(t => card(t)).join(''), 'Watchlist') : `<div class="card">${empty('Tap the bookmark on any poster to save it here.')}</div>`}
-  <div style="text-align:center;padding:8px"><a class="see" href="#/about">About Heartbeat & TMDB credits</a></div>
+  <div style="text-align:center;padding:8px"><button class="see" type="button" data-tour>Replay the tutorial</button> · <a class="see" href="#/about">About Heartbeat & TMDB credits</a></div>
   </div>`;
   hydratePosters(app);
   fillMeReviews(app);
