@@ -234,7 +234,6 @@ async function renderMovie(app, id) {
   const budget = n(m.budget_cr), be = n(m.breakeven);
   const first = k => days.filter(d => d.day <= k).reduce((a, d) => a + d.net, 0);
   const wkEnd = (() => { const r = dt(m.release_date).getDay(); return Math.max(1, r === 0 ? 1 : 8 - r); })(); // through the first Sunday
-  const roi = budget && ww ? Math.round((ww / 2 - budget) / budget * 100) : null;   // producer share ≈ half of gross
   const inTheaters = m.running ? daysSince(m.release_date) : (days.length ? days[days.length - 1].day : 0);
   const card = (l, v, s = '', raw = null) => `<div class="card kn"><span class="eyebrow">${l}</span><span class="num big" ${raw != null ? `data-count="${raw}"` : ''}>${v}</span>${s ? `<span class="meta">${s}</span>` : ''}</div>`;
   $('#bom', app).innerHTML = `
@@ -263,7 +262,7 @@ async function renderMovie(app, id) {
     <section class="kgrid">
       ${card('Budget', cr(budget))}${card('Opening day', cr(first(1)), 'India net', first(1))}${card('Opening weekend', cr(first(wkEnd)), `First ${wkEnd} day${wkEnd > 1 ? 's' : ''}`, first(wkEnd))}
       ${card('First week', cr(first(7)), 'India net', first(7))}${card('Lifetime India net', cr(net), m.running ? 'So far' : '', net)}${indiaOnly ? card('Worldwide gross', ww ? cr(ww) : '—', ww ? 'Reported total' : 'Overseas not reported') : card('Worldwide gross', cr(ww), '', ww)}
-      ${card('Overseas', indiaOnly ? '—' : cr(overseas), indiaOnly ? 'Not reported' : '', indiaOnly ? null : overseas)}${card('ROI', roi == null ? '—' : `${roi > 0 ? '+' : ''}${roi}%`, 'Producer share ≈ 50% of gross')}
+      ${card('Overseas', indiaOnly ? '—' : cr(overseas), indiaOnly ? 'Not reported' : '', indiaOnly ? null : overseas)}
       ${card('Days in theaters', inTheaters || '—')}${card('Screens', m.screens ? Number(m.screens).toLocaleString('en-IN') : '—', 'Opening count')}
     </section>
     ${runHTML(m, days)}
@@ -413,13 +412,14 @@ function drawSvgChart(wrap, m, days, { ww, be, budget }) {
 }
 
 /* ---------------- any movie in TMDB: details + a line graph modeled from its reported total ---------------- */
-let sumP = null, repP = null, socP = null;
+let sumP = null, repP = null, socP = null, budP = null;
+const budgetAll = () => (budP ||= rpc('box_office_budget').catch(() => { budP = null; return []; }));
 // Numbers posted on X / Instagram for movies in theaters (who posted it + link). First row per movie is the headline one.
 const socialAll = () => (socP ||= rpc('box_office_social').catch(() => { socP = null; return []; }));
 const amt = r => { const f = v => v < 1 ? `₹${Math.round(v * 100)} lakh` : cr(v).replace(' Cr', ''); const hi = r.high != null && +r.high > +r.low;
   return `${f(+r.low)}${hi ? `–${f(+r.high).replace('₹', '')}` : ''}${+r.low >= 1 || hi && +r.high >= 1 ? ' Cr' : ''}${r.plus ? '+' : ''}`; };
 const socShort = r => `${amt(r)} · ${r.figure}${r.days && !/Day \d/.test(r.figure) ? ` · ${r.days} day${r.days === 1 ? '' : 's'}` : ''}`;
-const safeUrl = u => /^https:\/\/(x\.com|www\.instagram\.com|www\.koimoi\.com)\//.test(u) ? u : '#';
+const safeUrl = u => /^https:\/\/(x\.com|www\.instagram\.com|www\.koimoi\.com|www\.sacnilk\.com|filmibeat\.com|www\.gulte\.com)\//.test(u) ? u : '#';
 function socialHTML(S) {
   return `<section class="card run bosoc"><h2 class="h3">Reported on social media</h2>
     <p class="meta">Numbers posted on X and Instagram. Each one shows who posted it. We have not checked them.</p>
@@ -440,6 +440,44 @@ export function modelRun(total, startISO, nDays) {
   const sum = w.reduce((a, b) => a + b, 0);
   return w.map(x => x / sum * total);
 }
+// ---- Fitted curve. Daily money D(t) = A·e^(−k·t)·f(weekday). Total so far C(T) = D(0)+…+D(T−1) (the integral, added day by day).
+// Posted numbers pin the curve: two posts on different days give k (solved by bisection), then A comes from least squares.
+export const LIFE = 56, K0 = 0.08;
+export const wts = (startISO, k, n = LIFE) => { const s = dt(startISO).getDay(), w = []; for (let d = 0; d < n; d++) w.push(Math.exp(-k * d) * WEEKDAY[(s + d) % 7]); return w; };
+const cumW = (w, t) => { let a = 0; for (let i = 0; i < t && i < w.length; i++) a += w[i]; return a; };
+const scopeOf = f => /^Worldwide/i.test(f) ? 'Worldwide gross' : /India net/i.test(f) ? 'India net' : /India gross/i.test(f) ? 'India gross' : f.replace(/,.*$/, '');
+const dayNo = f => { const m = /Day (\d+)/.exec(f); return m ? +m[1] : null; };
+export function fitRun(S, date) {
+  if (!date || !S || !S.length) return null;
+  const all = S.map(r => { const one = dayNo(r.figure), t = one || r.days || Math.round((dt(r.as_of) - dt(date)) / 864e5) + 1;
+    return { scope: scopeOf(r.figure), single: !!one, t: Math.min(LIFE, Math.max(1, t)), v: (+r.low + (r.high != null && +r.high > +r.low ? +r.high : +r.low)) / 2 }; }).filter(a => a.v > 0);
+  if (!all.length) return null;
+  const pref = ['Worldwide gross', 'India net', 'India gross'], cnt = {};
+  all.forEach(a => cnt[a.scope] = (cnt[a.scope] || 0) + 1);
+  const scope = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || ((pref.indexOf(a) + 1) || 9) - ((pref.indexOf(b) + 1) || 9))[0];
+  const A = all.filter(a => a.scope === scope).sort((x, y) => x.t - y.t);
+  const at = (w, a) => a.single ? w[a.t - 1] : cumW(w, a.t);
+  let k = K0, solved = false;
+  const a1 = A[0], a2 = A[A.length - 1];
+  if (a2.t - a1.t >= 2) {   // ratio g(k) = model(a2)/model(a1) falls as k grows: bisection
+    const R = a2.v / a1.v, g = kk => { const w = wts(date, kk); return at(w, a2) / at(w, a1) - R; };
+    let lo = 0.01, hi = 0.4;
+    // If the posts disagree (no k fits), keep the typical drop rate and let least squares split the difference.
+    if (g(lo) > 0 && g(hi) < 0) { for (let i = 0; i < 50; i++) { const m = (lo + hi) / 2; g(m) > 0 ? lo = m : hi = m; } k = (lo + hi) / 2; solved = true; }
+  }
+  const w = wts(date, k);
+  let num = 0, den = 0; A.forEach(a => { const m = at(w, a); num += a.v * m; den += m * m; });
+  const amp = den ? num / den : 0;
+  return { scope, k, solved, daily: w.map(x => x * amp), anchors: A, total: cumW(w, LIFE) * amp };
+}
+// Typical 8-week total for movies in one language (from the fitted posts). Used when a movie has no posted numbers.
+export function typicalLife(SO, lng) {
+  const by = {}; (SO || []).forEach(r => (by[r.tmdb_id] ||= []).push(r));
+  const fits = Object.values(by).map(rs => ({ lang: rs[0].lang, f: fitRun(rs, rs[0].release_date) })).filter(x => x.f && x.f.total > 0);
+  const med = a => { const s = a.slice().sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : null; };
+  const same = fits.filter(x => x.lang === lng).map(x => x.f.total);
+  return same.length >= 2 ? { total: med(same), n: same.length, lang: true } : { total: med(fits.map(x => x.f.total)) || 1, n: fits.length, lang: false };
+}
 const verdictFrom = (total, budget, running) => {
   if (!total || !budget) return null;
   const r = total / (budget * 2);
@@ -448,8 +486,8 @@ const verdictFrom = (total, budget, running) => {
 
 async function renderTmdbMovie(app, tid) {
   app.innerHTML = `<div class="screen boxoffice"><header class="top"><a class="icon-btn" href="#/boxoffice" aria-label="Back to Box Office">${ic('arrow-left')}</a><span></span></header><div id="bom"><div class="card"><div class="rskel"></div></div></div></div>`;
-  let d, T, R, SO;
-  try { [d, T, R, SO] = await Promise.all([tmdbGet(`/api/tmdb?bo=${tid}`), tracked(), reportedAll(), socialAll()]); }
+  let d, T, R, SO, BU;
+  try { [d, T, R, SO, BU] = await Promise.all([tmdbGet(`/api/tmdb?bo=${tid}`), tracked(), reportedAll(), socialAll(), budgetAll()]); }
   catch (e) { $('#bom', app).innerHTML = `<div class="card"><div class="mascot"><div>We couldn't load this movie right now.</div></div></div>`; return; }
   if (!document.body.contains(app) || !$('#bom', app)) return;
   const date = d.india_release || d.release_date, year = date ? +date.slice(0, 4) : null;
@@ -466,8 +504,22 @@ async function renderTmdbMovie(app, tid) {
   const budget = cur === '$' ? d.budget_usd : null;
   const age = date ? daysSince(date) : null, soon = age != null && age < 1, running = age != null && age >= 1 && age <= 42 && d.status === 'Released';
   const verdict = verdictFrom(total, budget, running);
-  const nDays = !total || !date ? 0 : running ? Math.max(1, age) : 56;
-  const daily = nDays ? modelRun(total, date, nDays) : [];
+  // The graph. Every released movie gets one:
+  //  1) a reported total → spread over the run (modeled shape);
+  //  2) numbers posted online → a decay curve fitted through them;
+  //  3) nothing posted → a rough guess from similar movies in the same language.
+  const B = (BU || []).find(b => b.tmdb_id === d.id);
+  const released = age != null && age >= 1;
+  const today = released ? Math.min(LIFE, age) : 0;
+  let G = null;
+  if (released && total) G = { kind: 'total', daily: running ? (w => { const c = w.slice(0, Math.max(1, today)).reduce((x, y) => x + y, 0); return w.map(x => x / c * total); })(wts(date, -Math.log(0.93))) : modelRun(total, date, LIFE), label: cur === '₹' ? 'Gross' : 'Worldwide gross', fmt,
+    note: 'Modeled line: the total is reported, but the day-by-day shape is our estimate (big opening, slow drop, weekend bumps).' };
+  else if (released && S.length) { const F = fitRun(S, date); if (F && F.total > 0) G = { kind: 'fit', daily: F.daily, label: F.scope, fmt: cr, anchors: F.anchors,
+    note: `Estimate: a curve fitted through the ${F.anchors.length} number${F.anchors.length > 1 ? 's' : ''} posted online (dots). Each day earns e<sup>−${F.k.toFixed(3)}</sup> × the day before, with weekend bumps${F.solved ? ' — the drop rate comes from the posts' : ' — the drop rate is a typical one'}. Dashed part = where it is heading.` }; }
+  if (released && !G) { const TY = typicalLife(SO, d.lang), w = wts(date, K0), sw = w.reduce((a, b) => a + b, 0);
+    G = { kind: 'rough', daily: w.map(x => x / sw * TY.total), label: 'Gross', fmt: cr,
+      note: `Rough estimate — no real numbers were posted for this movie. This line is the typical run of ${TY.n} ${TY.lang ? esc(lang(d.lang)) + ' ' : ''}movie${TY.n === 1 ? '' : 's'} in theaters now, not this movie's real money.` }; }
+  const gTodayCum = G ? G.daily.slice(0, Math.max(1, today)).reduce((a, b) => a + b, 0) : 0;
   const card = (l, v, s = '') => `<div class="card kn"><span class="eyebrow">${l}</span><span class="num big">${v}</span>${s ? `<span class="meta">${s}</span>` : ''}</div>`;
   const fact = (l, v) => v ? `<div><span class="eyebrow">${l}</span><b>${esc(v)}</b></div>` : '';
   const srcNote = rp ? `Total: ${esc(rp.source)}.` : d.revenue_usd ? 'Total and budget: TMDB (worldwide, US dollars).' : '';
@@ -482,17 +534,16 @@ async function renderTmdbMovie(app, tid) {
         <a class="see" href="#/t/tmdb-movie-${d.id}">Ratings &amp; journey ${ic('arrow-right')}</a>
       </div>
     </section>
-    ${total ? `<section class="card chartcard">
-      <div class="chtop"><div><span class="eyebrow" id="chlabel"></span><div class="num huge" id="chtotal">${fmt(total)}</div></div>
+    ${G ? `<section class="card chartcard${G.kind === 'rough' ? ' rough' : ''}">
+      <div class="chtop"><div><span class="eyebrow" id="chlabel"></span><div class="num huge" id="chtotal">${G.kind === 'total' ? fmt(total) : `${G.kind === 'rough' ? '~' : ''}${G.fmt(gTodayCum)}`}</div>${G.kind !== 'total' ? `<span class="meta">${G.kind === 'rough' ? 'Rough estimate' : 'Our estimate'}${running || age <= LIFE ? ' so far' : ''}</span>` : ''}</div>
         <div class="chctl"><div class="seg" role="group" aria-label="Total or daily">${[['cum', 'Cumulative total'], ['daily', 'Daily (modeled)']].map(([k, l]) => `<button data-mode="${k}" class="${st.mode === k ? 'on' : ''}" aria-pressed="${st.mode === k}">${l}</button>`).join('')}</div></div></div>
       <div class="chwrap" id="chwrap"></div>
-      <p class="meta chmodel">Modeled line: the total is reported, but the day-by-day shape is our estimate (big opening, slow drop, weekend bumps).</p>
-    </section>` : S.length ? '' : soon ? `<section class="card"><div class="mascot"><div>Releases on ${esc(fmtDate(date))} – ${1 - age === 1 ? 'tomorrow' : `${1 - age} days to go`}.<br>Box office numbers show up here after it comes out.<br><a href="#/upcoming">Set a reminder in Upcoming</a></div></div></section>` : `<section class="card"><div class="mascot"><div>No box office numbers have been reported for this movie.<br>We only show numbers that come from a real source.</div></div></section>`}
+      <p class="meta chmodel">${G.note}</p>
+    </section>` : soon ? `<section class="card"><div class="mascot"><div>Releases on ${esc(fmtDate(date))} – ${1 - age === 1 ? 'tomorrow' : `${1 - age} days to go`}.<br>The box office graph shows up here after it comes out.<br><a href="#/upcoming">Set a reminder in Upcoming</a></div></div></section>` : `<section class="card"><div class="mascot"><div>We don't know when this movie came out, so we can't draw its graph.</div></div></section>`}
     ${S.length ? socialHTML(S) : ''}
     <section class="kgrid">
       ${!total && S.find(r => /^Worldwide/.test(r.figure)) ? card('Worldwide gross', esc(amt(S.find(r => /^Worldwide/.test(r.figure)))), 'Posted online, see below') : card('Worldwide gross', total ? fmt(total) : '—', rp && rp.high != null && +rp.high > +rp.low ? `Reports go up to ${fmt(+rp.high)}` : cur === '$' ? 'US dollars' : '')}
-      ${card('Budget', d.budget_usd ? usd(d.budget_usd) : '—', d.budget_usd ? 'TMDB' : '')}
-      ${card('ROI', budget && total ? `${Math.round((total / 2 - budget) / budget * 100)}%` : '—', 'Producer share ≈ 50% of gross')}
+      ${B ? card('Budget', esc(amt(B)), `<a href="${esc(safeUrl(B.url))}" target="_blank" rel="noopener nofollow">${esc(B.source_name)}</a>`) : card('Budget', d.budget_usd ? usd(d.budget_usd) : '—', d.budget_usd ? 'TMDB' : '')}
       ${card('Release', date ? esc(fmtDate(date)) : '—', d.india_release ? 'India' : '')}
       ${card('Runtime', d.runtime ? `${d.runtime} min` : '—')}
     </section>
@@ -503,23 +554,28 @@ async function renderTmdbMovie(app, tid) {
     <p class="meta upnote">${srcNote} Movie details from TMDB. Verdicts are worked out from budget and gross when both are known.</p>`;
   hydratePosters($('#bom', app));
   reveal($$('#bom .kgrid .card, #bom .run', app));
-  if (!total) return;
+  if (!G) return;
   const wrap = $('#chwrap', app);
   const color = verdict && GOOD.has(verdict) ? '#C6F432' : verdict === 'Flop' || verdict === 'Disaster' ? '#E5484D' : '#8A8A8A';
-  const draw = () => { drawModeled(wrap, date, daily, fmt, d.name, color); $$('#bom [data-mode]').forEach(b => { const on = st.mode === b.dataset.mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); };
+  const draw = () => { drawModeled(wrap, date, G.daily, G.fmt, d.name, G.kind === 'total' ? color : G.kind === 'rough' ? '#5E5E5E' : '#8A8A8A', { label: G.label, today, anchors: G.anchors, kind: G.kind }); $$('#bom [data-mode]').forEach(b => { const on = st.mode === b.dataset.mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); };
   $$('[data-mode]', app).forEach(b => b.onclick = () => { st.mode = b.dataset.mode; draw(); });
   draw();
 }
 
-async function drawModeled(wrap, date, daily, fmt, name, color = '#8A8A8A') {
-  let run = 0; const cum = daily.map(v => (run += v)), V = st.mode === 'cum' ? cum : daily;
-  $('#chlabel').textContent = st.mode === 'cum' ? 'Worldwide gross · total' : 'Worldwide gross · per day (modeled)';
+async function drawModeled(wrap, date, daily, fmt, name, color = '#8A8A8A', o = {}) {
+  const kind = o.kind || 'total', label = o.label || 'Worldwide gross', n = daily.length;
+  const cut = Math.max(1, Math.min(n, o.today || n));   // days 1..cut are "so far" (solid); the rest is the projection (dashed)
+  let run = 0; const cum = daily.map(v => (run += v)), cumMode = st.mode === 'cum', V = cumMode ? cum : daily;
+  const est = kind === 'total' ? '(modeled)' : kind === 'rough' ? '(rough estimate)' : '(estimate)';
+  $('#chlabel').textContent = `${label} · ${cumMode ? 'total' : 'per day'} ${est}`;
   const days = daily.map((_, i) => { const x = dt(date); x.setDate(x.getDate() + i); return x; });
+  const pts = (o.anchors || []).filter(a => cumMode ? !a.single : a.single).map(a => [a.t - 1, +a.v.toFixed(4)]);
   const E = await echarts();
   if (!document.body.contains(wrap)) return;
   if (!E) {   // simple fallback: plain SVG line
-    const W = 800, H = 260, max = Math.max(...V) * 1.08 || 1, x = i => 40 + i * (W - 56) / Math.max(1, V.length - 1), y = v => 14 + (1 - v / max) * (H - 40);
-    wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${esc(name)}: ${esc(fmt(cum[cum.length - 1]))} over ${V.length} days (modeled)"><path d="${V.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('')}" fill="none" stroke="#8A8A8A" stroke-width="2"/></svg>`;
+    const W = 800, H = 260, max = Math.max(...V, ...pts.map(p => p[1])) * 1.08 || 1, x = i => 40 + i * (W - 56) / Math.max(1, V.length - 1), y = v => 14 + (1 - v / max) * (H - 40);
+    const path = (a, z) => V.slice(a, z).map((v, i) => `${i ? 'L' : 'M'}${x(a + i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+    wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${esc(name)}: ${esc(fmt(cum[cut - 1]))} so far ${est}"><path d="${path(0, cut)}" fill="none" stroke="${color}" stroke-width="2"/>${cut < n ? `<path d="${path(cut - 1, n)}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="5 5" opacity=".7"/>` : ''}${pts.map(p => `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="4" fill="#C6F432"/>`).join('')}</svg>`;
     return;
   }
   if (!chartInst || chartInst.getDom() !== wrap) {
@@ -528,16 +584,22 @@ async function drawModeled(wrap, date, daily, fmt, name, color = '#8A8A8A') {
     chartInst = E.init(wrap, null, { renderer: 'svg' });
     new ResizeObserver(() => chartInst && !chartInst.isDisposed() && chartInst.resize()).observe(wrap);
   }
-  const mono = '"Geist Mono", ui-monospace, monospace';
+  const mono = '"Geist Mono", ui-monospace, monospace', r4 = v => +v.toFixed(4);
+  const how = kind === 'total' ? 'Modeled from the reported total' : kind === 'rough' ? 'Rough estimate, no real numbers posted' : 'Fitted to numbers posted online';
   chartInst.setOption({
     animationDuration: 900, animationEasing: 'cubicOut', grid: { left: 8, right: 16, top: 24, bottom: 8, containLabel: true }, textStyle: { fontFamily: mono },
     xAxis: { type: 'category', boundaryGap: false, data: V.map((_, i) => 'D' + (i + 1)), axisLine: { lineStyle: { color: '#1F1F1F' } }, axisTick: { show: false }, axisLabel: { color: '#5E5E5E', fontSize: 11, hideOverlap: true } },
     yAxis: { type: 'value', splitLine: { lineStyle: { color: '#1A1A1A' } }, axisLabel: { color: '#5E5E5E', fontSize: 11, formatter: v => fmt(v).replace(' Cr', '') } },
     tooltip: { trigger: 'axis', backgroundColor: '#0A0A0A', borderColor: '#1F1F1F', borderWidth: 1, textStyle: { color: '#F5F5F5', fontSize: 12, fontFamily: mono },
       axisPointer: { type: 'cross', lineStyle: { color: '#3A3A3A' }, crossStyle: { color: '#3A3A3A' }, label: { backgroundColor: '#1F1F1F', color: '#F5F5F5', fontFamily: mono } },
-      formatter: p => { const i = p[0].dataIndex; return `<b>Day ${i + 1}</b> · ${esc(days[i].toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }))}<br><span style="color:#8A8A8A">Daily</span> ${fmt(daily[i])}<br><span style="color:#8A8A8A">Total</span> ${fmt(cum[i])}<br><span style="color:#8A8A8A">Modeled from the reported total</span>`; } },
-    series: [{ type: 'line', data: V.map(v => +v.toFixed(4)), showSymbol: false, smooth: 0.15, lineStyle: { width: 2, color, type: 'solid' } }],
+      formatter: p => { const i = p[0].dataIndex, posted = (o.anchors || []).filter(a => a.t - 1 === i);
+        return `<b>Day ${i + 1}</b> · ${esc(days[i].toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }))}${i >= cut ? ' <span style="color:#8A8A8A">(ahead)</span>' : ''}<br><span style="color:#8A8A8A">Daily</span> ${fmt(daily[i])}<br><span style="color:#8A8A8A">Total</span> ${fmt(cum[i])}${posted.map(a => `<br><span style="color:#C6F432">Posted</span> ${fmt(a.v)}${a.single ? ' that day' : ' total'}`).join('')}<br><span style="color:#8A8A8A">${how}</span>`; } },
+    series: [
+      { type: 'line', data: V.map((v, i) => i < cut ? r4(v) : null), showSymbol: false, smooth: 0.15, lineStyle: { width: 2, color, type: kind === 'rough' ? 'dotted' : 'solid' } },
+      { type: 'line', data: V.map((v, i) => i >= cut - 1 && cut < n ? r4(v) : null), showSymbol: false, smooth: 0.15, lineStyle: { width: 2, color, type: 'dashed', opacity: 0.6 } },
+      ...(pts.length ? [{ type: 'scatter', data: pts, symbolSize: 9, itemStyle: { color: '#C6F432' }, z: 5 }] : []),
+    ],
   }, { notMerge: true });
   wrap.setAttribute('role', 'img');
-  wrap.setAttribute('aria-label', `${name}: ${fmt(cum[cum.length - 1])} worldwide, modeled over ${V.length} days`);
+  wrap.setAttribute('aria-label', `${name}: ${fmt(cum[cut - 1])} so far, ${label} ${est}`);
 }
