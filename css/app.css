@@ -1719,3 +1719,10 @@ div.trow{cursor:default}
 .tcta .btn{text-align:center;justify-content:center}
 
 #tabs .pillbar a.on .ic{color:#fff!important}
+/* top-10 screen: same side spacing as the other screens */
+.taste .bosearch{margin:12px 20px 6px}
+.taste .tpicked{margin:8px 20px 2px}
+.taste .sec{margin:18px 20px 10px}
+.taste .tgrid{margin:0 20px}
+.tres .card.run,.tres .tcta,.tres .upnote{margin-left:20px;margin-right:20px}
+@media (min-width:900px){.taste .tgrid{grid-template-columns:repeat(6,minmax(0,1fr))}}

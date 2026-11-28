@@ -32,10 +32,10 @@ export async function renderTaste(app) {
     <div class="tpicked" id="tpicked" aria-live="polite"></div>
     <div class="sec"><h2 id="tgh">Trending this week</h2></div>
     <div class="tgrid" id="tgrid"><div class="card"><div class="rskel"></div></div></div>
-    <div class="tbarb"><div class="tbarin"><span class="meta" id="tcount"></span>
+  </div>
+  <div class="tbarb"><div class="tbarin"><span class="meta" id="tcount"></span>
       <button class="btn" id="tgo" disabled>See who shares my taste</button></div>
-      <button class="tskip" id="tskip">Skip for now</button></div>
-  </div>`;
+      <button class="tskip" id="tskip">Skip for now</button></div>`;
   $('#tskip', app).onclick = () => { finish(); location.hash = '#/'; };
   $('#tgo', app).onclick = () => showResults(app);
   let qt = 0;
