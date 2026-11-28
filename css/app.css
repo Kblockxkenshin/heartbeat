@@ -1639,3 +1639,7 @@ div.trow{cursor:default}
 .botalk .sub,.bosum .sub{overflow-wrap:anywhere}
 .ticker.hwlist .trow{grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:14px}
 .hwcell{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.bthumb.need i,.bthumb.none i{display:grid;place-items:center;height:100%;font:600 11px/1 var(--mono);font-style:normal;color:#5E5E5E}
+.boxoffice .upctl .seg{max-width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.boxoffice .upctl .seg::-webkit-scrollbar{display:none}
+.boxoffice .upctl .seg button{flex:none}

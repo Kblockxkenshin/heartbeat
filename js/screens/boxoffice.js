@@ -31,7 +31,64 @@ function change(m) {
   const p = (a - b) / b * 100, up = p >= 0;
   return `<span class="chg ${up ? 'up' : 'down'}" aria-label="${up ? 'Up' : 'Down'} ${Math.abs(p).toFixed(1)} percent">${up ? '▲' : '▼'} ${Math.abs(p).toFixed(1)}%</span>`;
 }
-const thumb = m => `<span class="bthumb">${m.poster_path ? `<img src="${esc(img(m.poster_path, 'w92'))}" alt="" loading="lazy">` : ''}</span>`;
+/** Small poster. If we don't have one yet, the row carries what we need to find it (TMDB id, title, language, year) and fillThumbs() fetches it. */
+const thumb = m => {
+  if (m.poster_path) return `<span class="bthumb"><img src="${esc(img(m.poster_path, 'w92'))}" alt="" loading="lazy"></span>`;
+  const tid = m.kind ? (m.tmdb_id || m.tmdb || '') : (m.id || '');
+  const title = m.title || m.name || '', y = m.year || String(m.date || m.release_date || '').slice(0, 4);
+  return `<span class="bthumb need" data-pt="${esc(String(tid))}" data-pq="${esc(title)}" data-pl="${esc(m.lang || '')}" data-py="${esc(String(y || ''))}"><i>${esc(title.replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase())}</i></span>`;
+};
+const TKEY = 'hb_bo_thumbs';
+let thumbCache = (() => { try { return JSON.parse(localStorage.getItem(TKEY) || '{}'); } catch (e) { return {}; } })();
+/** Movie page: if the big poster is missing, find one and swap it in. */
+async function fixHeadPoster(app, o) {
+  if (o.posterPath) return;
+  const p = await posterFor(o.tid, o.name, o.lang, o.year);
+  const box = $('#bom .bopost', app);
+  if (!p || !box) return;
+  box.innerHTML = poster({ id: o.id, name: o.name, year: String(o.year || ''), type: 'movie', posterPath: p, colors: ['#171717', '#171717'] }, { mine: false });
+  hydratePosters(box);
+}
+/** Find a poster: TMDB id first (poster, any-language poster, or a still), then a TMDB title search. */
+export async function posterFor(tid, q, lng, y) {
+  const k = tid ? 't' + tid : `q|${lng}|${y}|${q}`;
+  if (k in thumbCache && thumbCache[k]) return thumbCache[k];
+  let p = null, id = tid;
+  try {
+    if (!id && q) {
+      const m = await matchMovie(q, y);
+      if (m) { id = m.id; p = m.poster_path || null; }
+    }
+    if (!p && id) { const d = await tmdbGet(`/api/tmdb?poster=${id}`); p = d.poster_path || d.backdrop_path || null; }
+  } catch (e) { return null; }
+  if (p) { thumbCache[k] = p; try { localStorage.setItem(TKEY, JSON.stringify(thumbCache)); } catch (e) { /* ignore */ } }
+  return p;
+}
+let filling = false;
+async function fillThumbs() {
+  if (filling) return; filling = true;
+  try {
+    for (;;) {
+      const todo = $$('.bthumb.need:not(.busy)').slice(0, 6);
+      if (!todo.length) break;
+      await Promise.all(todo.map(async el => {
+        el.classList.add('busy');
+        const p = await posterFor(el.dataset.pt, el.dataset.pq, el.dataset.pl, el.dataset.py);
+        if (p) { el.innerHTML = `<img src="${esc(img(p, 'w92'))}" alt="" loading="lazy">`; el.classList.remove('need'); }
+        else el.classList.add('none');
+      }));
+    }
+  } finally { filling = false; }
+}
+// Any time rows are added to a box office screen, fill in their missing posters.
+let thumbObs = null;
+function watchThumbs(root) {
+  if (thumbObs) thumbObs.disconnect();
+  let t = 0;
+  thumbObs = new MutationObserver(() => { clearTimeout(t); t = setTimeout(fillThumbs, 60); });
+  thumbObs.observe(root, { childList: true, subtree: true });
+  setTimeout(fillThumbs, 0);
+}
 
 async function rpc(fn, args) {
   if (!cloud.sb) throw new Error('Box office numbers need the online backend, which is not set up yet.');
@@ -45,6 +102,13 @@ const norm = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u03
 const same = (a, b) => { const x = norm(a), y = norm(b); return !!x && !!y && (x === y || x.startsWith(y + ' ') || y.startsWith(x + ' ')); };
 const range = r => r.high != null && +r.high > +r.low ? `₹${Math.round(r.low).toLocaleString('en-IN')}–${Math.round(r.high).toLocaleString('en-IN')} Cr` : cr(+r.low);
 const tmdbGet = url => fetch(url).then(r => r.ok ? r.json() : Promise.reject(new Error('TMDB')));
+/** Best TMDB search match for a title (+ year): exact title first, then same first word within a year (e.g. "Drishyam 3: The Conclusion" → "Drishyam: The Conclusion"). */
+async function matchMovie(q, y) {
+  const d = await tmdbGet(`/api/tmdb?q=${encodeURIComponent(q)}`);
+  const M = (d.results || []).filter(x => x.type === 'movie'), near = x => !y || !x.year || Math.abs(+x.year - +y) <= 1;
+  const w0 = s => norm(s).split(' ')[0] || '';
+  return M.find(x => same(x.name, q) && near(x)) || M.find(x => w0(x.name) === w0(q) && w0(q).length >= 3 && y && Math.abs((+x.year || 0) - +y) <= 1) || (!y ? M.find(x => same(x.name, q)) : null) || null;
+}
 /** Poster + TMDB id for a reported movie (cached for this visit). */
 const PKEY = 'hb_bo_posters';
 let posterCache = (() => { try { return JSON.parse(sessionStorage.getItem(PKEY) || '{}'); } catch (e) { return {}; } })();
@@ -53,8 +117,7 @@ async function findPoster(r) {
   if (k in posterCache) return posterCache[k];
   let hit = null;
   try {
-    const d = await tmdbGet(`/api/tmdb?q=${encodeURIComponent(r.title)}`);
-    const m = (d.results || []).find(x => x.type === 'movie' && Math.abs((+x.year || 0) - r.year) <= 1 && same(x.name, r.title)) || (d.results || []).find(x => x.type === 'movie' && +x.year === r.year);
+    const m = await matchMovie(r.title, r.year);
     if (m) hit = { tmdb: m.id, poster_path: m.poster_path };
   } catch (e) { return null; }
   posterCache[k] = hit; try { sessionStorage.setItem(PKEY, JSON.stringify(posterCache)); } catch (e) { /* ignore */ }
@@ -62,6 +125,7 @@ async function findPoster(r) {
 }
 
 export async function renderBoxOffice(app, id) {
+  watchThumbs(app);
   if (id && /^\d+$/.test(id)) return renderMovie(app, +id);
   if (id && /^tmdb-\d{1,9}$/.test(id)) return renderTmdbMovie(app, id.slice(5));
   document.title = 'Box Office — Heartbeat';
@@ -323,6 +387,7 @@ async function renderMovie(app, id) {
     box.innerHTML = summaryHTML(d) + talkHTML(d, t) + worthHTML(d, t, !!m.running, false);
   }).catch(() => {});
   hydratePosters($('#bom', app));
+  fixHeadPoster(app, { posterPath: m.poster_path, tid: m.tmdb_id, name: m.title, lang: m.lang, year: String(m.release_date).slice(0, 4), id: 'bo' + m.id });
   reveal($$('#bom .kgrid .card, #bom .run', app));
   $$('#bom [data-count]', app).forEach(el => countUp(el, +el.dataset.count, cr));
   const est = days.filter(d => d.est).length;
@@ -625,6 +690,7 @@ async function renderTmdbMovie(app, tid) {
     </section>
     <p class="meta upnote">${srcNote} Movie details, audience score and reviews from TMDB. Verdicts are worked out from budget and gross when both are known.</p>`;
   hydratePosters($('#bom', app));
+  fixHeadPoster(app, { posterPath: d.poster_path, tid: d.id, name: d.name, lang: d.lang, year, id: 'tm' + d.id });
   reveal($$('#bom .kgrid .card, #bom .run', app));
   if (!G) return;
   const wrap = $('#chwrap', app);

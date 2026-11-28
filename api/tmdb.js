@@ -202,6 +202,13 @@ export default async function handler(req, res) {
       res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
       return res.status(200).json({ results });
     }
+    // Best picture for a movie: its poster, else any poster in any language, else a still. Used to fill missing thumbnails.
+    if (/^\d{1,9}$/.test(String(req.query.poster || ''))) {
+      const d = await tmdb(`movie/${req.query.poster}`, { language: 'en-US', append_to_response: 'images', include_image_language: 'en,null,hi,te,ta,ml,kn,bn,mr,pa' });
+      const P = (d.images?.posters || []).sort((x, y) => (y.vote_average || 0) - (x.vote_average || 0));
+      res.setHeader('Cache-Control', 's-maxage=604800, stale-while-revalidate=2592000');
+      return res.status(200).json({ id: d.id, poster_path: d.poster_path || P[0]?.file_path || null, backdrop_path: d.backdrop_path || d.images?.backdrops?.[0]?.file_path || null });
+    }
     if ((type === 'movie' || type === 'tv') && /^\d+$/.test(String(id || ''))) {
       const d = await tmdb(`${type}/${id}`, { language: 'en-US', append_to_response: 'videos' });
       // Best YouTube trailer: official trailers first, then teasers.
