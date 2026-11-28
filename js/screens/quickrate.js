@@ -100,9 +100,9 @@ export function renderQuickRate(app) {
       </div>`).join('')}
     </div>
     <div class="qbtns">
-      <button data-act="disliked" aria-label="Didn't like it (swipe left)"><i class="i i-thumbs-down" aria-hidden="true"></i></button>
-      <button data-act="loved" class="love" aria-label="Loved it (swipe right)"><i class="i i-heart" aria-hidden="true"></i></button>
-      <button data-act="unseen" aria-label="Haven't seen it (swipe up)"><i class="i i-eye-off" aria-hidden="true"></i></button>
+      <button data-act="disliked" class="nope" aria-label="Didn't like it (swipe left)"><i class="i i-thumbs-down" aria-hidden="true"></i></button>
+      <button data-act="loved" class="love" aria-label="Loved it (swipe right)"><i class="i i-heart-fill" aria-hidden="true"></i></button>
+      <button data-act="unseen" class="skip" aria-label="Haven't seen it (swipe up)"><i class="i i-eye-off" aria-hidden="true"></i></button>
     </div>
     <div class="qhint">Swipe or use your keyboard: <kbd class="kbd">←</kbd> nope · <kbd class="kbd">→</kbd> loved · <kbd class="kbd">↑</kbd> haven't seen</div>`
     : Q.err ? empty('Couldn’t load more titles.', 'sad', '<button class="btn" id="qretry">Try again</button>')
@@ -112,7 +112,7 @@ export function renderQuickRate(app) {
   app.querySelectorAll('[data-qtype]').forEach(b => b.onclick = () => { Q.type = b.dataset.qtype; reset(); });
   app.querySelectorAll('[data-qsvc]').forEach(b => b.onclick = () => { Q.svc = b.dataset.qsvc; reset(); });
   app.querySelector('#qretry')?.addEventListener('click', () => { Q.err = false; rerender(); });
-  app.querySelector('.qfilt .on[data-qsvc]')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  if (!matchMedia('(min-width: 768px)').matches) app.querySelector('.qfilt .on[data-qsvc]')?.scrollIntoView({ inline: 'center', block: 'nearest' });
   hydratePosters(app);
   fit(app); requestAnimationFrame(() => fit(app)); setTimeout(() => fit(app), 400);
   if (!q.length) return;
@@ -170,6 +170,7 @@ function fling(card, kind) {
   card.style.transition = 'transform .35s ease-in'; card.style.transform = to;
   if (kind === 'loved') { const r = card.getBoundingClientRect(); hearts(r.x + r.width / 2, r.y + r.height / 2, 12); }
   buzz(kind === 'loved' ? [12, 30, 12] : 12);
+  const btn = document.querySelector(`.qbtns [data-act="${kind}"]`); if (btn) { btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop'); }
   const res = swipe(id, kind);
   if (kind !== 'unseen') session++;
   setTimeout(() => {
