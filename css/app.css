@@ -1799,3 +1799,30 @@ div.trow{cursor:default}
   .qfilt .qtypes button[data-qtype]{order:-1}
   .qfilt .qtypes button[data-qtype="tv"]{margin-right:14px}
 }
+/* ===== Admin → Stats dashboard ===== */
+.anote{display:flex;gap:10px;align-items:flex-start;margin:0 0 12px;font-size:14px;color:var(--dim)}
+.anote a{color:var(--accent)}
+.stats .shead{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:4px 0 6px}
+.stats .shead .meta{flex:1;min-width:160px}
+.stats .regsw button{min-height:36px;padding:0 14px;font-size:13px}
+.stats .sh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:18px 2px 8px}
+.stiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:700px){.stiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.stile{display:flex;flex-direction:column;gap:2px;padding:14px 16px;margin:0}
+.stile b{font-family:"Geist Mono",ui-monospace,monospace;font-size:clamp(24px,5vw,32px);font-weight:500;letter-spacing:-.02em;color:var(--text)}
+.stile span{font-size:13px;color:var(--dim)}
+.stile small{font-size:12px;color:var(--muted)}
+.schart{margin:14px 0 0}
+.schart .ch{height:240px;margin-top:8px}
+.scols{display:grid;gap:14px;margin-top:14px}
+@media (min-width:900px){.scols{grid-template-columns:1fr 1fr}}
+.scols .card{margin:0}
+.smem{list-style:none;margin:8px 0 0;padding:0;display:grid}
+.smem li{padding:10px 0;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}
+.smem li:last-child{border-bottom:0}
+.smem small{flex-basis:100%;color:var(--muted);font-size:12px}
+.sbar{display:grid;grid-template-columns:minmax(0,1.3fr) 1fr auto;gap:10px;align-items:center;padding:7px 0;font-size:14px}
+.sbar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dim)}
+.sbar i{display:block;height:6px;border-radius:99px;background:var(--accent)}
+.sbar b{font-family:"Geist Mono",ui-monospace,monospace;font-weight:500;font-size:13px}
+.snote{text-align:center;margin:16px 0 4px}

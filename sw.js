@@ -2,7 +2,7 @@
 //  - App shell: cached on install, updated in the background.
 //  - TMDB data (/api/tmdb): network first, saved copy when offline.
 //  - Posters & backdrops: not touched here (the browser loads and caches them itself).
-const VERSION = 'v40';
+const VERSION = 'v41';
 const SHELL = `hb-shell-${VERSION}`, API = 'hb-api', IMG = 'hb-img', IMG_MAX = 200;
 const FILES = ['/', '/index.html', '/manifest.json', '/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png',
   '/css/app.css', '/css/icons.css', '/js/app.js', '/js/config.js', '/js/data.js', '/js/store.js', '/js/tmdb.js', '/js/ui.js', '/js/journey.js',

@@ -157,7 +157,7 @@ function renderBase(r, keepScroll) {
   else if (r.p === 'invite') renderInvite(app, r.a);
   else if (r.p === 'plus') renderPlus(app, r.a);
   else if (r.p === 'play') renderPlay(app, r.a || 'league', r.b);
-  else if (r.p === 'admin') renderAdmin(app, r.a || 'overview');
+  else if (r.p === 'admin') renderAdmin(app, r.a || 'stats');
   else if (r.p === 'studio') renderStudio(app, r.a, r.b);
   else if (r.p === 'boxoffice') renderBoxOffice(app, r.a);
   else if (r.p === 'chat') { if (inRoom) renderRoom(app, r.a); else renderChats(app, r.a); }
@@ -362,6 +362,20 @@ onCloud(async c => {
 });
 let lastReminderUser = null;
 function confettiSafe() { import('./ui.js').then(m => m.confetti()); }
+
+/* ---------------- visit counter (for the owner's Stats page) ----------------
+   One random id per browser, no names or IP addresses. Counts one visit per device per day + pages viewed. */
+const visitDevice = () => { try { let d = localStorage.getItem('hb_device'); if (!d || !/^[0-9a-f-]{36}$/.test(d)) { d = crypto.randomUUID(); localStorage.setItem('hb_device', d); } return d; } catch (e) { return null; } };
+let visitRef = (() => { try { const h = document.referrer && new URL(document.referrer).hostname; return h && h !== location.hostname ? h : null; } catch (e) { return null; } })();
+let lastTracked = '';
+function trackVisit() {
+  const key = location.hash || '#/'; if (key === lastTracked || !cloud.sb || !cloud.ready) return; lastTracked = key;
+  const dev = visitDevice(); if (!dev || /claude|localhost|127\.0\.0\.1/.test(location.host) && !window.__trackLocal) return;
+  cloud.sb.rpc('track_visit', { p_device: dev, p_path: route().p || 'home', p_ref: visitRef, p_phone: !wide() }).then(() => {}, () => {});
+  visitRef = null;
+}
+addEventListener('hashchange', () => setTimeout(trackVisit, 0));
+onCloud(c => { if (c.ready) setTimeout(trackVisit, 0); });
 
 /* ---------------- start ---------------- */
 addEventListener('hashchange', () => render());

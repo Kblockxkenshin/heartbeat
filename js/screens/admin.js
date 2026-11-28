@@ -1,6 +1,9 @@
 // #/admin: the moderation panel. Only admins who signed in with 2-step can use it.
 // The server checks this on every call; this screen only shows what the server returns.
-import { cloud, keyOf, plain } from '../cloud.js';
+import { cloud, keyOf, idOf, plain } from '../cloud.js';
+import { echarts, countUp } from '../motion.js';
+import { loadTitle } from '../tmdb.js';
+import { BYID } from '../data.js';
 import { $, esc, toast, sheet, closeSheet, empty } from '../ui.js';
 import { avatar, profileHref, titlesFor, ago } from '../social.js';
 import { LANGS } from './upcoming.js';
@@ -11,28 +14,98 @@ async function rpc(fn, args = {}) {
   if (error) throw new Error(error.message || 'Something went wrong.');
   return data;
 }
-const TABS = [['overview', 'Overview'], ['ai', 'AI queue'], ['reports', 'Reports'], ['flags', 'Flags'], ['held', 'Held ratings'], ['users', 'Users'], ['studios', 'Studios'], ['inbox', 'Inbox'], ['boxoffice', 'Box office'], ['log', 'Log']];
+const TABS = [['stats', 'Stats'], ['overview', 'Overview'], ['ai', 'AI queue'], ['reports', 'Reports'], ['flags', 'Flags'], ['held', 'Held ratings'], ['users', 'Users'], ['studios', 'Studios'], ['inbox', 'Inbox'], ['boxoffice', 'Box office'], ['log', 'Log']];
 const who = p => p ? (p.hidden ? esc(p.display_name) : `<a href="${profileHref(p)}">${avatar(p, 'xs')} <b>${esc(p.display_name || p.username)}</b> <span class="meta">@${esc(p.username || '')}</span></a>`) : '<span class="meta">—</span>';
 const day = s => s ? new Date(s).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
 
-export async function renderAdmin(app, tab = 'overview') {
-  if (!TABS.some(t => t[0] === tab)) tab = 'overview';
+export async function renderAdmin(app, tab = 'stats') {
+  if (!TABS.some(t => t[0] === tab)) tab = 'stats';
   document.title = 'Admin — Heartbeat';
   const s = cloud.sec || {};
   if (!cloud.user || !s.admin) {
     app.innerHTML = `<div class="screen"><div class="card">${empty('This page is for Heartbeat admins only.', 'sad', '<a class="btn" href="#/">Go home</a>')}</div></div>`;
     return;
   }
-  if (s.aal !== 'aal2') {
+  if (s.aal !== 'aal2' && tab !== 'stats') {
     app.innerHTML = `<div class="screen"><div class="card">${empty('Admins must use 2-step sign-in. Turn it on, then sign in again with your code.', 'happy', '<a class="btn" href="#/security">Set up 2-step sign-in</a>')}</div></div>`;
     return;
   }
   app.innerHTML = `<div class="screen admin"><header class="top"><h1 class="logo" style="font-size:24px;margin:0"><i class="i i-shield" aria-hidden="true"></i> Admin</h1></header>
+    ${s.aal !== 'aal2' ? `<div class="card anote"><i class="i i-lock" aria-hidden="true"></i><span>You can see your stats now. To use the other tools (reports, bans, box office editing) turn on <a href="#/security">2-step sign-in</a>.</span></div>` : ''}
     <nav class="ftabs" aria-label="Admin sections">${TABS.map(([k, l]) => `<a href="#/admin/${k}" class="chip ${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
     <div id="ab" class="fbody"><div class="card"><div class="rskel"></div><div class="rskel"></div></div></div></div>`;
   const box = $('#ab', app);
-  try { await ({ overview, ai, reports, flags, held, users, studios, inbox, boxoffice, log })[tab](box, app); }
+  try { await ({ stats, overview, ai, reports, flags, held, users, studios, inbox, boxoffice, log })[tab](box, app); }
   catch (e) { box.innerHTML = `<div class="card">${empty(esc(plain(e)), 'sad')}</div>`; }
+}
+
+/* ---------- Stats: how the site is doing ---------- */
+let statsDays = 30, statsTimer = null, charts = [];
+const fmtN = n => (+n || 0).toLocaleString('en-US');
+const rel = s => { if (!s) return 'never'; const m = Math.round((Date.now() - new Date(s)) / 6e4); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
+const PAGE = { home: 'Home', rate: 'Quick Rate', taste: 'Top 10 picker', t: 'A movie / show page', search: 'Search', boxoffice: 'Box office', upcoming: 'Upcoming', me: 'Profile', friends: 'Friends', signin: 'Sign in', u: 'Someone’s profile', invite: 'Invite link', chat: 'Chat', play: 'Play' };
+async function stats(box) {
+  clearInterval(statsTimer);
+  const draw = async () => {
+    if (!document.body.contains(box)) { clearInterval(statsTimer); return; }
+    const S = await rpc('admin_stats', { p_days: statsDays });
+    const tile = (n, l, sub = '', k = '') => `<div class="card stile"><b data-n="${+n || 0}" ${k ? `data-k="${k}"` : ''}>${fmtN(n)}</b><span>${l}</span>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    const bars = (list, label, val, fmtL = x => esc(x)) => { const max = Math.max(1, ...list.map(x => +x[val] || 0)); return list.length ? list.map(x => `<div class="sbar"><span>${fmtL(x[label])}</span><i style="width:${Math.max(4, (+x[val] || 0) / max * 100)}%"></i><b>${fmtN(x[val])}</b></div>`).join('') : '<div class="meta">Nothing yet.</div>'; };
+    box.innerHTML = `<div class="stats">
+      <div class="shead"><div class="regsw" role="tablist">${[7, 30, 90].map(d => `<button data-days="${d}" class="${d === statsDays ? 'on' : ''}">${d} days</button>`).join('')}</div>
+        <span class="meta">Updated ${new Date(S.as_of).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })} · refreshes every minute</span><button class="btn sm ghost" id="sref"><i class="i i-refresh-cw" aria-hidden="true"></i> Refresh</button></div>
+      <h2 class="sh">Today</h2>
+      <div class="stiles">
+        ${tile(S.visitors_today, 'visitors today', `${fmtN(S.first_time_today)} first-time`)}
+        ${tile(S.new_today, 'new members today', `${fmtN(S.new_7d)} this week`)}
+        ${tile(S.views_today, 'pages viewed today')}
+        ${tile(S.ratings_today + S.swipes_today, 'ratings + swipes today')}
+      </div>
+      <h2 class="sh">All time</h2>
+      <div class="stiles">
+        ${tile(S.members, 'members', `${fmtN(S.new_30d)} joined in 30 days`)}
+        ${tile(S.visitors_30d, 'visitors (30 days)', `${fmtN(S.visitors_7d)} this week · ${fmtN(S.returning_7d)} came back`)}
+        ${tile(S.active_members_7d, 'active members this week')}
+        ${tile(S.taste_visitors, 'did the Top 10 hook', `${fmtN(S.taste_today)} today`)}
+        ${tile(S.ratings, 'ratings')}${tile(S.swipes, 'swipes')}${tile(S.reviews, 'reviews')}
+        ${tile(S.phone_share_7d ?? 0, '% on phones (7 days)')}
+      </div>
+      <section class="card schart"><h2 class="h3">Visitors and new members</h2><div class="ch" id="sc1" role="img"></div></section>
+      <section class="card schart"><h2 class="h3">Activity</h2><div class="ch" id="sc2" role="img"></div></section>
+      <div class="scols">
+        <section class="card"><h2 class="h3">Newest members</h2><ul class="smem">${(S.recent_members || []).map(m => `<li><b>${esc(m.display_name || m.username || 'Not finished sign-up')}</b>${m.username ? `<span class="meta">@${esc(m.username)}</span>` : ''}
+          <small>Joined ${rel(m.joined)} · ${fmtN(m.ratings)} ratings · ${fmtN(m.swipes)} swipes · last seen ${rel(m.last_seen)}</small></li>`).join('') || '<li class="meta">Nobody yet.</li>'}</ul></section>
+        <section class="card"><h2 class="h3">Where visitors come from <span class="meta">30 days</span></h2>${bars(S.top_sources || [], 'source', 'visits', x => esc(x === 'direct' ? 'Typed the link / app' : x.replace(/^www\./, '')))}</section>
+        <section class="card"><h2 class="h3">First page they open <span class="meta">7 days</span></h2>${bars(S.top_pages || [], 'page', 'visits', x => esc(PAGE[x] || x))}</section>
+        <section class="card"><h2 class="h3">Most loved this week</h2><div id="stt">${bars((S.top_titles || []).map(x => ({ ...x, name: x.title_key })), 'name', 'n', x => `<span data-tk="${esc(x)}">${esc(x)}</span>`)}</div></section>
+      </div>
+      <p class="meta snote">Visits are counted from Nov 28, 2026, when this dashboard was added. A visitor = one phone or computer per day. Nothing personal is stored (no IP addresses).</p>
+    </div>`;
+    box.querySelectorAll('[data-days]').forEach(b => b.onclick = () => { statsDays = +b.dataset.days; draw(); });
+    box.querySelector('#sref').onclick = () => draw();
+    // Movie / show names for the "most loved" list
+    box.querySelectorAll('[data-tk]').forEach(async el => { const t = await loadTitle(idOf(el.dataset.tk)).catch(() => null); if (t?.name && document.body.contains(el)) el.textContent = t.name; });
+    const days = S.daily || [], lbl = days.map(d => new Date(d.day + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+    const E = await echarts(); charts.forEach(c => c.dispose?.()); charts = [];
+    if (!E) return;
+    const mono = '"Geist Mono", ui-monospace, monospace';
+    const base = (el, series) => { const c = E.init(el, null, { renderer: 'svg' }); charts.push(c); new ResizeObserver(() => !c.isDisposed() && c.resize()).observe(el);
+      c.setOption({ animationDuration: 700, textStyle: { fontFamily: mono }, grid: { left: 6, right: 12, top: 34, bottom: 6, containLabel: true },
+        legend: { top: 0, left: 0, textStyle: { color: '#8A8A8A', fontSize: 12 }, itemWidth: 12, itemHeight: 8 },
+        tooltip: { trigger: 'axis', backgroundColor: '#0A0A0A', borderColor: '#1F1F1F', textStyle: { color: '#F5F5F5', fontSize: 12, fontFamily: mono } },
+        xAxis: { type: 'category', data: lbl, axisLine: { lineStyle: { color: '#1F1F1F' } }, axisTick: { show: false }, axisLabel: { color: '#5E5E5E', fontSize: 11, hideOverlap: true } },
+        yAxis: { type: 'value', minInterval: 1, splitLine: { lineStyle: { color: '#1A1A1A' } }, axisLabel: { color: '#5E5E5E', fontSize: 11 } }, series }); };
+    base(box.querySelector('#sc1'), [
+      { name: 'Visitors', type: 'line', smooth: .2, showSymbol: false, data: days.map(d => d.visitors), lineStyle: { width: 2, color: '#C6F432' }, itemStyle: { color: '#C6F432' }, areaStyle: { color: 'rgba(198,244,50,.08)' } },
+      { name: 'First-time', type: 'line', smooth: .2, showSymbol: false, data: days.map(d => d.first_time), lineStyle: { width: 1.5, color: '#8A8A8A', type: 'dashed' }, itemStyle: { color: '#8A8A8A' } },
+      { name: 'New members', type: 'bar', barMaxWidth: 10, data: days.map(d => d.signups), itemStyle: { color: '#F5F5F5', borderRadius: [3, 3, 0, 0] } }]);
+    base(box.querySelector('#sc2'), [
+      { name: 'Ratings', type: 'bar', stack: 'a', barMaxWidth: 12, data: days.map(d => d.ratings), itemStyle: { color: '#C6F432' } },
+      { name: 'Swipes', type: 'bar', stack: 'a', barMaxWidth: 12, data: days.map(d => d.swipes), itemStyle: { color: '#5E5E5E', borderRadius: [3, 3, 0, 0] } },
+      { name: 'Pages viewed', type: 'line', smooth: .2, showSymbol: false, data: days.map(d => d.views), lineStyle: { width: 1.5, color: '#F5F5F5' }, itemStyle: { color: '#F5F5F5' } }]);
+  };
+  await draw();
+  statsTimer = setInterval(() => { if (document.visibilityState === 'visible' && location.hash.startsWith('#/admin') && !/#\/admin\/(?!stats)/.test(location.hash)) draw().catch(() => {}); }, 60000);
 }
 
 async function overview(box) {
