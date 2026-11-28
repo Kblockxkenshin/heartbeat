@@ -8,9 +8,13 @@ import { CONFIG } from '../config.js';
 import { LANGS } from './upcoming.js';
 import { echarts, reveal, countUp } from '../motion.js';
 
-const st = { tab: 'theaters', lang: '', year: '', verdict: '', metric: 'ww', mode: 'cum', range: 'all' };
-const VERDICTS = ['Blockbuster', 'Superhit', 'Hit', 'Average', 'Flop', 'Disaster'];
-const GOOD = new Set(['Blockbuster', 'Superhit', 'Hit']);
+const st = { tab: 'theaters', lang: '', year: '', verdict: '', metric: 'ww', mode: 'cum', range: 'all', hwYear: new Date().getFullYear() };
+// Final judgement, best to worst. "Superhit" is the old spelling still in some saved rows.
+const VERDICTS = ['Industry hit', 'Blockbuster', 'Super hit', 'Hit', 'Average', 'Flop', 'Utter flop', 'Disaster'];
+const vname = v => v === 'Superhit' ? 'Super hit' : v;
+const GOOD = new Set(['Industry hit', 'Blockbuster', 'Super hit', 'Superhit', 'Hit']);
+const BAD = new Set(['Flop', 'Utter flop', 'Disaster']);
+const vtone = v => GOOD.has(v) ? 'up' : BAD.has(v) ? 'down' : '';
 const dayMs = 864e5;
 const n = v => v == null ? null : +v;
 export const cr = v => v == null || isNaN(v) ? '—' : '₹' + (v >= 1000 ? Math.round(v).toLocaleString('en-IN') : v >= 100 ? v.toFixed(0) : v.toFixed(v >= 10 ? 1 : 2)) + ' Cr';
@@ -20,7 +24,7 @@ const daysSince = s => Math.floor((Date.now() - dt(s)) / dayMs) + 1;
 const langName = (() => { try { return new Intl.DisplayNames(['en'], { type: 'language' }); } catch (e) { return null; } })();
 const lang = c => LANGS[c] || (c && langName ? (() => { try { return langName.of(c); } catch (e) { return c.toUpperCase(); } })() : (c || '').toUpperCase());
 const img = (p, size = 'w185') => p ? `${CONFIG.imageBase}${size}${p}` : '';
-const verdictPill = v => v ? `<span class="vpill ${GOOD.has(v) ? 'up' : v === 'Average' ? '' : 'down'}">${esc(v)}</span>` : `<span class="vpill run">Running</span>`;
+const verdictPill = v => v ? `<span class="vpill ${vtone(v)}">${esc(vname(v))}</span>` : `<span class="vpill run">Running</span>`;
 function change(m) {
   const a = n(m.last), b = n(m.prev);
   if (a == null || b == null || !b) return '<span class="chg">—</span>';
@@ -64,6 +68,7 @@ export async function renderBoxOffice(app, id) {
   app.innerHTML = `<div class="screen boxoffice">
     <header class="hhead"><p class="eyebrow">Indian box office</p><h1 class="display">The <em>numbers.</em></h1>
       <p class="sub uplead">Collections in ₹ crore, like a stock ticker for movies. Every Indian release, plus the biggest hits of all time.</p></header>
+    <div class="bosearch"><label class="bsearch">${ic('search')}<input id="bosq" type="search" placeholder="Search any movie ever made…" aria-label="Search any movie for its box office" autocomplete="off"></label><div id="bosres" class="bosres" role="listbox" hidden></div></div>
     <div id="bostats" class="bostats"></div>
     <div id="boctl"></div>
     <div id="bolist"><div class="card"><div class="rskel"></div></div></div>
@@ -97,10 +102,11 @@ export async function renderBoxOffice(app, id) {
   const ctl = $('#boctl', app);
   const sel = (id, all_, opts, v) => `<label class="upsel"><select id="${id}">${[`<option value="">${all_}</option>`, ...opts.map(([k, l]) => `<option value="${esc(k)}" ${String(k) === String(v) ? 'selected' : ''}>${esc(l)}</option>`)].join('')}</select></label>`;
   const drawCtl = () => {
-    ctl.innerHTML = `<div class="upctl"><div class="seg" role="tablist" aria-label="Which movies">${[['theaters', 'In theaters'], ['soon', 'Coming soon'], ['year', 'This year'], ['all', 'All-time']].map(([k, l]) => `<button role="tab" aria-selected="${st.tab === k}" class="${st.tab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
-      ${sel('bolang', 'All languages', Object.keys(LANGS).map(k => [k, LANGS[k]]), st.lang)}${st.tab === 'all' ? sel('boyear', 'Any year', years.map(y => [y, y]), st.year) : ''}${st.tab === 'soon' ? '' : sel('boverdict', 'Any verdict', [...VERDICTS, 'Running', 'Reported'].map(v => [v, v]), st.verdict)}</div>`;
+    ctl.innerHTML = `<div class="upctl"><div class="seg" role="tablist" aria-label="Which movies">${[['theaters', 'In theaters'], ['soon', 'Coming soon'], ['year', 'This year'], ['all', 'All-time'], ['hw', 'Hollywood']].map(([k, l]) => `<button role="tab" aria-selected="${st.tab === k}" class="${st.tab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+      ${st.tab === 'hw' ? `<label class="upsel"><select id="bohwyear" aria-label="Year">${Array.from({ length: new Date().getFullYear() - 1914 }, (_, i) => new Date().getFullYear() - i).map(y => `<option value="${y}" ${y === st.hwYear ? 'selected' : ''}>${y}</option>`).join('')}</select></label>` : `${sel('bolang', 'All languages', Object.keys(LANGS).map(k => [k, LANGS[k]]), st.lang)}${st.tab === 'all' ? sel('boyear', 'Any year', years.map(y => [y, y]), st.year) : ''}${st.tab === 'soon' ? '' : sel('boverdict', 'Any verdict', [...VERDICTS, 'Running', 'Reported'].map(v => [v, v]), st.verdict)}`}</div>`;
     $$('[data-tab]', ctl).forEach(b => b.onclick = () => { st.tab = b.dataset.tab; drawCtl(); draw(); });
-    $('#bolang', ctl).onchange = e => { st.lang = e.target.value; draw(); };
+    const lg = $('#bolang', ctl); if (lg) lg.onchange = e => { st.lang = e.target.value; draw(); };
+    const hy = $('#bohwyear', ctl); if (hy) hy.onchange = e => { st.hwYear = +e.target.value; draw(); };
     const vd = $('#boverdict', ctl); if (vd) vd.onchange = e => { st.verdict = e.target.value; draw(); };
     const y = $('#boyear', ctl); if (y) y.onchange = e => { st.year = e.target.value; draw(); };
   };
@@ -130,10 +136,11 @@ export async function renderBoxOffice(app, id) {
   }
   const draw = () => {
     if (st.tab === 'soon') return drawSoon();
+    if (st.tab === 'hw') return drawHollywood();
     let L = st.tab === 'theaters' ? all.filter(m => m.running) : st.tab === 'year' ? thisYear : ranked;
     if (st.lang) L = L.filter(m => m.lang === st.lang);
     if (st.year && st.tab === 'all') L = L.filter(m => m.year === +st.year);
-    if (st.verdict) L = L.filter(m => (m.kind === 'r' ? 'Reported' : m.verdict || 'Running') === st.verdict);
+    if (st.verdict) L = L.filter(m => (m.kind === 'r' ? 'Reported' : vname(m.verdict) || 'Running') === st.verdict);
     L = L.slice().sort((a, b) => st.tab === 'theaters' ? (n(b.last) || 0) - (n(a.last) || 0) : b.worldwide - a.worldwide);
     const box = $('#bolist', app);
     box.innerHTML = !L.length ? (st.tab === 'theaters' ? '' : `<div class="card"><div class="mascot"><div>No movies with numbers match these filters.</div></div></div>`)
@@ -162,7 +169,7 @@ export async function renderBoxOffice(app, id) {
         const sp = x => soc.find(r => r.tmdb_id === x.id);
         pages = d.total_pages || 1;
         $('#bocount', box).textContent = `${(d.total || 0).toLocaleString('en-IN')} ${now ? 'playing, from TMDB' : 'films on TMDB'}`;
-        const rows = (d.results || []).filter(x => !L.some(m => m.lang === x.lang && same(m.title, x.name)));
+        const rows = (d.results || []).filter(x => !L.some(m => m.tmdb_id === x.id || (m.lang === x.lang && same(m.title, x.name))));
         const hit = x => reported.find(r => r.lang === x.lang && Math.abs(r.year - +String(x.date || '').slice(0, 4)) <= 1 && same(r.title, x.name));
         list.insertAdjacentHTML('beforeend', rows.map(x => `<a class="trow" href="#/boxoffice/tmdb-${x.id}">
           <span class="tm"><span class="rk num"></span>${thumb(x)}<span><b>${esc(x.name)}</b><span class="meta">${esc(lang(x.lang))}${x.date ? ` · ${esc(fmtDate(x.date))}` : ''}${x.rerelease ? ` · Re-release (${esc(x.first_date.slice(0, 4))})` : ''}</span></span></span>
@@ -174,6 +181,37 @@ export async function renderBoxOffice(app, id) {
     };
     more.onclick = load;
     await load();
+  }
+  // "Hollywood": English-language movies — in US theaters now, and the top grossers of any year (US$, from TMDB).
+  async function drawHollywood() {
+    const seq = ++otherSeq, box = $('#bolist', app);
+    $('#boall', app).innerHTML = '';
+    box.innerHTML = `<div class="sec"><h2>In US theaters now</h2><span class="meta" id="hwcount1"></span></div><div class="ticker others hwlist" id="hwnow"></div>
+      <div class="bomore"><button class="btn ghost sm" id="hwmore1" hidden>Show more</button></div>
+      <div class="sec"><h2>Top grossers of ${st.hwYear}</h2><span class="meta" id="hwcount2"></span></div><div class="ticker others hwlist" id="hwtop"></div>
+      <div class="bomore"><button class="btn ghost sm" id="hwmore2" hidden>Show more</button></div>
+      <p class="meta upnote">Hollywood numbers are worldwide gross and budget in US dollars, from TMDB. Verdict = gross ÷ (2 × budget): the studio keeps about half of the gross.</p>`;
+    const row = (x, rank) => { const v = verdictFrom(x.revenue_usd, x.budget_usd, daysSince(x.date || '2000-01-01') <= 56, rank);
+      return `<a class="trow" href="#/boxoffice/tmdb-${x.id}"><span class="tm"><span class="rk num">${rank || ''}</span>${thumb(x)}<span><b>${esc(x.name)}</b><span class="meta">${x.date ? esc(fmtDate(x.date)) : ''}${x.budget_usd ? ` · Budget ${usd(x.budget_usd)}` : ''}</span></span></span>
+        <span class="r hwcell"><span class="${x.revenue_usd ? 'num' : 'meta nonum'}">${x.revenue_usd ? usd(x.revenue_usd) : 'No gross yet'}</span>${v ? verdictPill(v) : ''}</span></a>`; };
+    const list = async (kind, el, more, count) => {
+      let page = 0, pages = 1, n = 0;
+      const load = async () => {
+        more.disabled = true;
+        try {
+          const d = await tmdbGet(`/api/tmdb?hw=${kind}&page=${++page}${kind === 'top' ? `&year=${st.hwYear}` : ''}`);
+          if (seq !== otherSeq || st.tab !== 'hw') return;
+          pages = d.total_pages || 1;
+          const rows = (d.results || []).filter(x => kind === 'now' || x.revenue_usd);
+          el.insertAdjacentHTML('beforeend', rows.map(x => row(x, kind === 'top' ? ++n : 0)).join(''));
+          count.textContent = kind === 'now' ? `${(d.total || 0).toLocaleString('en-US')} playing` : `${n} with a known gross`;
+          if (!el.children.length) el.innerHTML = `<div class="meta" style="padding:14px 4px">Nothing found.</div>`;
+        } catch (e) { if (!el.children.length) el.innerHTML = `<div class="meta" style="padding:14px 4px">Could not load this list right now.</div>`; }
+        more.hidden = page >= pages; more.disabled = false;
+      };
+      more.onclick = load; await load();
+    };
+    await Promise.all([list('now', $('#hwnow', box), $('#hwmore1', box), $('#hwcount1', box)), list('top', $('#hwtop', box), $('#hwmore2', box), $('#hwcount2', box))]);
   }
   // "Coming soon": upcoming Indian releases from TMDB, soonest first.
   async function drawSoon() {
@@ -212,6 +250,15 @@ export async function renderBoxOffice(app, id) {
   }
   drawCtl(); draw();
   reveal($$('.bostat', app));
+  // Search any movie in TMDB → its box office page (graph, verdict, talk).
+  const q = $('#bosq', app), res = $('#bosres', app); let qt = 0, qseq = 0;
+  q.oninput = () => { clearTimeout(qt); const v = q.value.trim(); if (v.length < 2) { res.hidden = true; res.innerHTML = ''; return; }
+    qt = setTimeout(async () => { const my = ++qseq;
+      try { const d = await tmdbGet(`/api/tmdb?q=${encodeURIComponent(v)}`); if (my !== qseq) return;
+        const M = (d.results || []).filter(x => x.type === 'movie').slice(0, 8);
+        res.innerHTML = M.length ? M.map(x => `<a class="trow" role="option" href="#/boxoffice/tmdb-${x.id}"><span class="tm">${thumb(x)}<span><b>${esc(x.name)}</b><span class="meta">${esc(x.year || 'Year unknown')}</span></span></span></a>`).join('') : '<div class="meta" style="padding:12px">No movies found.</div>';
+        res.hidden = false;
+      } catch (e) { res.innerHTML = '<div class="meta" style="padding:12px">Search is not working right now.</div>'; res.hidden = false; } }, 250); };
 }
 
 /* ---------------- one movie ---------------- */
@@ -234,6 +281,7 @@ async function renderMovie(app, id) {
   const budget = n(m.budget_cr), be = n(m.breakeven);
   const first = k => days.filter(d => d.day <= k).reduce((a, d) => a + d.net, 0);
   const wkEnd = (() => { const r = dt(m.release_date).getDay(); return Math.max(1, r === 0 ? 1 : 8 - r); })(); // through the first Sunday
+  const mv = m.verdict || verdictFrom(ww, budget, m.running);
   const inTheaters = m.running ? daysSince(m.release_date) : (days.length ? days[days.length - 1].day : 0);
   const card = (l, v, s = '', raw = null) => `<div class="card kn"><span class="eyebrow">${l}</span><span class="num big" ${raw != null ? `data-count="${raw}"` : ''}>${v}</span>${s ? `<span class="meta">${s}</span>` : ''}</div>`;
   $('#bom', app).innerHTML = `
@@ -243,7 +291,7 @@ async function renderMovie(app, id) {
         <p class="eyebrow">${esc(lang(m.lang))} · ${esc(fmtDate(m.release_date))}</p>
         <h1 class="display sm">${esc(m.title)}</h1>
         <div class="meta">${[m.certificate, m.runtime ? `${Math.floor(m.runtime / 60)}h ${m.runtime % 60}m` : '', budget != null ? `Budget ${cr(budget)}` : ''].filter(Boolean).map(esc).join(' · ')}</div>
-        <div class="bigverdict ${m.verdict ? (GOOD.has(m.verdict) ? 'up' : m.verdict === 'Average' ? '' : 'down') : 'run'}">${esc(m.verdict || (m.running ? 'Running' : 'Out of theaters'))}</div>
+        <div class="bigverdict ${mv ? vtone(mv) : 'run'}">${esc(mv ? vname(mv) + (m.verdict ? '' : ' (our math)') : m.running ? 'Running' : 'Out of theaters')}</div>
         ${m.tmdb_id ? `<a class="see" href="#/t/tmdb-movie-${m.tmdb_id}">Ratings &amp; journey ${ic('arrow-right')}</a>` : ''}
       </div>
     </section>
@@ -266,7 +314,14 @@ async function renderMovie(app, id) {
       ${card('Days in theaters', inTheaters || '—')}${card('Screens', m.screens ? Number(m.screens).toLocaleString('en-IN') : '—', 'Opening count')}
     </section>
     ${runHTML(m, days)}
+    <div id="boextra"></div>
     <p class="meta upnote">${m.source ? `Source: ${esc(m.source)}. ` : ''}Estimates; gross is net + 18% GST when not reported. Updated ${esc(fmtDate(m.updated_at))}.</p>`;
+  // Summary, public talk and "worth it?" from TMDB + our research (added when it loads).
+  if (m.tmdb_id) Promise.all([tmdbGet(`/api/tmdb?bo=${m.tmdb_id}`), talkAll()]).then(([d, TK]) => {
+    const box = $('#boextra', app); if (!box) return;
+    const t = (TK || []).find(x => x.tmdb_id === d.id);
+    box.innerHTML = summaryHTML(d) + talkHTML(d, t) + worthHTML(d, t, !!m.running, false);
+  }).catch(() => {});
   hydratePosters($('#bom', app));
   reveal($$('#bom .kgrid .card, #bom .run', app));
   $$('#bom [data-count]', app).forEach(el => countUp(el, +el.dataset.count, cr));
@@ -296,7 +351,7 @@ function runHTML(m, days) {
 let chartInst = null;
 /** Line colour: green for a hit, red for a flop, grey when we can't tell (no verdict and no break-even). */
 function lineTone(m, ww, be) {
-  if (m.verdict) return GOOD.has(m.verdict) ? 'up' : (m.verdict === 'Flop' || m.verdict === 'Disaster') ? 'down' : '';
+  if (m.verdict) return vtone(m.verdict);
   if (!be || ww == null) return '';
   return ww >= be ? 'up' : !m.running ? 'down' : '';
 }
@@ -478,51 +533,65 @@ export function typicalLife(SO, lng) {
   const same = fits.filter(x => x.lang === lng).map(x => x.f.total);
   return same.length >= 2 ? { total: med(same), n: same.length, lang: true } : { total: med(fits.map(x => x.f.total)) || 1, n: fits.length, lang: false };
 }
-const verdictFrom = (total, budget, running) => {
+/** Final judgement from worldwide gross vs budget. The producer keeps about half the gross, so r = gross ÷ (2 × budget):
+ *  r ≥ 3 Blockbuster (Industry hit if it is also the #1 grosser of its year in its language), ≥ 2 Super hit, ≥ 1.25 Hit, ≥ 1 Average,
+ *  ≥ 0.75 Flop, ≥ 0.5 Utter flop, below that Disaster. A movie still running only gets a verdict once it reaches Average or better. */
+export const verdictFrom = (total, budget, running, rank = null) => {
   if (!total || !budget) return null;
   const r = total / (budget * 2);
-  return r >= 3 ? 'Blockbuster' : r >= 2 ? 'Superhit' : r >= 1.25 ? 'Hit' : r >= 1 ? 'Average' : running ? null : r >= 0.6 ? 'Flop' : 'Disaster';
+  if (r >= 3) return rank === 1 || r >= 8 ? 'Industry hit' : 'Blockbuster';
+  return r >= 2 ? 'Super hit' : r >= 1.25 ? 'Hit' : r >= 1 ? 'Average' : running ? null : r >= 0.75 ? 'Flop' : r >= 0.5 ? 'Utter flop' : 'Disaster';
 };
 
 async function renderTmdbMovie(app, tid) {
   app.innerHTML = `<div class="screen boxoffice"><header class="top"><a class="icon-btn" href="#/boxoffice" aria-label="Back to Box Office">${ic('arrow-left')}</a><span></span></header><div id="bom"><div class="card"><div class="rskel"></div></div></div></div>`;
-  let d, T, R, SO, BU;
-  try { [d, T, R, SO, BU] = await Promise.all([tmdbGet(`/api/tmdb?bo=${tid}`), tracked(), reportedAll(), socialAll(), budgetAll()]); }
+  let d, T, R, SO, BU, TK;
+  try { [d, T, R, SO, BU, TK] = await Promise.all([tmdbGet(`/api/tmdb?bo=${tid}`), tracked(), reportedAll(), socialAll(), budgetAll(), talkAll()]); }
   catch (e) { $('#bom', app).innerHTML = `<div class="card"><div class="mascot"><div>We couldn't load this movie right now.</div></div></div>`; return; }
   if (!document.body.contains(app) || !$('#bom', app)) return;
-  const date = d.india_release || d.release_date, year = date ? +date.slice(0, 4) : null;
+  const indian = !!LANGS[d.lang], hw = d.lang === 'en';
+  const date = (hw ? d.us_release || d.release_date : d.india_release || d.release_date) || d.release_date, year = date ? +date.slice(0, 4) : null;
   // Movies we track day by day open their full page instead.
   const tr = T.find(m => m.tmdb_id === d.id || (m.lang === d.lang && Math.abs(dt(m.release_date).getFullYear() - (year || 0)) <= 1 && (same(m.title, d.name) || same(m.title, d.original_name))));
   if (tr) { location.replace(`#/boxoffice/${tr.id}`); return; }
   const S = (SO || []).filter(r => r.tmdb_id === d.id);
   const rp = R.find(r => r.lang === d.lang && Math.abs(+r.year - (year || 0)) <= 1 && (same(r.title, d.name) || same(r.title, d.original_name)));
+  const B = (BU || []).find(b => b.tmdb_id === d.id);
   document.title = `${d.name} box office — Heartbeat`;
   // Pick the total: the Indian trade figure (₹) first, then TMDB's worldwide figure (US$).
   const cur = rp ? '₹' : d.revenue_usd ? '$' : null;
   const total = date && daysSince(date) < 1 ? null : rp ? +rp.low : d.revenue_usd;
   const fmt = cur === '₹' ? cr : usd;
-  const budget = cur === '$' ? d.budget_usd : null;
-  const age = date ? daysSince(date) : null, soon = age != null && age < 1, running = age != null && age >= 1 && age <= 42 && d.status === 'Released';
-  const verdict = verdictFrom(total, budget, running);
+  const age = date ? daysSince(date) : null, soon = age != null && age < 1, running = age != null && age >= 1 && age <= (hw ? 56 : 42) && d.status === 'Released';
+  const released = age != null && age >= 1;
+  const today = released ? Math.min(LIFE, age) : 0;
   // The graph. Every released movie gets one:
   //  1) a reported total → spread over the run (modeled shape);
   //  2) numbers posted online → a decay curve fitted through them;
-  //  3) nothing posted → a rough guess from similar movies in the same language.
-  const B = (BU || []).find(b => b.tmdb_id === d.id);
-  const released = age != null && age >= 1;
-  const today = released ? Math.min(LIFE, age) : 0;
-  let G = null;
+  //  3) a recent Indian movie with nothing posted → a rough guess from similar movies in theaters now;
+  //  4) anything else with no money numbers anywhere → the typical shape of a run, in % of the final total (no made-up money).
+  let G = null, F = null;
   if (released && total) G = { kind: 'total', daily: running ? (w => { const c = w.slice(0, Math.max(1, today)).reduce((x, y) => x + y, 0); return w.map(x => x / c * total); })(wts(date, -Math.log(0.93))) : modelRun(total, date, LIFE), label: cur === '₹' ? 'Gross' : 'Worldwide gross', fmt,
     note: 'Modeled line: the total is reported, but the day-by-day shape is our estimate (big opening, slow drop, weekend bumps).' };
-  else if (released && S.length) { const F = fitRun(S, date); if (F && F.total > 0) G = { kind: 'fit', daily: F.daily, label: F.scope, fmt: cr, anchors: F.anchors,
+  else if (released && S.length) { F = fitRun(S, date); if (F && F.total > 0) G = { kind: 'fit', daily: F.daily, label: F.scope, fmt: cr, anchors: F.anchors,
     note: `Estimate: a curve fitted through the ${F.anchors.length} number${F.anchors.length > 1 ? 's' : ''} posted online (dots). Each day earns e<sup>−${F.k.toFixed(3)}</sup> × the day before, with weekend bumps${F.solved ? ' — the drop rate comes from the posts' : ' — the drop rate is a typical one'}. Dashed part = where it is heading.` }; }
-  if (released && !G) { const TY = typicalLife(SO, d.lang), w = wts(date, K0), sw = w.reduce((a, b) => a + b, 0);
+  if (released && !G && indian && age <= 120) { const TY = typicalLife(SO, d.lang), w = wts(date, K0), sw = w.reduce((a, b) => a + b, 0);
     G = { kind: 'rough', daily: w.map(x => x / sw * TY.total), label: 'Gross', fmt: cr,
       note: `Rough estimate — no real numbers were posted for this movie. This line is the typical run of ${TY.n} ${TY.lang ? esc(lang(d.lang)) + ' ' : ''}movie${TY.n === 1 ? '' : 's'} in theaters now, not this movie's real money.` }; }
+  if (released && !G) { const w = wts(date, K0), sw = w.reduce((a, b) => a + b, 0);
+    G = { kind: 'shape', daily: w.map(x => x / sw * 100), label: 'Share of final total', fmt: v => `${v >= 10 ? Math.round(v) : v.toFixed(1)}%`,
+      note: 'No money numbers exist anywhere for this movie (not on TMDB, trade sites or social media). So this graph shows the typical shape of a run instead: how much of the final total comes in by each day. It is not this movie\'s real money.' }; }
+  // Final judgement.
+  const bud = cur === '₹' ? (B ? +B.low : null) : cur === '$' ? d.budget_usd : null;
+  let verdict = verdictFrom(total, bud, running, d.year_rank), projected = false;
+  if (!verdict && G && G.kind === 'fit' && B && /gross/i.test(G.label)) { verdict = verdictFrom(F.total, +B.low, false); projected = !!verdict; }
+  const verdictWhy = verdict ? (projected ? `Projected from the fitted line (${cr(F.total)} after 8 weeks) vs the ${cr(+B.low)} budget.` : `${fmt(total)} gross vs ${cur === '₹' ? cr(bud) : usd(bud)} budget. The producer keeps about half the gross, so this is ${(total / (2 * bud)).toFixed(1)}× the money back.${verdict === 'Industry hit' ? ' Also the top grosser of its year in its language.' : ''}`)
+    : soon ? 'Not out yet.' : running ? 'Too early to call — still in theaters.' : 'No verdict: we need both the budget and the gross, and one of them was never reported.';
   const gTodayCum = G ? G.daily.slice(0, Math.max(1, today)).reduce((a, b) => a + b, 0) : 0;
   const card = (l, v, s = '') => `<div class="card kn"><span class="eyebrow">${l}</span><span class="num big">${v}</span>${s ? `<span class="meta">${s}</span>` : ''}</div>`;
   const fact = (l, v) => v ? `<div><span class="eyebrow">${l}</span><b>${esc(v)}</b></div>` : '';
   const srcNote = rp ? `Total: ${esc(rp.source)}.` : d.revenue_usd ? 'Total and budget: TMDB (worldwide, US dollars).' : '';
+  const talk = (TK || []).find(t => t.tmdb_id === d.id);
   $('#bom', app).innerHTML = `
     <section class="bohead">
       <div class="bopost">${poster({ id: 'tm' + d.id, name: d.name, year: String(year || ''), type: 'movie', posterPath: d.poster_path, colors: ['#171717', '#171717'] }, { mine: false })}</div>
@@ -530,43 +599,77 @@ async function renderTmdbMovie(app, tid) {
         <p class="eyebrow">${esc(lang(d.lang))}${date ? ` · ${esc(fmtDate(date))}` : ''}</p>
         <h1 class="display sm">${esc(d.name)}</h1>
         <div class="meta">${[d.certificate, d.runtime ? `${Math.floor(d.runtime / 60)}h ${d.runtime % 60}m` : '', d.genres.slice(0, 3).join(', ')].filter(Boolean).map(esc).join(' · ')}</div>
-        <div class="bigverdict ${verdict ? (GOOD.has(verdict) ? 'up' : verdict === 'Average' ? '' : 'down') : 'run'}">${esc(verdict || (soon ? (age === 0 ? 'Out tomorrow' : 'Coming soon') : running ? 'In theaters' : total ? 'Reported' : S.length ? 'Reported online' : 'Not reported'))}</div>
+        <div class="bigverdict ${verdict ? vtone(verdict) : 'run'}">${esc(verdict ? verdict + (projected ? ' (projected)' : '') : soon ? (age === 0 ? 'Out tomorrow' : 'Coming soon') : running ? 'In theaters' : 'No verdict')}</div>
+        <p class="meta vwhy">${esc(verdictWhy)}</p>
         <a class="see" href="#/t/tmdb-movie-${d.id}">Ratings &amp; journey ${ic('arrow-right')}</a>
       </div>
     </section>
-    ${G ? `<section class="card chartcard${G.kind === 'rough' ? ' rough' : ''}">
-      <div class="chtop"><div><span class="eyebrow" id="chlabel"></span><div class="num huge" id="chtotal">${G.kind === 'total' ? fmt(total) : `${G.kind === 'rough' ? '~' : ''}${G.fmt(gTodayCum)}`}</div>${G.kind !== 'total' ? `<span class="meta">${G.kind === 'rough' ? 'Rough estimate' : 'Our estimate'}${running || age <= LIFE ? ' so far' : ''}</span>` : ''}</div>
+    ${summaryHTML(d)}
+    ${G ? `<section class="card chartcard${G.kind === 'rough' || G.kind === 'shape' ? ' rough' : ''}">
+      <div class="chtop"><div><span class="eyebrow" id="chlabel"></span><div class="num huge" id="chtotal">${G.kind === 'total' ? fmt(total) : G.kind === 'shape' ? G.fmt(gTodayCum) : `${G.kind === 'rough' ? '~' : ''}${G.fmt(gTodayCum)}`}</div>${G.kind !== 'total' ? `<span class="meta">${G.kind === 'shape' ? 'of the final total by now (typical)' : G.kind === 'rough' ? 'Rough estimate so far' : 'Our estimate so far'}</span>` : ''}</div>
         <div class="chctl"><div class="seg" role="group" aria-label="Total or daily">${[['cum', 'Cumulative total'], ['daily', 'Daily (modeled)']].map(([k, l]) => `<button data-mode="${k}" class="${st.mode === k ? 'on' : ''}" aria-pressed="${st.mode === k}">${l}</button>`).join('')}</div></div></div>
       <div class="chwrap" id="chwrap"></div>
       <p class="meta chmodel">${G.note}</p>
-    </section>` : soon ? `<section class="card"><div class="mascot"><div>Releases on ${esc(fmtDate(date))} – ${1 - age === 1 ? 'tomorrow' : `${1 - age} days to go`}.<br>The box office graph shows up here after it comes out.<br><a href="#/upcoming">Set a reminder in Upcoming</a></div></div></section>` : `<section class="card"><div class="mascot"><div>We don't know when this movie came out, so we can't draw its graph.</div></div></section>`}
+    </section>` : soon ? `<section class="card"><div class="mascot"><div>Releases on ${esc(fmtDate(date))} – ${1 - age === 1 ? 'tomorrow' : `${1 - age} days to go`}.<br>The box office graph shows up here after it comes out.<br><a href="#/upcoming">Set a reminder in Upcoming</a></div></div></section>` : `<section class="card"><div class="mascot"><div>TMDB has no release date for this movie, so we can't draw its graph.</div></div></section>`}
     ${S.length ? socialHTML(S) : ''}
     <section class="kgrid">
       ${!total && S.find(r => /^Worldwide/.test(r.figure)) ? card('Worldwide gross', esc(amt(S.find(r => /^Worldwide/.test(r.figure)))), 'Posted online, see below') : card('Worldwide gross', total ? fmt(total) : '—', rp && rp.high != null && +rp.high > +rp.low ? `Reports go up to ${fmt(+rp.high)}` : cur === '$' ? 'US dollars' : '')}
       ${B ? card('Budget', esc(amt(B)), `<a href="${esc(safeUrl(B.url))}" target="_blank" rel="noopener nofollow">${esc(B.source_name)}</a>`) : card('Budget', d.budget_usd ? usd(d.budget_usd) : '—', d.budget_usd ? 'TMDB' : '')}
-      ${card('Release', date ? esc(fmtDate(date)) : '—', d.india_release ? 'India' : '')}
+      ${card('Release', date ? esc(fmtDate(date)) : '—', hw && d.us_release ? 'US' : d.india_release ? 'India' : '')}
       ${card('Runtime', d.runtime ? `${d.runtime} min` : '—')}
     </section>
+    ${talkHTML(d, talk)}
+    ${worthHTML(d, talk, running, soon)}
     <section class="card run"><h2 class="h3">Details</h2>
-      ${d.tagline ? `<p class="serif bom-tag">“${esc(d.tagline)}”</p>` : ''}${d.overview ? `<p class="sub">${esc(d.overview)}</p>` : ''}
       <div class="runfacts bofacts">${fact('Director', d.director.join(', '))}${fact('Cast', d.cast.join(', '))}${fact('Music', d.music.join(', '))}${fact('Studios', d.companies.join(', '))}${fact('Countries', d.countries.join(', '))}${fact('Original title', d.original_name !== d.name ? d.original_name : '')}</div>
     </section>
-    <p class="meta upnote">${srcNote} Movie details from TMDB. Verdicts are worked out from budget and gross when both are known.</p>`;
+    <p class="meta upnote">${srcNote} Movie details, audience score and reviews from TMDB. Verdicts are worked out from budget and gross when both are known.</p>`;
   hydratePosters($('#bom', app));
   reveal($$('#bom .kgrid .card, #bom .run', app));
   if (!G) return;
   const wrap = $('#chwrap', app);
-  const color = verdict && GOOD.has(verdict) ? '#C6F432' : verdict === 'Flop' || verdict === 'Disaster' ? '#E5484D' : '#8A8A8A';
-  const draw = () => { drawModeled(wrap, date, G.daily, G.fmt, d.name, G.kind === 'total' ? color : G.kind === 'rough' ? '#5E5E5E' : '#8A8A8A', { label: G.label, today, anchors: G.anchors, kind: G.kind }); $$('#bom [data-mode]').forEach(b => { const on = st.mode === b.dataset.mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); };
+  const color = verdict && GOOD.has(verdict) ? '#C6F432' : BAD.has(verdict) ? '#E5484D' : '#8A8A8A';
+  const draw = () => { drawModeled(wrap, date, G.daily, G.fmt, d.name, G.kind === 'total' ? color : G.kind === 'rough' || G.kind === 'shape' ? '#5E5E5E' : '#8A8A8A', { label: G.label, today, anchors: G.anchors, kind: G.kind }); $$('#bom [data-mode]').forEach(b => { const on = st.mode === b.dataset.mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); };
   $$('[data-mode]', app).forEach(b => b.onclick = () => { st.mode = b.dataset.mode; draw(); });
   draw();
+}
+
+/* ---------- Summary, public talk, and "is it worth it?" (shown on every movie page) ---------- */
+let talkP = null;
+const talkAll = () => (talkP ||= rpc('box_office_talk').catch(() => { talkP = null; return []; }));
+const anyUrl = u => /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}\//i.test(u || '') ? u : '#';
+function summaryHTML(d) {
+  if (!d.overview && !d.tagline) return '';
+  return `<section class="card run bosum"><h2 class="h3">Summary</h2>${d.tagline ? `<p class="serif bom-tag">“${esc(d.tagline)}”</p>` : ''}${d.overview ? `<p class="sub">${esc(d.overview)}</p>` : ''}</section>`;
+}
+function talkHTML(d, t) {
+  const score = d.score != null && d.votes >= 5 ? `<div class="tscore"><span class="num big">${d.score.toFixed(1)}<small>/10</small></span><span class="meta">Audience score on TMDB · ${d.votes.toLocaleString('en-US')} vote${d.votes === 1 ? '' : 's'}</span><span class="tbar"><i style="width:${Math.round(d.score * 10)}%"></i></span></div>` : '';
+  const ours = t ? `<p class="sub">${esc(t.talk)}</p><p class="meta">Pulled together by us from: ${(t.sources || []).map(x => `<a href="${esc(anyUrl(x.url))}" target="_blank" rel="noopener nofollow">${esc(x.name)}</a>`).join(', ')} · as of ${esc(fmtDate(t.as_of))}</p>` : '';
+  const revs = (d.reviews || []).filter(r => r.text).map(r => `<li><p>“${esc(r.text)}${r.text.length >= 220 ? '…' : ''}”</p><span class="meta">${esc(r.author)}${r.rating != null ? ` · ${esc(String(r.rating))}/10` : ''}${r.url ? ` · <a href="${esc(r.url)}" target="_blank" rel="noopener nofollow">Read on TMDB</a>` : ''}</span></li>`).join('');
+  if (!score && !ours && !revs) return `<section class="card run botalk"><h2 class="h3">Public talk</h2><p class="meta">No public talk found yet — no audience score or reviews on TMDB, and nothing we could find on X, Instagram or news sites.</p></section>`;
+  return `<section class="card run botalk"><h2 class="h3">Public talk</h2>${ours}${score}${revs ? `<ul class="trev">${revs}</ul>` : ''}</section>`;
+}
+const WORTH = { go: ['Yes — go see it in theaters', 'up'], maybe: ['Maybe — a one-time watch', ''], wait: ['Wait for streaming (OTT)', 'down'], skip: ['Skip it', 'down'], home: ['Worth watching (now at home)', 'up'] };
+function worthHTML(d, t, running, soon) {
+  let k, why;
+  if (t && t.worth) { k = t.worth; why = t.worth_why || 'Based on the public talk above.'; }
+  else if (soon) { k = null; why = 'It is not out yet. Check back after the first reviews come in.'; }
+  else if (d.score == null || d.votes < 15) { k = null; why = 'Too few ratings so far to say.'; }
+  else {
+    const s = d.score, g = (d.genres[0] || 'this kind of movie').toLowerCase();
+    k = s >= 7.3 ? 'go' : s >= 6.3 ? 'maybe' : running ? 'wait' : 'skip';
+    why = `Audience score ${s.toFixed(1)}/10 from ${d.votes.toLocaleString('en-US')} votes. ${s >= 7.3 ? 'People like it a lot.' : s >= 6.3 ? `Fine if you enjoy ${g}.` : 'Most people were not impressed.'}`;
+    if (!running && k === 'go') k = 'home';
+  }
+  const w = k ? WORTH[k] : ['Not sure yet', 'run'];
+  return `<section class="card run boworth"><h2 class="h3">${running || soon ? 'Worth going to the movies?' : 'Worth watching?'}</h2><div class="bigverdict sm ${w[1]}">${esc(w[0])}</div><p class="meta">${esc(why)}</p></section>`;
 }
 
 async function drawModeled(wrap, date, daily, fmt, name, color = '#8A8A8A', o = {}) {
   const kind = o.kind || 'total', label = o.label || 'Worldwide gross', n = daily.length;
   const cut = Math.max(1, Math.min(n, o.today || n));   // days 1..cut are "so far" (solid); the rest is the projection (dashed)
   let run = 0; const cum = daily.map(v => (run += v)), cumMode = st.mode === 'cum', V = cumMode ? cum : daily;
-  const est = kind === 'total' ? '(modeled)' : kind === 'rough' ? '(rough estimate)' : '(estimate)';
+  const est = kind === 'total' ? '(modeled)' : kind === 'rough' ? '(rough estimate)' : kind === 'shape' ? '(typical shape, not real money)' : '(estimate)';
   $('#chlabel').textContent = `${label} · ${cumMode ? 'total' : 'per day'} ${est}`;
   const days = daily.map((_, i) => { const x = dt(date); x.setDate(x.getDate() + i); return x; });
   const pts = (o.anchors || []).filter(a => cumMode ? !a.single : a.single).map(a => [a.t - 1, +a.v.toFixed(4)]);
@@ -585,7 +688,7 @@ async function drawModeled(wrap, date, daily, fmt, name, color = '#8A8A8A', o = 
     new ResizeObserver(() => chartInst && !chartInst.isDisposed() && chartInst.resize()).observe(wrap);
   }
   const mono = '"Geist Mono", ui-monospace, monospace', r4 = v => +v.toFixed(4);
-  const how = kind === 'total' ? 'Modeled from the reported total' : kind === 'rough' ? 'Rough estimate, no real numbers posted' : 'Fitted to numbers posted online';
+  const how = kind === 'total' ? 'Modeled from the reported total' : kind === 'rough' ? 'Rough estimate, no real numbers posted' : kind === 'shape' ? 'Typical shape of a run, not real money' : 'Fitted to numbers posted online';
   chartInst.setOption({
     animationDuration: 900, animationEasing: 'cubicOut', grid: { left: 8, right: 16, top: 24, bottom: 8, containLabel: true }, textStyle: { fontFamily: mono },
     xAxis: { type: 'category', boundaryGap: false, data: V.map((_, i) => 'D' + (i + 1)), axisLine: { lineStyle: { color: '#1F1F1F' } }, axisTick: { show: false }, axisLabel: { color: '#5E5E5E', fontSize: 11, hideOverlap: true } },

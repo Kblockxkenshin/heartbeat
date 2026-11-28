@@ -8,6 +8,8 @@
 //   /api/tmdb?bo=123 -> one movie's box office details (TMDB budget/revenue in US$, people, countries)
 //   /api/tmdb?playing=1&page=1[&lang=hi] -> Indian movies in theaters now (released in the last 6 weeks)
 //   /api/tmdb?released=2026&page=1[&lang=hi][&sort=pop] -> Indian movies already released that year (newest first, or most popular)
+//   /api/tmdb?hw=now&page=1 -> Hollywood (English) movies in US theaters now
+//   /api/tmdb?hw=top&year=2026&page=1 -> Hollywood top grossers of a year (worldwide gross + budget, US$)
 // Images are built in the browser from poster_path/backdrop_path:
 //   https://image.tmdb.org/t/p/w500{poster_path}
 
@@ -94,8 +96,18 @@ async function released(query) {
 }
 
 async function boDetails(id) {
-  const d = await tmdb(`movie/${id}`, { language: 'en-US', append_to_response: 'credits,release_dates' });
+  const d = await tmdb(`movie/${id}`, { language: 'en-US', append_to_response: 'credits,release_dates,reviews' });
   const inRel = (d.release_dates?.results || []).find(r => r.iso_3166_1 === 'IN');
+  const usRel = (d.release_dates?.results || []).find(r => r.iso_3166_1 === 'US');
+  // Where it ranks among the year's top grossers in its own language (for "Industry hit").
+  let yearRank = null;
+  const yr = (d.release_date || '').slice(0, 4);
+  if (yr && d.revenue > 0) {
+    try {
+      const t = await tmdb('discover/movie', { with_original_language: d.original_language, primary_release_year: yr, sort_by: 'revenue.desc', include_adult: 'false', page: '1' });
+      const i = (t.results || []).findIndex(m => m.id === d.id); yearRank = i >= 0 ? i + 1 : null;
+    } catch (e) { /* ignore */ }
+  }
   return {
     id: d.id, name: d.title, original_name: d.original_title, lang: d.original_language, status: d.status,
     release_date: d.release_date || null, india_release: (inRel?.release_dates || []).map(r => r.release_date?.slice(0, 10)).filter(Boolean).sort()[0] || null,
@@ -107,7 +119,29 @@ async function boDetails(id) {
     director: (d.credits?.crew || []).filter(c => c.job === 'Director').map(c => c.name).slice(0, 2),
     music: (d.credits?.crew || []).filter(c => c.job === 'Original Music Composer').map(c => c.name).slice(0, 2),
     cast: (d.credits?.cast || []).slice(0, 6).map(c => c.name),
+    us_release: (usRel?.release_dates || []).filter(r => r.type === 3 || r.type === 2).map(r => r.release_date?.slice(0, 10)).filter(Boolean).sort()[0] || null,
+    score: d.vote_count > 0 ? Math.round(d.vote_average * 10) / 10 : null, votes: d.vote_count || 0, year_rank: yearRank,
+    reviews: (d.reviews?.results || []).slice(0, 3).map(r => ({ author: String(r.author || 'TMDB user').slice(0, 60), rating: r.author_details?.rating ?? null,
+      text: String(r.content || '').replace(/\s+/g, ' ').slice(0, 220), url: /^https:\/\/www\.themoviedb\.org\//.test(r.url || '') ? r.url : null, date: (r.created_at || '').slice(0, 10) })),
   };
+}
+// Hollywood (English-language) lists.
+async function hollywood(query) {
+  const page = Math.min(Math.max(parseInt(query.page, 10) || 1, 1), 20);
+  let d;
+  if (query.hw === 'now') {
+    const today = new Date().toISOString().slice(0, 10), from = addDays(today, -56);
+    d = await tmdb('discover/movie', { region: 'US', with_original_language: 'en', 'release_date.gte': from, 'release_date.lte': today, with_release_type: '2|3',
+      sort_by: 'popularity.desc', include_adult: 'false', include_video: 'false', language: 'en-US', page: String(page) });
+  } else {
+    const year = Math.min(Math.max(parseInt(query.year, 10) || new Date().getFullYear(), 1915), new Date().getFullYear());
+    d = await tmdb('discover/movie', { with_original_language: 'en', primary_release_year: String(year), sort_by: 'revenue.desc', include_adult: 'false', include_video: 'false', language: 'en-US', page: String(page) });
+  }
+  const list = d.results || [];
+  const info = await Promise.all(list.map(m => tmdb(`movie/${m.id}`, { language: 'en-US' }).catch(() => null)));
+  return { page, total_pages: Math.min(d.total_pages || 1, 20), total: d.total_results || 0,
+    results: list.map((m, i) => ({ id: m.id, name: m.title, lang: m.original_language, date: m.release_date || null, poster_path: m.poster_path || null,
+      revenue_usd: info[i]?.revenue > 0 ? info[i].revenue : null, budget_usd: info[i]?.budget > 0 ? info[i].budget : null, score: m.vote_count > 0 ? m.vote_average : null })) };
 }
 async function playing(query) {
   const lang = IN_LANGS.includes(String(query.lang)) ? String(query.lang) : IN_LANGS.join('|');
@@ -136,6 +170,11 @@ export default async function handler(req, res) {
     if (/^\d{1,9}$/.test(String(req.query.bo || ''))) {
       const out = await boDetails(req.query.bo);
       res.setHeader('Cache-Control', 's-maxage=43200, stale-while-revalidate=604800');
+      return res.status(200).json(out);
+    }
+    if (req.query.hw === 'now' || req.query.hw === 'top') {
+      const out = await hollywood(req.query);
+      res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
       return res.status(200).json(out);
     }
     if (req.query.playing) {

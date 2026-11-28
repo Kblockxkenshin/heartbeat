@@ -212,7 +212,7 @@ async function inbox(box) {
 
 /* ---------- Box office: add movies and their daily numbers ---------- */
 const CERTS = ['', 'U', 'UA', 'U/A 7+', 'U/A 13+', 'U/A 16+', 'A', 'S'];
-const VERD = ['', 'Blockbuster', 'Superhit', 'Hit', 'Average', 'Flop', 'Disaster'];
+const VERD = ['', 'Industry hit', 'Blockbuster', 'Super hit', 'Superhit', 'Hit', 'Average', 'Flop', 'Utter flop', 'Disaster'];
 /** CSV lines: day, India net, India gross, overseas, note, est  (₹ crore; gross/overseas/note optional; "est" marks a filled-in day; a first line with words is skipped). */
 export function parseDays(txt) {
   const out = [], bad = [];
