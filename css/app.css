@@ -1780,7 +1780,7 @@ div.trow{cursor:default}
 .qr .qbtns{align-items:center;gap:22px}
 .qr .qbtns button{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:0 6px 18px rgba(0,0,0,.45);transition:transform .15s var(--ease),background .2s,border-color .2s,color .2s}
 .qr .qbtns button.nope:hover{background:rgba(229,72,77,.14);border-color:rgba(229,72,77,.5);color:#FF6B70}
-.qr .qbtns button.skip:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3)}
+.qr .qbtns button.unsee:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3)}
 .qr .qbtns button.love{position:relative;width:80px;height:80px;border:0;color:#0A0A0A;font-size:36px;background:radial-gradient(circle at 35% 30%,#E4FF7A 0%,#C6F432 45%,#9BCB10 100%);box-shadow:0 0 0 6px rgba(198,244,50,.14),0 10px 30px rgba(198,244,50,.35),inset 0 2px 0 rgba(255,255,255,.55),inset 0 -6px 12px rgba(0,0,0,.18)}
 .qr .qbtns button.love:hover{transform:scale(1.05);box-shadow:0 0 0 8px rgba(198,244,50,.18),0 12px 36px rgba(198,244,50,.45),inset 0 2px 0 rgba(255,255,255,.55),inset 0 -6px 12px rgba(0,0,0,.18)}
 .qr .qbtns button.love .i{filter:drop-shadow(0 1px 0 rgba(255,255,255,.35))}

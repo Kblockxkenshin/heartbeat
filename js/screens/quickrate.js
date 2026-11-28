@@ -102,7 +102,7 @@ export function renderQuickRate(app) {
     <div class="qbtns">
       <button data-act="disliked" class="nope" aria-label="Didn't like it (swipe left)"><i class="i i-thumbs-down" aria-hidden="true"></i></button>
       <button data-act="loved" class="love" aria-label="Loved it (swipe right)"><i class="i i-heart-fill" aria-hidden="true"></i></button>
-      <button data-act="unseen" class="skip" aria-label="Haven't seen it (swipe up)"><i class="i i-eye-off" aria-hidden="true"></i></button>
+      <button data-act="unseen" class="unsee" aria-label="Haven't seen it (swipe up)"><i class="i i-eye-off" aria-hidden="true"></i></button>
     </div>
     <div class="qhint">Swipe or use your keyboard: <kbd class="kbd">←</kbd> nope · <kbd class="kbd">→</kbd> loved · <kbd class="kbd">↑</kbd> haven't seen</div>`
     : Q.err ? empty('Couldn’t load more titles.', 'sad', '<button class="btn" id="qretry">Try again</button>')
