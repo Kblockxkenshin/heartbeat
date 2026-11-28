@@ -202,6 +202,14 @@ export default async function handler(req, res) {
       res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
       return res.status(200).json({ results });
     }
+    // Find one movie by title (+ year, language): /api/tmdb?find=KGF Chapter 2&year=2022
+    if (req.query.find) {
+      const query = String(req.query.find).slice(0, 100), year = /^\d{4}$/.test(String(req.query.year || '')) ? String(req.query.year) : '';
+      let d = await tmdb('search/movie', { query, include_adult: 'false', language: 'en-US', page: '1', ...(year ? { year } : {}) });
+      if (!(d.results || []).length && year) d = await tmdb('search/movie', { query, include_adult: 'false', language: 'en-US', page: '1' });
+      res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=604800');
+      return res.status(200).json({ results: (d.results || []).slice(0, 20).map(m => ({ id: m.id, name: m.title, original_name: m.original_title, lang: m.original_language, year: (m.release_date || '').slice(0, 4), poster_path: m.poster_path || null, backdrop_path: m.backdrop_path || null })) });
+    }
     // Best picture for a movie: its poster, else any poster in any language, else a still. Used to fill missing thumbnails.
     if (/^\d{1,9}$/.test(String(req.query.poster || ''))) {
       const d = await tmdb(`movie/${req.query.poster}`, { language: 'en-US', append_to_response: 'images', include_image_language: 'en,null,hi,te,ta,ml,kn,bn,mr,pa' });

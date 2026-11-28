@@ -56,8 +56,8 @@ export async function posterFor(tid, q, lng, y) {
   let p = null, id = tid;
   try {
     if (!id && q) {
-      const m = await matchMovie(q, y);
-      if (m) { id = m.id; p = m.poster_path || null; }
+      const m = await matchMovie(q, y, lng);
+      if (m) { id = m.id; p = m.poster_path || m.backdrop_path || null; }
     }
     if (!p && id) { const d = await tmdbGet(`/api/tmdb?poster=${id}`); p = d.poster_path || d.backdrop_path || null; }
   } catch (e) { return null; }
@@ -102,22 +102,27 @@ const norm = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u03
 const same = (a, b) => { const x = norm(a), y = norm(b); return !!x && !!y && (x === y || x.startsWith(y + ' ') || y.startsWith(x + ' ')); };
 const range = r => r.high != null && +r.high > +r.low ? `₹${Math.round(r.low).toLocaleString('en-IN')}–${Math.round(r.high).toLocaleString('en-IN')} Cr` : cr(+r.low);
 const tmdbGet = url => fetch(url).then(r => r.ok ? r.json() : Promise.reject(new Error('TMDB')));
-/** Best TMDB search match for a title (+ year): exact title first, then same first word within a year (e.g. "Drishyam 3: The Conclusion" → "Drishyam: The Conclusion"). */
-async function matchMovie(q, y) {
-  const d = await tmdbGet(`/api/tmdb?q=${encodeURIComponent(q)}`);
-  const M = (d.results || []).filter(x => x.type === 'movie'), near = x => !y || !x.year || Math.abs(+x.year - +y) <= 1;
-  const w0 = s => norm(s).split(' ')[0] || '';
-  return M.find(x => same(x.name, q) && near(x)) || M.find(x => w0(x.name) === w0(q) && w0(q).length >= 3 && y && Math.abs((+x.year || 0) - +y) <= 1) || (!y ? M.find(x => same(x.name, q)) : null) || null;
+/** Best TMDB match for a title (+ year, language). Spelling-tolerant: "Baahubali" = "Bāhubali", "KGF" = "K.G.F". Short titles ("War", "2.0") need the year and language to match. */
+const skel = s => norm(s).replace(/[^a-z0-9]/g, '').replace(/[aeiouy]/g, '').replace(/(.)\1+/g, '$1');
+async function matchMovie(q, y, lng) {
+  const d = await tmdbGet(`/api/tmdb?find=${encodeURIComponent(q)}${y ? `&year=${y}` : ''}`);
+  const M = (d.results || []), near = x => !y || !x.year || Math.abs(+x.year - +y) <= 1, okLang = x => !lng || !x.lang || x.lang === lng;
+  const k = skel(q), k1 = skel(q.split(/[:(]/)[0]);
+  const loose = x => [x.name, x.original_name].some(n => { const s = skel(n); return s && (s === k || (k.length >= 6 && (s.startsWith(k) || k.startsWith(s))) || (k1.length >= 4 && skel(String(n).split(/[:(]/)[0]) === k1)); });
+  return M.find(x => okLang(x) && near(x) && (same(x.name, q) || same(x.original_name, q)))
+    || M.find(x => okLang(x) && near(x) && loose(x))
+    || (lng && y ? (c => c.length === 1 ? c[0] : null)(M.filter(x => x.lang === lng && +x.year === +y)) : null)
+    || null;
 }
 /** Poster + TMDB id for a reported movie (cached for this visit). */
-const PKEY = 'hb_bo_posters';
+const PKEY = 'hb_bo_posters2';
 let posterCache = (() => { try { return JSON.parse(sessionStorage.getItem(PKEY) || '{}'); } catch (e) { return {}; } })();
 async function findPoster(r) {
   const k = `${r.lang}|${r.year}|${r.title}`;
   if (k in posterCache) return posterCache[k];
   let hit = null;
   try {
-    const m = await matchMovie(r.title, r.year);
+    const m = await matchMovie(r.title, r.year, r.lang);
     if (m) hit = { tmdb: m.id, poster_path: m.poster_path };
   } catch (e) { return null; }
   posterCache[k] = hit; try { sessionStorage.setItem(PKEY, JSON.stringify(posterCache)); } catch (e) { /* ignore */ }
