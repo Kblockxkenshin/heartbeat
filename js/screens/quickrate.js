@@ -143,6 +143,10 @@ function reset() { Q.seq++; Q.pool = []; Q.used = { movie: new Set(), tv: new Se
 function drag(card) {
   let x0, y0, dx = 0, dy = 0, on = false;
   const stamps = k => card.querySelectorAll('.stamp').forEach(s => s.style.opacity = s.classList.contains(k) ? Math.min(1, (k === 'unseen' ? -dy : Math.abs(dx)) / 90) : 0);
+  // Grab anywhere on the card (poster included): stop the browser from dragging/saving the picture instead.
+  card.addEventListener('dragstart', e => e.preventDefault());
+  card.querySelectorAll('img').forEach(im => { im.draggable = false; });
+  card.addEventListener('contextmenu', e => e.preventDefault());
   card.addEventListener('pointerdown', e => { on = true; x0 = e.clientX; y0 = e.clientY; card.setPointerCapture(e.pointerId); card.style.transition = 'none'; });
   card.addEventListener('pointermove', e => {
     if (!on) return; dx = e.clientX - x0; dy = e.clientY - y0;

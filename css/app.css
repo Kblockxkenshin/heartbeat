@@ -1771,3 +1771,7 @@ div.trow{cursor:default}
 .sug .sugfill{transform:rotate(-45deg);font-size:16px;color:var(--muted);width:32px;height:32px;display:grid;place-items:center;border-radius:8px}
 .sug:hover,.sug.act{background:rgba(255,255,255,.05)}
 @media (max-width:420px){.sug small{display:none}.sug{grid-template-columns:20px minmax(0,1fr) 32px}}
+/* Quick Rate: the whole card (poster too) is grabbable for swiping */
+.qcard,.qcard *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none}
+.qcard .poster,.qcard .poster *,.qcard .qblur,.qcard .info{pointer-events:none}
+.qcard{touch-action:none}

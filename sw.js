@@ -2,7 +2,7 @@
 //  - App shell: cached on install, updated in the background.
 //  - TMDB data (/api/tmdb): network first, saved copy when offline.
 //  - Posters & backdrops: not touched here (the browser loads and caches them itself).
-const VERSION = 'v37';
+const VERSION = 'v38';
 const SHELL = `hb-shell-${VERSION}`, API = 'hb-api', IMG = 'hb-img', IMG_MAX = 200;
 const FILES = ['/', '/index.html', '/manifest.json', '/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png',
   '/css/app.css', '/css/icons.css', '/js/app.js', '/js/config.js', '/js/data.js', '/js/store.js', '/js/tmdb.js', '/js/ui.js', '/js/journey.js',
@@ -47,7 +47,18 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // App files: serve fast from cache, refresh in the background.
+  // Code and styles (.js / .css): always try the network first so a new version shows up right away;
+  // fall back to the saved copy when offline or very slow.
+  if (/\.(js|css|mjs)$/.test(url.pathname)) {
+    e.respondWith(caches.open(SHELL).then(async c => {
+      const net = fetch(req, { cache: 'no-cache' }).then(r => { if (r.ok) c.put(req, r.clone()); return r; });
+      const slow = new Promise(res => setTimeout(res, 4000));
+      try { const r = await Promise.race([net, slow.then(() => null)]); if (r) return r; } catch (er) { /* offline */ }
+      return (await c.match(req, { ignoreSearch: true })) || net;
+    }));
+    return;
+  }
+  // Icons, fonts, images: serve fast from cache, refresh in the background.
   e.respondWith(caches.open(SHELL).then(async c => {
     const hit = await c.match(req, { ignoreSearch: true });
     const net = fetch(req).then(r => { if (r.ok) c.put(req, r.clone()); return r; }).catch(() => hit);

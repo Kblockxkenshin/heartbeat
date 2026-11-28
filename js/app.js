@@ -376,4 +376,9 @@ startCloud();
 
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude/.test(location.host)) {
   addEventListener('load', () => { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) { /* ignore */ } });
+  // A new version just took over: reload once so the whole page uses it (no half-old, half-new screens).
+  const hadController = !!navigator.serviceWorker.controller; let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
+  // Check for a new version whenever the app comes back to the front.
+  addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') navigator.serviceWorker.getRegistration().then(r => r?.update()).catch(() => {}); });
 }
