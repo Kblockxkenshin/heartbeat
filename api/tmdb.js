@@ -267,6 +267,48 @@ async function pickList(q) {
 const GENRES = { 28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime', 99: 'Documentary', 18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History', 27: 'Horror', 10402: 'Music', 9648: 'Mystery', 10749: 'Romance', 878: 'Science Fiction', 10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western',
   10759: 'Action & Adventure', 10762: 'Kids', 10763: 'News', 10764: 'Reality', 10765: 'Sci-Fi & Fantasy', 10766: 'Soap', 10767: 'Talk', 10768: 'War & Politics' };
 
+/* ---------- Search suggestions: well-known released titles, matched by how they START ---------- */
+// TMDB's search only matches whole words ("aven" doesn't find Avengers), so we keep a list of
+// well-known movies and shows (refreshed daily) and match the start of each word in the name.
+let sugIndex = null, sugAt = 0, sugLoading = null;
+async function suggestIndex() {
+  if (sugIndex && Date.now() - sugAt < 864e5) return sugIndex;
+  if (sugLoading) return sugLoading;
+  sugLoading = (async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const jobs = [];
+    for (const type of ['movie', 'tv']) {
+      const dk = type === 'tv' ? 'first_air_date' : 'primary_release_date';
+      for (let p = 1; p <= 25; p++) jobs.push([type, { language: 'en-US', page: String(p), sort_by: 'vote_count.desc', [dk + '.lte']: today }]);
+      for (let p = 1; p <= 6; p++) jobs.push([type, { language: 'en-US', page: String(p), sort_by: 'vote_count.desc', [dk + '.lte']: today, with_original_language: 'hi|te|ta|ml|kn' }]);
+    }
+    const out = new Map();
+    for (let i = 0; i < jobs.length; i += 16) {
+      const got = await Promise.all(jobs.slice(i, i + 16).map(([type, prm]) => tmdb('discover/' + type, prm).then(d => (d.results || []).map(r => ({ r, type }))).catch(() => [])));
+      for (const { r, type } of got.flat()) {
+        const date = r.release_date || r.first_air_date || '';
+        if (!r.poster_path || !date || date > today) continue;
+        out.set(type + r.id, { id: r.id, type, name: r.title || r.name, year: date.slice(0, 4), date, poster_path: r.poster_path, pop: r.vote_count || 0 });
+      }
+    }
+    sugIndex = [...out.values()].sort((a, b) => b.pop - a.pop); sugAt = Date.now(); sugLoading = null;
+    return sugIndex;
+  })().catch(e => { sugLoading = null; return sugIndex || []; });
+  return sugLoading;
+}
+const fold = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+async function prefixMatches(q, n = 8) {
+  const f = fold(q); if (!f) return [];
+  const idx = await suggestIndex();
+  const starts = [], words = [];
+  for (const t of idx) {
+    const nm = fold(t.name);
+    if (nm.startsWith(f)) starts.push(t); else if ((' ' + nm).includes(' ' + f)) words.push(t);
+    if (starts.length >= n) break;
+  }
+  return starts.concat(words).slice(0, n);
+}
+
 export default async function handler(req, res) {
   try {
     const { q, type, id } = req.query;
@@ -303,17 +345,21 @@ export default async function handler(req, res) {
     }
     if (q) {
       const data = await tmdb('search/multi', { query: String(q).slice(0, 100), include_adult: 'false', language: 'en-US', page: '1' });
-      // Only things that are already out, most popular first.
+      // Only things that are already out.
       const today = new Date().toISOString().slice(0, 10);
       const results = (data.results || []).filter(r => (r.media_type === 'movie' || r.media_type === 'tv') && (r.release_date || r.first_air_date) && (r.release_date || r.first_air_date) <= today)
-        .sort((a, b) => (b.popularity || 0) - (a.popularity || 0)).slice(0, 12).map(r => ({
+        .slice(0, 12).map(r => ({
         id: r.id, type: r.media_type, name: r.title || r.name,
         year: (r.release_date || r.first_air_date || '').slice(0, 4),
         date: r.release_date || r.first_air_date || null,
         poster_path: r.poster_path || null,
       }));
+      // Names that START with what you typed (well-known titles first), then TMDB's own matches.
+      const pre = String(q).trim().length <= 20 ? await prefixMatches(q, 8) : [];
+      const seenK = new Set(pre.map(x => x.type + x.id));
+      const merged = pre.map(({ pop, ...x }) => x).concat(results.filter(x => !seenK.has(x.type + x.id))).slice(0, 14);
       res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
-      return res.status(200).json({ results });
+      return res.status(200).json({ results: merged });
     }
     if (/^\d{1,9}$/.test(String(req.query.budget || ''))) {
       const out = await budgetFor(req.query.budget);
