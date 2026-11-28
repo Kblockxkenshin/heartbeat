@@ -21,7 +21,7 @@ const finish = () => { try { localStorage.setItem(DONE, '1'); } catch (e) { /* i
 
 const st = { picks: [], list: [], q: '', seq: 0, res: null, type: 'movie', svc: '' };
 
-const SVCS = [['', 'Popular'], ['netflix', 'Netflix'], ['prime', 'Prime Video'], ['disney', 'Disney+'], ['max', 'Max'], ['hulu', 'Hulu'], ['apple', 'Apple TV+'], ['peacock', 'Peacock'], ['paramount', 'Paramount+'], ['hotstar', 'JioHotstar'], ['indian', 'Indian']];
+export const SVCS = [['', 'Popular'], ['netflix', 'Netflix'], ['prime', 'Prime Video'], ['disney', 'Disney+'], ['max', 'Max'], ['hulu', 'Hulu'], ['apple', 'Apple TV+'], ['peacock', 'Peacock'], ['paramount', 'Paramount+'], ['hotstar', 'JioHotstar'], ['indian', 'Indian']];
 const today = () => new Date().toISOString().slice(0, 10);
 
 export async function renderTaste(app) {

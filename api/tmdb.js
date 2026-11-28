@@ -261,8 +261,11 @@ async function pickList(q) {
   const d = await tmdb('discover/' + type, params);
   return { page, total_pages: Math.min(d.total_pages || 1, 500), total: d.total_results || 0,
     results: (d.results || []).filter(r => r.poster_path && (r.release_date || r.first_air_date) && (r.release_date || r.first_air_date) <= today)
-      .map(r => ({ id: r.id, type, name: r.title || r.name, year: (r.release_date || r.first_air_date || '').slice(0, 4), poster_path: r.poster_path })) };
+      .map(r => ({ id: r.id, type, name: r.title || r.name, year: (r.release_date || r.first_air_date || '').slice(0, 4), poster_path: r.poster_path, backdrop_path: r.backdrop_path || null,
+        genres: (r.genre_ids || []).map(g => GENRES[g]).filter(Boolean).slice(0, 3), overview: (r.overview || '').slice(0, 400) })) };
 }
+const GENRES = { 28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime', 99: 'Documentary', 18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History', 27: 'Horror', 10402: 'Music', 9648: 'Mystery', 10749: 'Romance', 878: 'Science Fiction', 10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western',
+  10759: 'Action & Adventure', 10762: 'Kids', 10763: 'News', 10764: 'Reality', 10765: 'Sci-Fi & Fantasy', 10766: 'Soap', 10767: 'Talk', 10768: 'War & Politics' };
 
 export default async function handler(req, res) {
   try {
@@ -300,7 +303,10 @@ export default async function handler(req, res) {
     }
     if (q) {
       const data = await tmdb('search/multi', { query: String(q).slice(0, 100), include_adult: 'false', language: 'en-US', page: '1' });
-      const results = (data.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv').slice(0, 12).map(r => ({
+      // Only things that are already out, most popular first.
+      const today = new Date().toISOString().slice(0, 10);
+      const results = (data.results || []).filter(r => (r.media_type === 'movie' || r.media_type === 'tv') && (r.release_date || r.first_air_date) && (r.release_date || r.first_air_date) <= today)
+        .sort((a, b) => (b.popularity || 0) - (a.popularity || 0)).slice(0, 12).map(r => ({
         id: r.id, type: r.media_type, name: r.title || r.name,
         year: (r.release_date || r.first_air_date || '').slice(0, 4),
         date: r.release_date || r.first_air_date || null,

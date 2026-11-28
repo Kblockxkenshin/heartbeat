@@ -50,12 +50,13 @@ export function hydrate(titles, onUpdate, force = false) {
 }
 
 export async function search(q) {
-  if (!LIVE || q.trim().length < 2) return [];
+  if (!LIVE || q.trim().length < 1) return [];
   try {
     const r = await fetch(`${CONFIG.tmdbProxy}?q=${encodeURIComponent(q)}`);
     if (!r.ok) return [];
     const j = await r.json();
-    return (j.results || []).map(x => ({ ...x, posterPath: x.poster_path }));
+    const t = new Date().toISOString().slice(0, 10);
+    return (j.results || []).filter(x => !x.date || x.date <= t).map(x => ({ ...x, posterPath: x.poster_path }));
   } catch (e) { return []; }
 }
 

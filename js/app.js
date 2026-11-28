@@ -95,6 +95,7 @@ function chrome(active) {
     : `<a class="tava ${active === 'me' ? 'on' : ''}" href="#/me" aria-label="${esc(displayName())}, your profile">${cloud.profile ? avatar(cloud.profile, 'sm') : `<span class="ava sm" aria-hidden="true"><i>${esc((displayName()[0] || 'Y').toUpperCase())}</i></span>`}</a>`;
   $('#side').hidden = true;
   $('#topbar').hidden = active === 'none' || document.body.classList.contains('inroom');
+  document.body.classList.toggle('qrmode', active === 'rate');   // phones: Quick Rate hides the top bar so the poster gets the room
 }
 
 /* ---------------- top bar + search ---------------- */
@@ -124,7 +125,7 @@ function topbar() {
       || `<div class="dempty">${mascot('sad')}<span>No match for “${esc(v)}” yet.</span></div>`;
     drop.hidden = false; q.parentElement.setAttribute('aria-expanded', 'true'); idx = -1; hydratePosters(drop);
   };
-  q.addEventListener('input', () => { draw(); clearTimeout(timer); timer = setTimeout(async () => { live = await tmdbSearch(q.value); if (q.value.trim()) draw(); }, 260); });
+  q.addEventListener('input', () => { draw(); clearTimeout(timer); timer = setTimeout(async () => { live = await tmdbSearch(q.value); if (q.value.trim()) draw(); }, 160); });
   q.addEventListener('keydown', e => {
     const it = items();
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!it.length) return; idx = (idx + (e.key === 'ArrowDown' ? 1 : -1) + it.length) % it.length; it.forEach((a, i) => a.classList.toggle('act', i === idx)); it[idx].scrollIntoView({ block: 'nearest' }); }
