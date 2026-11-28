@@ -109,7 +109,7 @@ async function matchMovie(q, y, lng) {
   const M = (d.results || []), near = x => !y || !x.year || Math.abs(+x.year - +y) <= 1, okLang = x => !lng || !x.lang || x.lang === lng;
   const k = skel(q), k1 = skel(q.split(/[:(]/)[0]);
   const loose = x => [x.name, x.original_name].some(n => { const s = skel(n); return s && (s === k || (k.length >= 6 && (s.startsWith(k) || k.startsWith(s))) || (k1.length >= 4 && skel(String(n).split(/[:(]/)[0]) === k1)); });
-  return M.find(x => okLang(x) && near(x) && (same(x.name, q) || same(x.original_name, q)))
+  return M.find(x => near(x) && (same(x.name, q) || same(x.original_name, q)))   // exact title + year is enough (TMDB sometimes has the wrong language)
     || M.find(x => okLang(x) && near(x) && loose(x))
     || (lng && y ? (c => c.length === 1 ? c[0] : null)(M.filter(x => x.lang === lng && +x.year === +y)) : null)
     || null;
