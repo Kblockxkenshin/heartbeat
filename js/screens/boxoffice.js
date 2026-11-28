@@ -157,15 +157,17 @@ export async function renderBoxOffice(app, id) {
     const load = async () => {
       more.disabled = true;
       try {
-        const d = await tmdbGet(`/api/tmdb?${now ? 'playing=1' : `released=${year}`}&page=${++page}${st.lang ? `&lang=${st.lang}` : ''}`);
+        const [d, soc] = await Promise.all([tmdbGet(`/api/tmdb?${now ? 'playing=1' : `released=${year}`}&page=${++page}${st.lang ? `&lang=${st.lang}` : ''}`), now ? socialAll() : []]);
         if (seq !== otherSeq) return;
+        const sp = x => soc.find(r => r.tmdb_id === x.id);
         pages = d.total_pages || 1;
         $('#bocount', box).textContent = `${(d.total || 0).toLocaleString('en-IN')} ${now ? 'playing, from TMDB' : 'films on TMDB'}`;
         const rows = (d.results || []).filter(x => !L.some(m => m.lang === x.lang && same(m.title, x.name)));
         const hit = x => reported.find(r => r.lang === x.lang && Math.abs(r.year - +String(x.date || '').slice(0, 4)) <= 1 && same(r.title, x.name));
         list.insertAdjacentHTML('beforeend', rows.map(x => `<a class="trow" href="#/boxoffice/tmdb-${x.id}">
           <span class="tm"><span class="rk num"></span>${thumb(x)}<span><b>${esc(x.name)}</b><span class="meta">${esc(lang(x.lang))}${x.date ? ` · ${esc(fmtDate(x.date))}` : ''}${x.rerelease ? ` · Re-release (${esc(x.first_date.slice(0, 4))})` : ''}</span></span></span>
-          <span class="r ${hit(x) ? 'num' : 'meta nonum'}">${hit(x) ? range(hit(x)) : now ? 'No numbers yet' : 'No numbers reported'}</span></a>`).join(''));
+          ${sp(x) ? `<span class="r socrow"><b class="num">${esc(amt(sp(x)))}</b><span class="meta">${esc(sp(x).figure)}${sp(x).days && !/Day \d/.test(sp(x).figure) ? ` · ${sp(x).days}d` : ''}</span></span>`
+            : `<span class="r ${hit(x) ? 'num' : 'meta nonum'}">${hit(x) ? range(hit(x)) : now ? 'No numbers yet' : 'No numbers reported'}</span>`}</a>`).join(''));
         shown += rows.length;
       } catch (e) { if (!list.children.length) list.innerHTML = `<div class="meta" style="padding:14px 4px">Could not load the full list right now.</div>`; }
       more.hidden = page >= pages; more.disabled = false;
@@ -411,7 +413,21 @@ function drawSvgChart(wrap, m, days, { ww, be, budget }) {
 }
 
 /* ---------------- any movie in TMDB: details + a line graph modeled from its reported total ---------------- */
-let sumP = null, repP = null;
+let sumP = null, repP = null, socP = null;
+// Numbers posted on X / Instagram for movies in theaters (who posted it + link). First row per movie is the headline one.
+const socialAll = () => (socP ||= rpc('box_office_social').catch(() => { socP = null; return []; }));
+const amt = r => { const f = v => v < 1 ? `₹${Math.round(v * 100)} lakh` : cr(v).replace(' Cr', ''); const hi = r.high != null && +r.high > +r.low;
+  return `${f(+r.low)}${hi ? `–${f(+r.high).replace('₹', '')}` : ''}${+r.low >= 1 || hi && +r.high >= 1 ? ' Cr' : ''}${r.plus ? '+' : ''}`; };
+const socShort = r => `${amt(r)} · ${r.figure}${r.days && !/Day \d/.test(r.figure) ? ` · ${r.days} day${r.days === 1 ? '' : 's'}` : ''}`;
+const safeUrl = u => /^https:\/\/(x\.com|www\.instagram\.com|www\.koimoi\.com)\//.test(u) ? u : '#';
+function socialHTML(S) {
+  return `<section class="card run bosoc"><h2 class="h3">Reported on social media</h2>
+    <p class="meta">Numbers posted on X and Instagram. Each one shows who posted it. We have not checked them.</p>
+    <ul class="soclist">${S.map(r => `<li><span class="num socamt">${esc(amt(r))}</span>
+      <span class="socfig">${esc(r.figure)}${r.days && !/Day \d/.test(r.figure) ? ` · ${r.days} day${r.days === 1 ? '' : 's'}` : ''} · as of ${esc(fmtDate(r.as_of))}</span>
+      <span class="socsrc"><span class="soctag t-${esc(r.source_type.split(' ')[0].toLowerCase())}">${esc(r.source_type)}</span>
+      <a href="${esc(safeUrl(r.url))}" target="_blank" rel="noopener nofollow">${esc(r.source_name)} ${ic('arrow-right')}</a></span></li>`).join('')}</ul></section>`;
+}
 const tracked = () => (sumP ||= rpc('box_office_summary').catch(() => { sumP = null; return []; }));
 const reportedAll = () => (repP ||= rpc('box_office_reported').catch(() => { repP = null; return []; }));
 const usd = v => v == null ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(v >= 1e8 ? 0 : 1)}M` : `$${Math.round(v).toLocaleString('en-US')}`;
@@ -432,14 +448,15 @@ const verdictFrom = (total, budget, running) => {
 
 async function renderTmdbMovie(app, tid) {
   app.innerHTML = `<div class="screen boxoffice"><header class="top"><a class="icon-btn" href="#/boxoffice" aria-label="Back to Box Office">${ic('arrow-left')}</a><span></span></header><div id="bom"><div class="card"><div class="rskel"></div></div></div></div>`;
-  let d, T, R;
-  try { [d, T, R] = await Promise.all([tmdbGet(`/api/tmdb?bo=${tid}`), tracked(), reportedAll()]); }
+  let d, T, R, SO;
+  try { [d, T, R, SO] = await Promise.all([tmdbGet(`/api/tmdb?bo=${tid}`), tracked(), reportedAll(), socialAll()]); }
   catch (e) { $('#bom', app).innerHTML = `<div class="card"><div class="mascot"><div>We couldn't load this movie right now.</div></div></div>`; return; }
   if (!document.body.contains(app) || !$('#bom', app)) return;
   const date = d.india_release || d.release_date, year = date ? +date.slice(0, 4) : null;
   // Movies we track day by day open their full page instead.
   const tr = T.find(m => m.tmdb_id === d.id || (m.lang === d.lang && Math.abs(dt(m.release_date).getFullYear() - (year || 0)) <= 1 && (same(m.title, d.name) || same(m.title, d.original_name))));
   if (tr) { location.replace(`#/boxoffice/${tr.id}`); return; }
+  const S = (SO || []).filter(r => r.tmdb_id === d.id);
   const rp = R.find(r => r.lang === d.lang && Math.abs(+r.year - (year || 0)) <= 1 && (same(r.title, d.name) || same(r.title, d.original_name)));
   document.title = `${d.name} box office — Heartbeat`;
   // Pick the total: the Indian trade figure (₹) first, then TMDB's worldwide figure (US$).
@@ -461,7 +478,7 @@ async function renderTmdbMovie(app, tid) {
         <p class="eyebrow">${esc(lang(d.lang))}${date ? ` · ${esc(fmtDate(date))}` : ''}</p>
         <h1 class="display sm">${esc(d.name)}</h1>
         <div class="meta">${[d.certificate, d.runtime ? `${Math.floor(d.runtime / 60)}h ${d.runtime % 60}m` : '', d.genres.slice(0, 3).join(', ')].filter(Boolean).map(esc).join(' · ')}</div>
-        <div class="bigverdict ${verdict ? (GOOD.has(verdict) ? 'up' : verdict === 'Average' ? '' : 'down') : 'run'}">${esc(verdict || (soon ? (age === 0 ? 'Out tomorrow' : 'Coming soon') : running ? 'In theaters' : total ? 'Reported' : 'Not reported'))}</div>
+        <div class="bigverdict ${verdict ? (GOOD.has(verdict) ? 'up' : verdict === 'Average' ? '' : 'down') : 'run'}">${esc(verdict || (soon ? (age === 0 ? 'Out tomorrow' : 'Coming soon') : running ? 'In theaters' : total ? 'Reported' : S.length ? 'Reported online' : 'Not reported'))}</div>
         <a class="see" href="#/t/tmdb-movie-${d.id}">Ratings &amp; journey ${ic('arrow-right')}</a>
       </div>
     </section>
@@ -470,9 +487,10 @@ async function renderTmdbMovie(app, tid) {
         <div class="chctl"><div class="seg" role="group" aria-label="Total or daily">${[['cum', 'Cumulative total'], ['daily', 'Daily (modeled)']].map(([k, l]) => `<button data-mode="${k}" class="${st.mode === k ? 'on' : ''}" aria-pressed="${st.mode === k}">${l}</button>`).join('')}</div></div></div>
       <div class="chwrap" id="chwrap"></div>
       <p class="meta chmodel">Modeled line: the total is reported, but the day-by-day shape is our estimate (big opening, slow drop, weekend bumps).</p>
-    </section>` : soon ? `<section class="card"><div class="mascot"><div>Releases on ${esc(fmtDate(date))} – ${1 - age === 1 ? 'tomorrow' : `${1 - age} days to go`}.<br>Box office numbers show up here after it comes out.<br><a href="#/upcoming">Set a reminder in Upcoming</a></div></div></section>` : `<section class="card"><div class="mascot"><div>No box office numbers have been reported for this movie.<br>We only show numbers that come from a real source.</div></div></section>`}
+    </section>` : S.length ? '' : soon ? `<section class="card"><div class="mascot"><div>Releases on ${esc(fmtDate(date))} – ${1 - age === 1 ? 'tomorrow' : `${1 - age} days to go`}.<br>Box office numbers show up here after it comes out.<br><a href="#/upcoming">Set a reminder in Upcoming</a></div></div></section>` : `<section class="card"><div class="mascot"><div>No box office numbers have been reported for this movie.<br>We only show numbers that come from a real source.</div></div></section>`}
+    ${S.length ? socialHTML(S) : ''}
     <section class="kgrid">
-      ${card('Worldwide gross', total ? fmt(total) : '—', rp && rp.high != null && +rp.high > +rp.low ? `Reports go up to ${fmt(+rp.high)}` : cur === '$' ? 'US dollars' : '')}
+      ${!total && S.find(r => /^Worldwide/.test(r.figure)) ? card('Worldwide gross', esc(amt(S.find(r => /^Worldwide/.test(r.figure)))), 'Posted online, see below') : card('Worldwide gross', total ? fmt(total) : '—', rp && rp.high != null && +rp.high > +rp.low ? `Reports go up to ${fmt(+rp.high)}` : cur === '$' ? 'US dollars' : '')}
       ${card('Budget', d.budget_usd ? usd(d.budget_usd) : '—', d.budget_usd ? 'TMDB' : '')}
       ${card('ROI', budget && total ? `${Math.round((total / 2 - budget) / budget * 100)}%` : '—', 'Producer share ≈ 50% of gross')}
       ${card('Release', date ? esc(fmtDate(date)) : '—', d.india_release ? 'India' : '')}
